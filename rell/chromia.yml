@@ -1,0 +1,11 @@
+blockchains:
+  vector_example:
+    module: vector_example
+    config:
+      gtx:
+        modules:
+          - "net.postchain.rell.module.RellPostchainModuleFactory"
+          - "net.postchain.gtx.StandardOpsGTXModule"
+          - "net.postchain.vectordb.VectorDbGTXModule"
+      vector_db_extension:
+        dimensions: 3

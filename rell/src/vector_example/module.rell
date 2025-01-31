@@ -1,0 +1,30 @@
+module;
+
+import lib.*;
+
+entity message { text; }
+
+val CONTEXT_MESSAGE = 0;
+
+/**
+ * Add a message with a vector. The vector is emitted to the extension and stored in the database with the entity
+ * rowid as id.
+ */
+operation add_message(text, vector: text) {
+    val msg = create message (text);
+    store_vector(CONTEXT_MESSAGE, vector, msg.rowid.to_integer());
+}
+
+operation delete_message(text) {
+    delete_vector(CONTEXT_MESSAGE, message @ { text } ( .rowid ).to_integer());
+}
+
+/** Query template function to return actual text messages instead of vector ids */
+query get_messages(ids: list<rowid>): list<text> {
+    return message @* { .rowid in ids } .text;
+}
+
+/** Query template function to return actual text messages with distance instead of vector ids */
+query get_messages_with_distance(ids: list<rowid>): list<(rowid, text)> {
+    return message @* { .rowid in ids } ( (.rowid, .text) );
+}

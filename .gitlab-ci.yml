@@ -31,7 +31,7 @@ include:
       --env PGDATA=/pgtmpfs
       --tmpfs=/pgtmpfs:size=1000m
       --publish 5432:5432
-      postgres:14.9-alpine3.18@sha256:8da7e8e94d4bcc28da8f222a4e259b6f7df2dc62640d104f81762678dc1e2200
+      pgvector/pgvector:pg16@sha256:6146bbae6967442ba8a7ddc517e2a259de62935c0b2055260781b15446a0a7fb
 
 stages:
   - build
