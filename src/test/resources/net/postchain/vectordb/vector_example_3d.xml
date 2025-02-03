@@ -78,7 +78,9 @@ operation add_message(text, vector: text) {
 }
 
 operation delete_message(text) {
-    delete_vector(CONTEXT_MESSAGE, message @ { text } ( .rowid ).to_integer());
+    val msg = message @ { text };
+    delete_vector(CONTEXT_MESSAGE, msg.rowid.to_integer());
+    delete msg;
 }
 
 /** Query template function to return actual text messages instead of vector ids */
