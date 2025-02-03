@@ -1,4 +1,4 @@
-package net.postchain.vectordb
+package net.postchain.gtx.extensions.vectordb.vectordb
 
 import mu.KLogging
 import net.postchain.base.data.DatabaseAccess
@@ -25,11 +25,11 @@ class VectorDbDatabaseOperations {
         const val VECTOR_DB_INDEX_EMBEDDING_HNSW = "embedding_hnsw_index"
 
         fun getChainTableName(chainId: Long, name: String): String {
-            return "${TABLE_PREFIX}${chainId}_$name"
+            return "$TABLE_PREFIX${chainId}_$name"
         }
 
         fun getChainIndexName(chainId: Long, name: String): String {
-            return "${INDEX_PREFIX}${chainId}_$name"
+            return "$INDEX_PREFIX${chainId}_$name"
         }
     }
 
@@ -57,7 +57,7 @@ class VectorDbDatabaseOperations {
             val embeddedHnswIndexName = getChainIndexName(ctx.chainID, VECTOR_DB_INDEX_EMBEDDING_HNSW)
             ctx.conn.createStatement().execute("""
                 CREATE INDEX IF NOT EXISTS "$embeddedHnswIndexName"
-                ON "$tableName" USING hnsw ((${VECTOR_DB_COLUMN_EMBEDDING}::halfvec(${vectorDbConfig.dimensions})) halfvec_l2_ops)
+                ON "$tableName" USING hnsw (($VECTOR_DB_COLUMN_EMBEDDING::halfvec(${vectorDbConfig.dimensions})) halfvec_l2_ops)
                 """.trimIndent()
             )
             //                ON "$tableName" USING hnsw (embedding vector_cosine_ops) -- full precision

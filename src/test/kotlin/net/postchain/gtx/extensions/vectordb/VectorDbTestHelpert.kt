@@ -1,4 +1,4 @@
-package net.postchain.vectordb
+package net.postchain.gtx.extensions.vectordb
 
 import net.postchain.base.data.DatabaseAccess
 import net.postchain.concurrent.util.get
@@ -9,10 +9,13 @@ import net.postchain.gtv.GtvFactory.gtv
 import net.postchain.gtx.Gtx
 import net.postchain.gtx.GtxBody
 import net.postchain.gtx.GtxOp
-import net.postchain.vectordb.VectorDbDatabaseOperations.Companion.VECTOR_DB_COLUMN_CONTEXT
-import net.postchain.vectordb.VectorDbDatabaseOperations.Companion.VECTOR_DB_COLUMN_EMBEDDING
-import net.postchain.vectordb.VectorDbDatabaseOperations.Companion.VECTOR_DB_COLUMN_ID
-import net.postchain.vectordb.VectorDbDatabaseOperations.Companion.VECTOR_DB_TABLE_STORED_VECTOR
+import net.postchain.gtx.extensions.vectordb.vectordb.VECTOR_DB_QUERY_CLOSEST_OBJECTS
+import net.postchain.gtx.extensions.vectordb.vectordb.VECTOR_DB_QUERY_CLOSEST_OBJECTS_DISTANCE
+import net.postchain.gtx.extensions.vectordb.vectordb.VectorDbDatabaseOperations
+import net.postchain.gtx.extensions.vectordb.vectordb.VectorDbDatabaseOperations.Companion.VECTOR_DB_COLUMN_CONTEXT
+import net.postchain.gtx.extensions.vectordb.vectordb.VectorDbDatabaseOperations.Companion.VECTOR_DB_COLUMN_EMBEDDING
+import net.postchain.gtx.extensions.vectordb.vectordb.VectorDbDatabaseOperations.Companion.VECTOR_DB_COLUMN_ID
+import net.postchain.gtx.extensions.vectordb.vectordb.VectorDbDatabaseOperations.Companion.VECTOR_DB_TABLE_STORED_VECTOR
 
 fun getVectors(engine: BlockchainEngine, chainId: Long): List<Vector> {
     val ctx = engine.blockBuilderStorage.openReadConnection(chainId)

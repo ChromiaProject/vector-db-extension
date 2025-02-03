@@ -1,4 +1,4 @@
-package net.postchain.vectordb
+package net.postchain.gtx.extensions.vectordb.vectordb
 
 import mu.KLogging
 import net.postchain.PostchainContext
@@ -48,8 +48,8 @@ class VectorDbGTXModule(
         private val databaseOperations: VectorDbDatabaseOperations = VectorDbDatabaseOperations()
 ) : SimpleGTXModule<VectorDbGTXModuleContext>(
         VectorDbGTXModuleContext(databaseOperations), mapOf(), mapOf(
-        VECTOR_DB_QUERY_CLOSEST_OBJECTS to ::queryClosestObjects,
-        VECTOR_DB_QUERY_CLOSEST_OBJECTS_DISTANCE to ::queryClosestObjectsDistance,
+        VECTOR_DB_QUERY_CLOSEST_OBJECTS to Companion::queryClosestObjects,
+        VECTOR_DB_QUERY_CLOSEST_OBJECTS_DISTANCE to Companion::queryClosestObjectsDistance,
     )
 ), PostchainContextAware {
 

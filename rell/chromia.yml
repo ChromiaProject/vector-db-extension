@@ -6,6 +6,6 @@ blockchains:
         modules:
           - "net.postchain.rell.module.RellPostchainModuleFactory"
           - "net.postchain.gtx.StandardOpsGTXModule"
-          - "net.postchain.vectordb.VectorDbGTXModule"
+          - "net.postchain.gtx.extensions.vectordb.VectorDbGTXModule"
       vector_db_extension:
         dimensions: 3

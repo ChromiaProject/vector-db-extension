@@ -1,4 +1,4 @@
-package net.postchain.vectordb
+package net.postchain.gtx.extensions.vectordb
 
 import assertk.assertThat
 import assertk.assertions.hasSize
@@ -13,7 +13,7 @@ class VectorDbIT : IntegrationTestSetup() {
 
     @Test
     fun testBasics() {
-        val node = createNodes(1, "/net/postchain/vectordb/vector_example_3d.xml")[0]
+        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
 
         addMessage(engine, "hello", "[1, 2, 3]")
@@ -35,7 +35,7 @@ class VectorDbIT : IntegrationTestSetup() {
 
     @Test
     fun testQuery_basics() {
-        val node = createNodes(1, "/net/postchain/vectordb/vector_example_3d.xml")[0]
+        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
 
         addMessage(engine, "alpha", "[1, 2, 3]")
@@ -56,7 +56,7 @@ class VectorDbIT : IntegrationTestSetup() {
 
     @Test
     fun testQuery_basics_with_distance() {
-        val node = createNodes(1, "/net/postchain/vectordb/vector_example_3d.xml")[0]
+        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
 
         addMessage(engine, "alpha", "[1, 2, 3]")
@@ -84,7 +84,7 @@ class VectorDbIT : IntegrationTestSetup() {
 
     @Test
     fun testQueryWithoutQueryTemplate() {
-        val node = createNodes(1, "/net/postchain/vectordb/vector_example_3d.xml")[0]
+        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
 
         addMessage(engine, "alpha", "[1, 2, 3]")
@@ -106,7 +106,7 @@ class VectorDbIT : IntegrationTestSetup() {
 
     @Test
     fun testAddAndDelete() {
-        val node = createNodes(1, "/net/postchain/vectordb/vector_example_3d.xml")[0]
+        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
 
         addMessage(engine, "alpha", "[1, 2, 3]")
