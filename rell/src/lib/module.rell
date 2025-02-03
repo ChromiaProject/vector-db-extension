@@ -1,9 +1,9 @@
 module;
 
 function store_vector(context: integer, vector: text, id: integer) {
-    op_context.emit_event("store_vector", (context, vector, id).to_gtv());
+    op_context.emit_event("store_vector", (context = context, vector = vector, id = id).to_gtv_pretty());
 }
 
 function delete_vector(context: integer, id: integer) {
-    op_context.emit_event("delete_vector", (context, id).to_gtv());
+    op_context.emit_event("delete_vector", (context = context, id = id).to_gtv_pretty());
 }

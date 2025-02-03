@@ -8,8 +8,7 @@ import net.postchain.common.exception.UserMistake
 import net.postchain.core.BlockEContext
 import net.postchain.core.TxEContext
 import net.postchain.gtv.Gtv
-import net.postchain.gtv.GtvArray
-import net.postchain.gtv.GtvType
+import net.postchain.gtv.GtvDictionary
 
 const val EVENT_STORE_VECTOR_NAME = "store_vector"
 const val EVENT_DELETE_VECTOR_NAME = "delete_vector"
@@ -25,44 +24,23 @@ class VectorDbEventProcessor(
 
     override fun processEmittedEvent(ctxt: TxEContext, type: String, data: Gtv) {
         when (type) {
-            EVENT_STORE_VECTOR_NAME -> storeVectorEvent(ctxt, data as GtvArray)
-            EVENT_DELETE_VECTOR_NAME -> deleteVectorEvent(ctxt, data as GtvArray)
+            EVENT_STORE_VECTOR_NAME -> storeVectorEvent(ctxt, data.asDict())
+            EVENT_DELETE_VECTOR_NAME -> deleteVectorEvent(ctxt, data as GtvDictionary)
             else -> throw ProgrammerMistake("Unrecognized event")
         }
     }
 
-    private fun storeVectorEvent(ctxt: TxEContext, data: GtvArray) {
-        if (data.getSize() != 3) {
-            throw UserMistake("Invalid number of arguments")
-        }
-        if (data[0].type != GtvType.INTEGER) {
-            throw UserMistake("Invalid argument type for 'context'")
-        }
-        if (data[1].type != GtvType.STRING) {
-            throw UserMistake("Invalid argument type for 'vector'")
-        }
-        if (data[2].type != GtvType.INTEGER) {
-            throw UserMistake("Invalid argument type for 'id'")
-        }
-        val context = data[0].asInteger()
-        val vector = data[1].asString()
-        val id = data[2].asInteger()
+    private fun storeVectorEvent(ctxt: TxEContext, args: Map<String, Gtv>) {
+        val context = args["context"]?.asInteger() ?: throw UserMistake("No context argument supplied")
+        val vector = args["vector"]?.asString() ?: throw UserMistake("No vector argument supplied")
+        val id = args["id"]?.asInteger() ?: throw UserMistake("No id argument supplied")
 
         databaseOperations.storeVector(ctxt, id, context, vector)
     }
 
-    private fun deleteVectorEvent(ctxt: TxEContext, data: GtvArray) {
-        if (data.getSize() != 2) {
-            throw UserMistake("Invalid number of arguments")
-        }
-        if (data[0].type != GtvType.INTEGER) {
-            throw UserMistake("Invalid argument type for 'context'")
-        }
-        if (data[1].type != GtvType.INTEGER) {
-            throw UserMistake("Invalid argument type for 'id'")
-        }
-        val context = data[0].asInteger()
-        val id = data[1].asInteger()
+    private fun deleteVectorEvent(ctxt: TxEContext, args: GtvDictionary) {
+        val context = args["context"]?.asInteger() ?: throw UserMistake("No context argument supplied")
+        val id = args["id"]?.asInteger() ?: throw UserMistake("No id argument supplied")
 
         databaseOperations.deleteVector(ctxt, id, context)
     }
