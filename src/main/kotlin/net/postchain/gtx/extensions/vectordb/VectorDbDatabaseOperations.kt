@@ -1,4 +1,4 @@
-package net.postchain.gtx.extensions.vectordb.vectordb
+package net.postchain.gtx.extensions.vectordb
 
 import mu.KLogging
 import net.postchain.base.data.DatabaseAccess

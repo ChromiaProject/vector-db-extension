@@ -32,7 +32,7 @@
                     <string>net.postchain.rell.module.RellPostchainModuleFactory</string>
                     <string>net.postchain.configurations.GTXTestModule</string>
                     <string>net.postchain.gtx.StandardOpsGTXModule</string>
-                    <string>net.postchain.gtx.extensions.vectordb.vectordb.VectorDbGTXModule</string>
+                    <string>net.postchain.gtx.extensions.vectordb.VectorDbGTXModule</string>
                 </array>
             </entry>
             <entry key="rell">

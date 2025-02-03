@@ -1,4 +1,4 @@
-package net.postchain.gtx.extensions.vectordb.vectordb
+package net.postchain.gtx.extensions.vectordb
 
 import net.postchain.base.BaseBlockBuilderExtension
 import net.postchain.base.TxEventSink

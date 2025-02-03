@@ -1,4 +1,4 @@
-package net.postchain.gtx.extensions.vectordb.vectordb
+package net.postchain.gtx.extensions.vectordb
 
 import mu.KLogging
 import net.postchain.PostchainContext
@@ -6,18 +6,18 @@ import net.postchain.base.BaseBlockBuilderExtension
 import net.postchain.common.exception.UserMistake
 import net.postchain.core.BlockchainConfiguration
 import net.postchain.core.EContext
-import net.postchain.core.block.BlockQueries
 import net.postchain.gtv.Gtv
 import net.postchain.gtv.GtvArray
 import net.postchain.gtv.GtvDictionary
 import net.postchain.gtv.GtvFactory.gtv
 import net.postchain.gtv.GtvNull
 import net.postchain.gtv.mapper.toObject
+import net.postchain.gtx.GTXModule
+import net.postchain.gtx.GTXModuleAware
 import net.postchain.gtx.PostchainContextAware
 import net.postchain.gtx.SimpleGTXModule
 import net.postchain.gtx.special.GTXSpecialTxExtension
 import java.math.BigDecimal
-import java.util.concurrent.CompletionStage
 
 const val VECTOR_DB_QUERY_CLOSEST_OBJECTS = "query_closest_objects"
 const val VECTOR_DB_QUERY_CLOSEST_OBJECTS_DISTANCE = "query_closest_objects_distance"
@@ -25,23 +25,7 @@ const val VECTOR_DB_QUERY_CLOSEST_OBJECTS_DISTANCE = "query_closest_objects_dist
 class VectorDbGTXModuleContext(
         val databaseOperations: VectorDbDatabaseOperations,
 ) {
-    lateinit var postchainContext: PostchainContext
-    lateinit var configuration: BlockchainConfiguration
-    lateinit var blockQueries: BlockQueries
-
-    fun query(query: (BlockQueries) -> CompletionStage<Gtv>): Gtv? {
-        if (!::blockQueries.isInitialized) {
-            postchainContext.blockQueriesProvider.getBlockQueries(configuration.blockchainRid)?.let { blockQueries = it }
-        }
-        return if (::blockQueries.isInitialized)
-            query(blockQueries).toCompletableFuture().get()
-        else
-            null
-    }
-
-    fun contextInitialized(): Boolean {
-        return ::postchainContext.isInitialized && ::configuration.isInitialized
-    }
+    lateinit var module: GTXModule
 }
 
 class VectorDbGTXModule(
@@ -60,14 +44,10 @@ class VectorDbGTXModule(
             val (vectorResult, queryTemplateType) = parseAndQueryClosestObjectsWithDistance(moduleContext, ctx, argsGtv as GtvDictionary)
             val ids = gtv(vectorResult.asArray().mapNotNull { resultRow -> resultRow["id"] })
 
-            if (queryTemplateType == null) {
-                return ids
+            return if (queryTemplateType == null) {
+                ids
             } else {
-                return moduleContext.query {
-                    it.query(queryTemplateType, gtv(mapOf(
-                            "ids" to ids
-                    )))
-                } ?: GtvNull
+                moduleContext.module.query(ctx, queryTemplateType, gtv(mapOf("ids" to ids)))
             }
         }
 
@@ -79,23 +59,17 @@ class VectorDbGTXModule(
             if (queryTemplateType == null) {
                 return vectorResult
             } else {
-                val rellQueryResult = moduleContext.query { blockQuery ->
-                    blockQuery.query(queryTemplateType, gtv(mapOf(
-                            "ids" to gtv(idDistances.keys.toList())
-                    )))
-                }
+                val rellQueryResult = moduleContext.module.query(ctx, queryTemplateType,
+                        gtv(mapOf("ids" to gtv(idDistances.keys.toList()))))
 
-                if (rellQueryResult != null) {
-                    return gtv(rellQueryResult.asArray().map {
-                        val id = it[0]
-                        val distance = idDistances[id] ?: GtvNull
-                        gtv(mapOf(
-                                "value" to it[1],
-                                "distance" to distance
-                        ))
-                    })
-                }
-                return GtvNull
+                return gtv(rellQueryResult.asArray().map {
+                    val id = it[0]
+                    val distance = idDistances[id] ?: GtvNull
+                    gtv(mapOf(
+                            "value" to it[1],
+                            "distance" to distance
+                    ))
+                })
             }
         }
 
@@ -112,19 +86,18 @@ class VectorDbGTXModule(
     }
 
     override fun initializeContext(configuration: BlockchainConfiguration, postchainContext: PostchainContext) {
-        conf.configuration = configuration
-        conf.postchainContext = postchainContext
+        conf.module = (configuration as GTXModuleAware).module
 
         val vectorDbConfig = configuration.rawConfig["vector_db_extension"]?.toObject<VectorDbConfig>()
                 ?: throw UserMistake("No vector db extension config present")
 
-        if (chainId != null && conf.contextInitialized()) {
+        if (chainId != null) {
 
-            val ctx = conf.postchainContext.blockBuilderStorage.openWriteConnection(chainId!!)
+            val ctx = postchainContext.blockBuilderStorage.openWriteConnection(chainId!!)
             try{
                 databaseOperations.initialize(ctx, vectorDbConfig)
             } finally {
-                conf.postchainContext.blockBuilderStorage.closeWriteConnection(ctx, true)
+                postchainContext.blockBuilderStorage.closeWriteConnection(ctx, true)
             }
         }
     }
