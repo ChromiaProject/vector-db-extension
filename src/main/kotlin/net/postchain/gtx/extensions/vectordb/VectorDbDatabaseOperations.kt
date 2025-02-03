@@ -7,15 +7,17 @@ import net.postchain.core.TxEContext
 import net.postchain.gtv.Gtv
 import net.postchain.gtv.GtvArray
 import net.postchain.gtv.GtvFactory.gtv
+import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseOperations.Companion.INDEX_PREFIX
+import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseOperations.Companion.VECTOR_DB_TABLE_STORED_VECTOR
 import java.math.BigDecimal
 
 class VectorDbDatabaseOperations {
 
     companion object : KLogging() {
-        private const val TABLE_PREFIX: String = "sys.x_vector_" // This name should not clash with Rell
-        private const val INDEX_PREFIX: String = "IDX_"
+        private const val TABLE_PREFIX: String = "sys.x."
+        const val INDEX_PREFIX: String = "IDX_"
 
-        const val VECTOR_DB_TABLE_STORED_VECTOR = "stored_vector"
+        const val VECTOR_DB_TABLE_STORED_VECTOR = "${TABLE_PREFIX}stored_vector"
 
         const val VECTOR_DB_COLUMN_CONTEXT = "context"
         const val VECTOR_DB_COLUMN_ID = "id"
@@ -23,14 +25,6 @@ class VectorDbDatabaseOperations {
 
         const val VECTOR_DB_INDEX_CONTEXT_ID = "context_id"
         const val VECTOR_DB_INDEX_EMBEDDING_HNSW = "embedding_hnsw_index"
-
-        fun getChainTableName(chainId: Long, name: String): String {
-            return "$TABLE_PREFIX${chainId}_$name"
-        }
-
-        fun getChainIndexName(chainId: Long, name: String): String {
-            return "$INDEX_PREFIX${chainId}_$name"
-        }
     }
 
     fun initialize(ctx: EContext, vectorDbConfig: VectorDbConfig) {
@@ -40,24 +34,24 @@ class VectorDbDatabaseOperations {
             ctx.conn.createStatement()
                     .execute("CREATE EXTENSION IF NOT EXISTS vector")
 
-            val tableName = getChainTableName(ctx.chainID, VECTOR_DB_TABLE_STORED_VECTOR)
+            val tableName = getVectorDbTableName(ctx)
 
             // halfvec is half the size of vector
             ctx.conn.createStatement()
                     .execute("""
-                        CREATE TABLE IF NOT EXISTS "$tableName" ($VECTOR_DB_COLUMN_CONTEXT bigint, $VECTOR_DB_COLUMN_ID bigint, $VECTOR_DB_COLUMN_EMBEDDING halfvec(${vectorDbConfig.dimensions}))
+                        CREATE TABLE IF NOT EXISTS $tableName ($VECTOR_DB_COLUMN_CONTEXT bigint, $VECTOR_DB_COLUMN_ID bigint, $VECTOR_DB_COLUMN_EMBEDDING halfvec(${vectorDbConfig.dimensions}))
                         """.trimIndent())
 
-            val contextIdIndexName = getChainIndexName(ctx.chainID, VECTOR_DB_INDEX_CONTEXT_ID)
+            val contextIdIndexName = getVectorDbTableIndexName(ctx, VECTOR_DB_INDEX_CONTEXT_ID)
             ctx.conn.createStatement().execute("""
-                CREATE INDEX IF NOT EXISTS "$contextIdIndexName" on "$tableName"("$VECTOR_DB_COLUMN_CONTEXT", "$VECTOR_DB_COLUMN_ID")
+                CREATE INDEX IF NOT EXISTS "$contextIdIndexName" on $tableName ("$VECTOR_DB_COLUMN_CONTEXT", "$VECTOR_DB_COLUMN_ID")
                 """.trimIndent()
             )
 
-            val embeddedHnswIndexName = getChainIndexName(ctx.chainID, VECTOR_DB_INDEX_EMBEDDING_HNSW)
+            val embeddedHnswIndexName = getVectorDbTableIndexName(ctx, VECTOR_DB_INDEX_EMBEDDING_HNSW)
             ctx.conn.createStatement().execute("""
                 CREATE INDEX IF NOT EXISTS "$embeddedHnswIndexName"
-                ON "$tableName" USING hnsw (($VECTOR_DB_COLUMN_EMBEDDING::halfvec(${vectorDbConfig.dimensions})) halfvec_l2_ops)
+                ON $tableName USING hnsw (($VECTOR_DB_COLUMN_EMBEDDING::halfvec(${vectorDbConfig.dimensions})) halfvec_l2_ops)
                 """.trimIndent()
             )
             //                ON "$tableName" USING hnsw (embedding vector_cosine_ops) -- full precision
@@ -66,9 +60,9 @@ class VectorDbDatabaseOperations {
 
     fun storeVector(ctx: TxEContext, id: Long, context: Long, vector: String) {
         DatabaseAccess.of(ctx).apply {
-            val tableName = getChainTableName(ctx.chainID, VECTOR_DB_TABLE_STORED_VECTOR)
+            val tableName = getVectorDbTableName(ctx)
             ctx.conn.prepareStatement("""
-                    INSERT INTO "$tableName" ($VECTOR_DB_COLUMN_CONTEXT, $VECTOR_DB_COLUMN_ID, $VECTOR_DB_COLUMN_EMBEDDING) VALUES (?, ?, ?::vector)
+                    INSERT INTO $tableName ($VECTOR_DB_COLUMN_CONTEXT, $VECTOR_DB_COLUMN_ID, $VECTOR_DB_COLUMN_EMBEDDING) VALUES (?, ?, ?::vector)
                     """.trimIndent()
             ).use { stmt ->
                 stmt.setLong(1, context)
@@ -81,9 +75,9 @@ class VectorDbDatabaseOperations {
 
     fun deleteVector(ctx: TxEContext, id: Long, context: Long) {
         DatabaseAccess.of(ctx).apply {
-            val tableName = getChainTableName(ctx.chainID, VECTOR_DB_TABLE_STORED_VECTOR)
+            val tableName = getVectorDbTableName(ctx)
             ctx.conn.prepareStatement("""
-                    DELETE FROM "$tableName" WHERE $VECTOR_DB_COLUMN_CONTEXT = ? AND $VECTOR_DB_COLUMN_ID = ?
+                    DELETE FROM $tableName WHERE $VECTOR_DB_COLUMN_CONTEXT = ? AND $VECTOR_DB_COLUMN_ID = ?
                     """.trimIndent()
             ).use { stmt ->
                 stmt.setLong(1, context)
@@ -96,12 +90,12 @@ class VectorDbDatabaseOperations {
 
     fun queryClosestObjects(ctx: EContext, context: Long, vectorQuery: String, maxDistance: BigDecimal, maxVectors: Long): GtvArray {
         DatabaseAccess.of(ctx).apply {
-            val tableName = getChainTableName(ctx.chainID, VECTOR_DB_TABLE_STORED_VECTOR)
+            val tableName = getVectorDbTableName(ctx)
             ctx.conn.prepareStatement(
                     """
                     WITH nearest_results AS MATERIALIZED (
                         SELECT $VECTOR_DB_COLUMN_ID, $VECTOR_DB_COLUMN_EMBEDDING <=> ?::vector AS distance 
-                        FROM "$tableName" 
+                        FROM $tableName
                         WHERE $VECTOR_DB_COLUMN_CONTEXT = ? ORDER BY distance
                         LIMIT ?
                     ) SELECT $VECTOR_DB_COLUMN_ID, distance FROM nearest_results WHERE distance <= ? ORDER BY distance;
@@ -124,4 +118,14 @@ class VectorDbDatabaseOperations {
             }
         }
     }
+}
+
+fun DatabaseAccess.getVectorDbTableName(ctx: EContext): String {
+    return tableName(ctx, VECTOR_DB_TABLE_STORED_VECTOR)
+}
+
+fun DatabaseAccess.getVectorDbTableIndexName(ctx: EContext, name: String): String {
+    val tableName = getVectorDbTableName(ctx)
+            .replace("\"", "")
+    return "$INDEX_PREFIX${tableName}_$name"
 }

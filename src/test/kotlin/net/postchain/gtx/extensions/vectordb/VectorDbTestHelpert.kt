@@ -3,7 +3,6 @@ package net.postchain.gtx.extensions.vectordb
 import net.postchain.base.data.DatabaseAccess
 import net.postchain.concurrent.util.get
 import net.postchain.core.BlockchainEngine
-import net.postchain.devtools.PostchainTestNode.Companion.DEFAULT_CHAIN_IID
 import net.postchain.gtv.Gtv
 import net.postchain.gtv.GtvFactory.gtv
 import net.postchain.gtx.Gtx
@@ -12,14 +11,13 @@ import net.postchain.gtx.GtxOp
 import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseOperations.Companion.VECTOR_DB_COLUMN_CONTEXT
 import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseOperations.Companion.VECTOR_DB_COLUMN_EMBEDDING
 import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseOperations.Companion.VECTOR_DB_COLUMN_ID
-import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseOperations.Companion.VECTOR_DB_TABLE_STORED_VECTOR
 
 fun getVectors(engine: BlockchainEngine, chainId: Long): List<Vector> {
     val ctx = engine.blockBuilderStorage.openReadConnection(chainId)
     try {
         DatabaseAccess.of(ctx).apply {
-            val tableName = VectorDbDatabaseOperations.getChainTableName(DEFAULT_CHAIN_IID, VECTOR_DB_TABLE_STORED_VECTOR)
-            val rs = ctx.conn.createStatement().executeQuery("SELECT $VECTOR_DB_COLUMN_CONTEXT, $VECTOR_DB_COLUMN_ID, $VECTOR_DB_COLUMN_EMBEDDING FROM \"$tableName\"")
+            val tableName = getVectorDbTableName(ctx)
+            val rs = ctx.conn.createStatement().executeQuery("SELECT $VECTOR_DB_COLUMN_CONTEXT, $VECTOR_DB_COLUMN_ID, $VECTOR_DB_COLUMN_EMBEDDING FROM $tableName")
             val vectors = mutableListOf<Vector>()
             while (rs.next()) {
                 vectors.add(Vector(rs.getLong(1), rs.getLong(2), rs.getString(3)))
