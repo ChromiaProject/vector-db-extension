@@ -39,12 +39,11 @@ fun queryClosestObjectsWithoutTemplate(engine: BlockchainEngine, context: Long, 
             .asArray().map { it.asInteger() }
 }
 
-fun queryClosestObjectsDistance(engine: BlockchainEngine, context: Long, vector: String, maxDistance: Double, maxVectors: Long, queryTemplateType: String? = null): List<Map<String, String?>> {
-    val idOrValue = if (queryTemplateType == null) "id" else "value"
+fun queryClosestObjectsDistance(engine: BlockchainEngine, context: Long, vector: String, maxDistance: Double, maxVectors: Long, queryTemplateType: String? = null): List<Map<String, String>> {
     return queryClosestObjects(engine, VECTOR_DB_QUERY_CLOSEST_OBJECTS_DISTANCE, context, vector, maxDistance, maxVectors, queryTemplateType).asArray()
             .map { mapOf(
-                    idOrValue to it[idOrValue]?.asString(),
-                    "distance" to it["distance"]?.asString()
+                    "text" to it[0].asString(),
+                    "distance" to it[1].asString()
             )}
 }
 

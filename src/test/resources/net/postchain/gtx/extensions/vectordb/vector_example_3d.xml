@@ -89,8 +89,14 @@ query get_messages(ids: list&lt;rowid&gt;): list&lt;text&gt; {
 }
 
 /** Query template function to return actual text messages with distance instead of vector ids */
-query get_messages_with_distance(ids: list&lt;rowid&gt;): list&lt;(rowid, text)&gt; {
-    return message @* { .rowid in ids } ( (.rowid, .text) );
+query get_messages_with_distance(vector_results: list&lt;(id: rowid, distance: decimal)&gt;): list&lt;(text, decimal)&gt; {
+    val ids = vector_results @* {} ( .id );
+    val messages = message @* { .rowid in ids } ( .rowid, .text);
+    val results = list&lt;(text, decimal)&gt;();
+    for (message in messages) {
+        results.add((message.text, vector_results @ { .id == message.rowid } ( .distance )));
+    }
+return results;
 }
 </string>
                             </entry>

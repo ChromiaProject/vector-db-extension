@@ -10,7 +10,6 @@ import net.postchain.gtv.Gtv
 import net.postchain.gtv.GtvArray
 import net.postchain.gtv.GtvDictionary
 import net.postchain.gtv.GtvFactory.gtv
-import net.postchain.gtv.GtvNull
 import net.postchain.gtv.mapper.toObject
 import net.postchain.gtx.GTXModule
 import net.postchain.gtx.GTXModuleAware
@@ -53,23 +52,12 @@ class VectorDbGTXModule(
 
         fun queryClosestObjectsDistance(moduleContext: VectorDbGTXModuleContext, ctx: EContext, argsGtv: Gtv): Gtv {
             val (vectorResult, queryTemplateType) = parseAndQueryClosestObjectsWithDistance(moduleContext, ctx, argsGtv as GtvDictionary)
-            val idDistances = vectorResult.asArray()
-                    .associate { resultRow -> resultRow["id"]!! to resultRow["distance"]!! }
 
-            if (queryTemplateType == null) {
-                return vectorResult
+            return if (queryTemplateType == null) {
+                vectorResult
             } else {
-                val rellQueryResult = moduleContext.module.query(ctx, queryTemplateType,
-                        gtv(mapOf("ids" to gtv(idDistances.keys.toList()))))
-
-                return gtv(rellQueryResult.asArray().map {
-                    val id = it[0]
-                    val distance = idDistances[id] ?: GtvNull
-                    gtv(mapOf(
-                            "value" to it[1],
-                            "distance" to distance
-                    ))
-                })
+                return moduleContext.module.query(ctx, queryTemplateType,
+                        gtv(mapOf("vector_results" to vectorResult)))
             }
         }
 

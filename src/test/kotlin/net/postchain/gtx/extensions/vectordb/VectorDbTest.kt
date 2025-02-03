@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test
 class VectorDbIT : IntegrationTestSetup() {
 
     @Test
-    fun testBasics() {
+    fun `basics - add, query and delete`() {
         val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
 
@@ -34,7 +34,7 @@ class VectorDbIT : IntegrationTestSetup() {
     }
 
     @Test
-    fun testQuery_basics() {
+    fun `query - different limitations`() {
         val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
 
@@ -55,7 +55,7 @@ class VectorDbIT : IntegrationTestSetup() {
     }
 
     @Test
-    fun testQuery_basics_with_distance() {
+    fun `query - with distance`() {
         val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
 
@@ -69,21 +69,21 @@ class VectorDbIT : IntegrationTestSetup() {
         assertThat(
                 queryClosestObjectsDistance(engine, 0, "[1, 2, 3]", 1.0, 3, "get_messages_with_distance")
         ).isEqualTo(listOf(
-                mapOf("value" to "alpha", "distance" to "0"),
-                mapOf("value" to "beta", "distance"  to "0.056543646950273474"),
-                mapOf("value" to "eve", "distance"  to "0.015675861711910488")
+                mapOf("text" to "alpha", "distance" to "0"),
+                mapOf("text" to "beta", "distance"  to "0.056543646950273474"),
+                mapOf("text" to "eve", "distance"  to "0.015675861711910488")
         ))
 
         assertThat(
                 queryClosestObjectsDistance(engine, 0, "[1, 2, 3]", 0.02, 3, "get_messages_with_distance")
         ).isEqualTo(listOf(
-                mapOf("value" to "alpha", "distance" to "0"),
-                mapOf("value" to "eve", "distance"  to "0.015675861711910488"),
+                mapOf("text" to "alpha", "distance" to "0"),
+                mapOf("text" to "eve", "distance"  to "0.015675861711910488"),
         ))
     }
 
     @Test
-    fun testQueryWithoutQueryTemplate() {
+    fun `query - without query template`() {
         val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
 
@@ -105,7 +105,7 @@ class VectorDbIT : IntegrationTestSetup() {
     }
 
     @Test
-    fun testAddAndDelete() {
+    fun `test add and delete`() {
         val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
 

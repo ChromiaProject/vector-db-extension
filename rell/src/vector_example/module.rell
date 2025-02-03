@@ -27,6 +27,12 @@ query get_messages(ids: list<rowid>): list<text> {
 }
 
 /** Query template function to return actual text messages with distance instead of vector ids */
-query get_messages_with_distance(ids: list<rowid>): list<(rowid, text)> {
-    return message @* { .rowid in ids } ( (.rowid, .text) );
+query get_messages_with_distance(vector_results: list<(id: rowid, distance: decimal)>): list<(text, decimal)> {
+    val ids = vector_results @* {} ( .id );
+    val messages = message @* { .rowid in ids } ( .rowid, .text);
+    val results = list<(text, decimal)>();
+    for (vector_result in vector_results) {
+        results.add((messages @ { .rowid == vector_result.id } ( .text ), vector_result.distance));
+    }
+    return results;
 }
