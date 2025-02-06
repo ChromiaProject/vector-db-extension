@@ -29,33 +29,29 @@ fun getVectors(engine: BlockchainEngine, chainId: Long): List<Vector> {
     }
 }
 
-fun queryClosestObjects(engine: BlockchainEngine, context: Long, vector: String, maxDistance: Double, maxVectors: Long, queryTemplateType: String? = null): List<String> {
+fun queryClosestObjectsGetStrings(engine: BlockchainEngine, context: Long, vector: String, maxDistance: Double, maxVectors: Long, queryTemplateType: String? = null): List<String> {
     return queryClosestObjects(engine, VECTOR_DB_QUERY_CLOSEST_OBJECTS, context, vector, maxDistance, maxVectors, queryTemplateType)
             .asArray().map { it.asString() }
 }
 
-fun queryClosestObjectsWithoutTemplate(engine: BlockchainEngine, context: Long, vector: String, maxDistance: Double, maxVectors: Long): List<Long> {
-    return queryClosestObjects(engine, VECTOR_DB_QUERY_CLOSEST_OBJECTS, context, vector, maxDistance, maxVectors, null)
-            .asArray().map { it.asInteger() }
-}
-
-fun queryClosestObjectsDistance(engine: BlockchainEngine, context: Long, vector: String, maxDistance: Double, maxVectors: Long, queryTemplateType: String? = null): List<Map<String, String>> {
-    return queryClosestObjects(engine, VECTOR_DB_QUERY_CLOSEST_OBJECTS_DISTANCE, context, vector, maxDistance, maxVectors, queryTemplateType).asArray()
+fun queryClosestObjectsGetIdAndDistance(engine: BlockchainEngine, context: Long, vector: String, maxDistance: Double, maxVectors: Long, queryTemplateType: String? = null): List<Map<String, Any>> {
+    return queryClosestObjects(engine, VECTOR_DB_QUERY_CLOSEST_OBJECTS, context, vector, maxDistance, maxVectors, queryTemplateType)
+            .asArray()
             .map { mapOf(
-                    "text" to it[0].asString(),
-                    "distance" to it[1].asString()
+                    "id" to it.asDict()["id"]!!.asInteger(),
+                    "distance" to it.asDict()["distance"]!!.asString()
             )}
 }
 
-fun queryClosestObjectsDistanceWithoutTemplate(engine: BlockchainEngine, context: Long, vector: String, maxDistance: Double, maxVectors: Long): List<Map<String, Any>> {
-    return queryClosestObjects(engine, VECTOR_DB_QUERY_CLOSEST_OBJECTS_DISTANCE, context, vector, maxDistance, maxVectors, null).asArray()
+fun queryClosestObjectsGetTextAndDistance(engine: BlockchainEngine, context: Long, vector: String, maxDistance: Double, maxVectors: Long, queryTemplateType: String? = null): List<Map<String, String>> {
+    return queryClosestObjects(engine, VECTOR_DB_QUERY_CLOSEST_OBJECTS, context, vector, maxDistance, maxVectors, queryTemplateType).asArray()
             .map { mapOf(
-                    "id" to it["id"]!!.asInteger(),
-                    "distance" to it["distance"]!!.asString()
+                    "text" to it.asDict()["text"]!!.asString(),
+                    "distance" to it.asDict()["distance"]!!.asString()
             )}
 }
 
-private fun queryClosestObjects(engine: BlockchainEngine, queryName: String, context: Long, vector: String, maxDistance: Double, maxVectors: Long, queryTemplateType: String? = null): Gtv {
+fun queryClosestObjects(engine: BlockchainEngine, queryName: String, context: Long, vector: String, maxDistance: Double, maxVectors: Long, queryTemplateType: String? = null): Gtv {
     val args = mutableListOf<Pair<String, Gtv>>(
             "context" to gtv(context),
             "q_vector" to gtv(vector),

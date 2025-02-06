@@ -19,7 +19,7 @@ class VectorDbIT : IntegrationTestSetup() {
         addMessage(engine, "hello", "[1, 2, 3]")
         buildBlock(DEFAULT_CHAIN_IID)
 
-        val queryResults = queryClosestObjects(engine, 0, "[1, 2, 3]", 1.0, 1, "get_messages")
+        val queryResults = queryClosestObjectsGetStrings(engine, 0, "[1, 2, 3]", 1.0, 1, "get_messages")
 
         assertThat(queryResults).hasSize(1)
         assertThat(queryResults[0]).isEqualTo("hello")
@@ -46,11 +46,11 @@ class VectorDbIT : IntegrationTestSetup() {
         buildBlock(DEFAULT_CHAIN_IID)
 
         assertThat(
-                queryClosestObjects(engine, 0, "[1, 2, 3]", 1.0, 3, "get_messages")
+                queryClosestObjectsGetStrings(engine, 0, "[1, 2, 3]", 1.0, 3, "get_messages")
         ).isEqualTo(listOf("alpha", "beta", "eve"))
 
         assertThat(
-                queryClosestObjects(engine, 0, "[1, 2, 3]", 0.02, 3, "get_messages")
+                queryClosestObjectsGetStrings(engine, 0, "[1, 2, 3]", 0.02, 3, "get_messages")
         ).isEqualTo(listOf("alpha", "eve"))
     }
 
@@ -67,7 +67,7 @@ class VectorDbIT : IntegrationTestSetup() {
         buildBlock(DEFAULT_CHAIN_IID)
 
         assertThat(
-                queryClosestObjectsDistance(engine, 0, "[1, 2, 3]", 1.0, 3, "get_messages_with_distance")
+                queryClosestObjectsGetTextAndDistance(engine, 0, "[1, 2, 3]", 1.0, 3, "get_messages_with_distance")
         ).isEqualTo(listOf(
                 mapOf("text" to "alpha", "distance" to "0"),
                 mapOf("text" to "beta", "distance"  to "0.056543646950273474"),
@@ -75,7 +75,7 @@ class VectorDbIT : IntegrationTestSetup() {
         ))
 
         assertThat(
-                queryClosestObjectsDistance(engine, 0, "[1, 2, 3]", 0.02, 3, "get_messages_with_distance")
+                queryClosestObjectsGetTextAndDistance(engine, 0, "[1, 2, 3]", 0.02, 3, "get_messages_with_distance")
         ).isEqualTo(listOf(
                 mapOf("text" to "alpha", "distance" to "0"),
                 mapOf("text" to "eve", "distance"  to "0.015675861711910488"),
@@ -92,15 +92,12 @@ class VectorDbIT : IntegrationTestSetup() {
         buildBlock(DEFAULT_CHAIN_IID)
 
         assertThat(
-                queryClosestObjectsWithoutTemplate(engine, 0, "[1, 2, 3]", 0.0, 1)
+                queryClosestObjectsGetIdAndDistance(engine, 0, "[1, 2, 3]", 0.0, 1)
         ).isEqualTo(listOf(
-                1L
-        ))
-
-        assertThat(
-                queryClosestObjectsDistanceWithoutTemplate(engine, 0, "[1, 2, 3]", 0.0, 1)
-        ).isEqualTo(listOf(
-                mapOf("id" to 1L, "distance" to "0"),
+                mapOf(
+                        "id" to 1L,
+                        "distance" to "0"
+                )
         ))
     }
 

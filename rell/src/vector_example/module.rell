@@ -21,18 +21,14 @@ operation delete_message(text) {
     delete msg;
 }
 
-/** Query template function to return actual text messages instead of vector ids */
-query get_messages(ids: list<rowid>): list<text> {
-    return message @* { .rowid in ids } .text;
+/** Query template function to map vector ids to corresponding texts */
+query get_messages(closest_results: list<object_distance>): list<text> {
+    val closest_results_map = closest_results @ {} ( @map(rowid(.id), .distance) );
+    return message @* { .rowid in closest_results_map.keys() } ( .text );
 }
 
-/** Query template function to return actual text messages with distance instead of vector ids */
-query get_messages_with_distance(vector_results: list<(id: rowid, distance: decimal)>): list<(text, decimal)> {
-    val ids = vector_results @* {} ( .id );
-    val messages = message @* { .rowid in ids } ( .rowid, .text);
-    val results = list<(text, decimal)>();
-    for (vector_result in vector_results) {
-        results.add((messages @ { .rowid == vector_result.id } ( .text ), vector_result.distance));
-    }
-    return results;
+/** Query template function to map vector ids to corresponding texts with distance */
+query get_messages_with_distance(closest_results: list<object_distance>): list<(text: text, distance: decimal)> {
+    val closest_results_map = closest_results @ {} ( @map(rowid(.id), .distance) );
+    return message @* { .rowid in closest_results_map.keys() } ( .text, distance = closest_results_map.get(.rowid) );
 }

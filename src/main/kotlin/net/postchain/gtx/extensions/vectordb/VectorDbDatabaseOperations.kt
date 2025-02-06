@@ -36,10 +36,10 @@ class VectorDbDatabaseOperations {
 
             val tableName = getVectorDbTableName(ctx)
 
-            // halfvec is half the size of vector
             ctx.conn.createStatement()
                     .execute("""
-                        CREATE TABLE IF NOT EXISTS $tableName ($VECTOR_DB_COLUMN_CONTEXT bigint, $VECTOR_DB_COLUMN_ID bigint, $VECTOR_DB_COLUMN_EMBEDDING halfvec(${vectorDbConfig.dimensions}))
+                        CREATE TABLE IF NOT EXISTS $tableName ($VECTOR_DB_COLUMN_CONTEXT bigint,$VECTOR_DB_COLUMN_ID bigint,
+                            $VECTOR_DB_COLUMN_EMBEDDING halfvec(${vectorDbConfig.dimensions}))
                         """.trimIndent())
 
             val contextIdIndexName = getVectorDbTableIndexName(ctx, VECTOR_DB_INDEX_CONTEXT_ID)
@@ -54,7 +54,6 @@ class VectorDbDatabaseOperations {
                 ON $tableName USING hnsw (($VECTOR_DB_COLUMN_EMBEDDING::halfvec(${vectorDbConfig.dimensions})) halfvec_l2_ops)
                 """.trimIndent()
             )
-            //                ON "$tableName" USING hnsw (embedding vector_cosine_ops) -- full precision
         }
     }
 
