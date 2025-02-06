@@ -47,7 +47,7 @@ class VectorDbIT : IntegrationTestSetup() {
 
         assertThat(
                 queryClosestObjectsGetStrings(engine, 0, "[1, 2, 3]", 1.0, 3, "get_messages")
-        ).isEqualTo(listOf("alpha", "beta", "eve"))
+        ).isEqualTo(listOf("alpha", "eve", "beta"))
 
         assertThat(
                 queryClosestObjectsGetStrings(engine, 0, "[1, 2, 3]", 0.02, 3, "get_messages")
@@ -70,8 +70,8 @@ class VectorDbIT : IntegrationTestSetup() {
                 queryClosestObjectsGetTextAndDistance(engine, 0, "[1, 2, 3]", 1.0, 3, "get_messages_with_distance")
         ).isEqualTo(listOf(
                 mapOf("text" to "alpha", "distance" to "0"),
-                mapOf("text" to "beta", "distance"  to "0.056543646950273474"),
-                mapOf("text" to "eve", "distance"  to "0.015675861711910488")
+                mapOf("text" to "eve", "distance"  to "0.015675861711910488"),
+                mapOf("text" to "beta", "distance"  to "0.056543646950273474")
         ))
 
         assertThat(

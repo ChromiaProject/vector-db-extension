@@ -176,7 +176,7 @@
                 <configuration>
                     <allowInsecureRegistries>false</allowInsecureRegistries>
                     <from>
-                        <image>registry.gitlab.com/chromaway/postchain-chromia/chromaway/chromia-subnode:3.24.1@sha256:55ba890808e998cbaac8a7d234b4982b713cf42edb63d82d2c7f53b578147195</image>
+                        <image>registry.gitlab.com/chromaway/postchain-chromia/chromaway/chromia-subnode:3.25.0@sha256:ea246c242e074cc22a1b5fb85c0cbbbe6c2ef0985cc9795c5d3bfbef966efc37</image>
                     </from>
                     <to>
                         <image>${image.name}</image>
@@ -302,11 +302,11 @@
     <distributionManagement>
         <repository>
             <id>gitlab-maven</id>
-            <url>https://gitlab.com/api/v4/projects/61088591/packages/maven</url>
+            <url>https://gitlab.com/api/v4/projects/${env.CI_PROJECT_ID}/packages/maven</url>
         </repository>
         <snapshotRepository>
             <id>gitlab-maven</id>
-            <url>https://gitlab.com/api/v4/projects/61088591/packages/maven</url>
+            <url>https://gitlab.com/api/v4/projects/${env.CI_PROJECT_ID}/packages/maven</url>
         </snapshotRepository>
     </distributionManagement>
 </project>

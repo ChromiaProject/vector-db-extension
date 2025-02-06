@@ -43,8 +43,8 @@ stages:
 deploy-snapshot:
   extends: .setup
   stage: deploy
-  rules:
-    - if: $CI_COMMIT_BRANCH == "dev"
+#  rules:
+#    - if: $CI_COMMIT_BRANCH == "dev"
   script:
     - if $(git rev-parse --is-shallow-repository); then git fetch --unshallow ; fi
     - CURRENT_VERSION=$(git describe --tags --abbrev=0)

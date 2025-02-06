@@ -23,12 +23,26 @@ operation delete_message(text) {
 
 /** Query template function to map vector ids to corresponding texts */
 query get_messages(closest_results: list<object_distance>): list<text> {
-    val closest_results_map = closest_results @ {} ( @map(rowid(.id), .distance) );
-    return message @* { .rowid in closest_results_map.keys() } ( .text );
+    val closest_results_map = closest_results @ {} ( @set(rowid(.id)) );
+    val messages_map = message @ { .rowid in closest_results_map } ( @map(.rowid.to_integer(), .text) );
+    val results = list<text>();
+    for (closest_result in closest_results) {
+        results.add(messages_map[closest_result.id]);
+    }
+    return results;
 }
 
 /** Query template function to map vector ids to corresponding texts with distance */
-query get_messages_with_distance(closest_results: list<object_distance>): list<(text: text, distance: decimal)> {
-    val closest_results_map = closest_results @ {} ( @map(rowid(.id), .distance) );
-    return message @* { .rowid in closest_results_map.keys() } ( .text, distance = closest_results_map.get(.rowid) );
+struct message_distance {
+    text: text;
+    distance: decimal;
+}
+query get_messages_with_distance(closest_results: list<object_distance>): list<message_distance> {
+    val closest_results_map = closest_results @ {} ( @set(rowid(.id)) );
+    val messages_map = message @ { .rowid in closest_results_map } ( @map(.rowid.to_integer(), .text) );
+    val results = list<message_distance>();
+    for (closest_result in closest_results) {
+        results.add(message_distance(messages_map[closest_result.id], closest_result.distance));
+    }
+    return results;
 }
