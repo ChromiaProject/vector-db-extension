@@ -39,7 +39,7 @@
         <gitlab.registry>registry.gitlab.com/chromaway/core/vector-db-extension</gitlab.registry>
         <docker.cache>/tmp/docker-cache</docker.cache>
         <image.platforms>linux/amd64,linux/arm64</image.platforms>
-        <image.name>chromaway/vector-dbextension-chromia-subnode</image.name>
+        <image.name>chromaway/vector-db-extension-chromia-subnode</image.name>
     </properties>
 
     <dependencyManagement>
