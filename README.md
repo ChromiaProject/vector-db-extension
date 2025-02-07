@@ -6,7 +6,7 @@
 pmc subnode-image add --name vector_db_extension \
   --url registry.gitlab.com/chromaway/core/vector-db-extension/chromaway/vector-db-extension-chromia-subnode \
   --digest <digest> \
-  --image-description "Extensions to Postchain for Postgres Vector DB support" \
+  --image-description "Extension to Postchain for Postgres Vector DB support" \
   -gtx net.postchain.gtx.extensions.vectordb.VectorDbGTXModule
 ```
 
