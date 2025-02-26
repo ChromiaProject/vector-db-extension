@@ -5,14 +5,20 @@ import assertk.assertions.hasSize
 import assertk.assertions.isEqualTo
 import net.postchain.devtools.IntegrationTestSetup
 import net.postchain.devtools.PostchainTestNode.Companion.DEFAULT_CHAIN_IID
+import net.postchain.gtv.GtvFactory.gtv
 import org.awaitility.Awaitility.await
 import org.awaitility.Duration
 import org.junit.jupiter.api.Test
 
 class VectorDbIT : IntegrationTestSetup() {
 
+    init {
+        configOverrides.setProperty("messaging.port", 0)
+    }
+
     @Test
     fun `basics - add, query and delete`() {
+
         val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
 
@@ -80,6 +86,29 @@ class VectorDbIT : IntegrationTestSetup() {
                 mapOf("text" to "alpha", "distance" to "0"),
                 mapOf("text" to "eve", "distance"  to "0.015675861711910488"),
         ))
+    }
+
+    @Test
+    fun `query - with custom template arguments`() {
+        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
+
+        addMessage(engine, "alpha", "[1, 2, 3]")
+        addMessage(engine, "beta", "[1, 4, 3]")
+        addMessage(engine, "charlie", "[7, 4, 3]")
+        addMessage(engine, "dave", "[9, 8, 4]")
+        addMessage(engine, "eve", "[2, 3, 7]")
+        buildBlock(DEFAULT_CHAIN_IID)
+
+        assertThat(
+                queryClosestObjects(engine, VECTOR_DB_QUERY_CLOSEST_OBJECTS, 0, "[1, 2, 3]", 1.0, 3,
+                        buildQueryTemplateOrNull("get_messages_with_filter",
+                            gtv(mapOf(
+                                "text_filter" to gtv("v"),
+                            ))
+                        )
+                ).asArray().map { it.asString() }
+        ).isEqualTo(listOf("eve"))
     }
 
     @Test

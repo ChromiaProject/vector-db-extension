@@ -4,6 +4,7 @@ import net.postchain.base.data.DatabaseAccess
 import net.postchain.concurrent.util.get
 import net.postchain.core.BlockchainEngine
 import net.postchain.gtv.Gtv
+import net.postchain.gtv.GtvDictionary
 import net.postchain.gtv.GtvFactory.gtv
 import net.postchain.gtx.Gtx
 import net.postchain.gtx.GtxBody
@@ -30,12 +31,12 @@ fun getVectors(engine: BlockchainEngine, chainId: Long): List<Vector> {
 }
 
 fun queryClosestObjectsGetStrings(engine: BlockchainEngine, context: Long, vector: String, maxDistance: Double, maxVectors: Long, queryTemplateType: String? = null): List<String> {
-    return queryClosestObjects(engine, VECTOR_DB_QUERY_CLOSEST_OBJECTS, context, vector, maxDistance, maxVectors, queryTemplateType)
+    return queryClosestObjects(engine, VECTOR_DB_QUERY_CLOSEST_OBJECTS, context, vector, maxDistance, maxVectors, buildQueryTemplateOrNull(queryTemplateType))
             .asArray().map { it.asString() }
 }
 
 fun queryClosestObjectsGetIdAndDistance(engine: BlockchainEngine, context: Long, vector: String, maxDistance: Double, maxVectors: Long, queryTemplateType: String? = null): List<Map<String, Any>> {
-    return queryClosestObjects(engine, VECTOR_DB_QUERY_CLOSEST_OBJECTS, context, vector, maxDistance, maxVectors, queryTemplateType)
+    return queryClosestObjects(engine, VECTOR_DB_QUERY_CLOSEST_OBJECTS, context, vector, maxDistance, maxVectors, buildQueryTemplateOrNull(queryTemplateType))
             .asArray()
             .map { mapOf(
                     "id" to it.asDict()["id"]!!.asInteger(),
@@ -44,26 +45,37 @@ fun queryClosestObjectsGetIdAndDistance(engine: BlockchainEngine, context: Long,
 }
 
 fun queryClosestObjectsGetTextAndDistance(engine: BlockchainEngine, context: Long, vector: String, maxDistance: Double, maxVectors: Long, queryTemplateType: String? = null): List<Map<String, String>> {
-    return queryClosestObjects(engine, VECTOR_DB_QUERY_CLOSEST_OBJECTS, context, vector, maxDistance, maxVectors, queryTemplateType).asArray()
+    return queryClosestObjects(engine, VECTOR_DB_QUERY_CLOSEST_OBJECTS, context, vector, maxDistance, maxVectors, buildQueryTemplateOrNull(queryTemplateType)).asArray()
             .map { mapOf(
                     "text" to it.asDict()["text"]!!.asString(),
                     "distance" to it.asDict()["distance"]!!.asString()
             )}
 }
 
-fun queryClosestObjects(engine: BlockchainEngine, queryName: String, context: Long, vector: String, maxDistance: Double, maxVectors: Long, queryTemplateType: String? = null): Gtv {
+fun queryClosestObjects(engine: BlockchainEngine, queryName: String, context: Long, vector: String, maxDistance: Double, maxVectors: Long, queryTemplate: GtvDictionary? = null): Gtv {
     val args = mutableListOf<Pair<String, Gtv>>(
             "context" to gtv(context),
             "q_vector" to gtv(vector),
             "max_distance" to gtv(maxDistance.toString()),
             "max_vectors" to gtv(maxVectors),
     )
-    if (queryTemplateType != null) {
-        args.add("query_template" to gtv(mapOf(
-                "type" to gtv(queryTemplateType),
-        )))
+    if (queryTemplate != null) {
+        args.add("query_template" to queryTemplate)
     }
     return engine.getBlockQueries().query(queryName, gtv(mapOf(*args.toTypedArray()))).get()
+}
+
+fun buildQueryTemplateOrNull(type: String?, args: Gtv? = null): GtvDictionary? {
+    if (type != null) {
+        val dict: MutableMap<String, Gtv> = mutableMapOf(
+                "type" to gtv(type),
+        )
+        if (args != null) {
+            dict += mapOf("args" to args)
+        }
+        return gtv(dict)
+    }
+    return null
 }
 
 fun addMessage(engine: BlockchainEngine, message: String, vector: String) {

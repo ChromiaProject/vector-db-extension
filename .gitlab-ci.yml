@@ -67,8 +67,7 @@ deploy:
     - mvn
       $MAVEN_CLI_OPTS
       -Drevision=$CI_COMMIT_TAG
-      -Dimage.latest_tag=latest
-      -Djib.to.tags=$CI_COMMIT_TAG
+      -Djib.to.tags=${CI_COMMIT_TAG},latest
       -DskipTests
       --activate-profiles docker-push
       clean source:jar deploy

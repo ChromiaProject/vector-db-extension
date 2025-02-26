@@ -1,6 +1,10 @@
 # Vector DB Extension
 
-## Registration
+## Setup
+
+### Register extension in directory-chain
+
+The nodes in the network must add the extension to make it available for containers to use. This is already done on official networks, but in case you run your own node(s) you will need to run this command:
 
 ```shell
 pmc subnode-image add --name vector_db_extension \
@@ -10,16 +14,16 @@ pmc subnode-image add --name vector_db_extension \
   -gtx net.postchain.gtx.extensions.vectordb.VectorDbGTXModule
 ```
 
-This will generate a proposal which need to be voted on.
+Replace the `<digest>` with the latest image version found [here](https://gitlab.com/chromaway/core/vector-db-extension/container_registry/8296249).
 
-## Configuration
+### Blockchain configuration
 
 Update your blockchain config to include the following:
 
 ```yaml
 blockchains:
   my_chain:
-    module: my_module
+    module: my_chain_module
     config:
       gtx:
         modules:
@@ -28,20 +32,30 @@ blockchains:
         dimensions: 300 # Set number of dimensions to use
 ```
 
-## Usage
+And make sure you deploy your chain to a container with the extension supported.
 
-Add the vector db library to your chain:
+## How to use in the dApp
+
+### Rell library
+
+There is a optional but recommended library available to store vectors:
 
 ```yaml
   vector_db:
     registry: https://gitlab.com/chromaway/core/vector-db-extension.git
     path: rell/src/lib/
     tagOrBranch: <version>
-    rid: x"C99366A7BB02F549D15F7388DC1647F3B01188924A56872365A35071E0F27255" # Update to match version
+    rid: x"<rid>" # Update to match version
     insecure: false
 ```
 
-Import and store vectors:
+Set `<version>` with [latest version](https://gitlab.com/chromaway/core/vector-db-extension/-/tags), run `chr install` and then update the `rid` to what they output says it is (`Was: ...`).
+
+Once installed you can add and remove vectors by calling the `store_vector` or `delete_vector` functions.
+
+### Insert vectors
+
+Simple dapp to store and remove vectors:
 
 ```
 import lib.vector_db.*;
@@ -49,16 +63,114 @@ import lib.vector_db.*;
 operation add_vector(context: integer, vector: text, id: integer) {
     store_vector(context, vector, id);
 }
+
+operation delete_vector(context: integer, id: integer) {
+    delete_vector(context, id);
+}
 ```
 
-Query vectors:
+### Querying vectors
 
-Call `query_closest_objects` to search vectors. The query supports the following parameters:
+The extension will add a query function named `query_closest_objects` which can be called to search vectors.
 
-- `context`: The context of the vector.
-- `q_vector`: The vector to search for.
-- `max_distance`: The maximum distance to search for.
-- `max_vectors`: The maximum number of vectors to return.
-- `query_template`: The query template function to use, specified in the sub attribute `type`. Must accept `closest_results: list<object_distance>` but can return anything.
+It supports the following parameters:
 
-`query_closest_objects` will return a list of `list<object_distance>` unless a `query_template` is provided which can return anything.
+
+| Name             | Type             | Required | Default | Description                                                                                       |
+|------------------|------------------|----------|---------|---------------------------------------------------------------------------------------------------|
+| `context`        | `integer`        | true     |         | Context used by dApp. Can be any number and a dApp can use multiple contexts to separate vectors. |
+| `q_vector`       | vector as `text` | true     |         | The vector to search for as `text` on format `[1,2,3]`.                                           |
+| `max_distance`   | `decimal`        | true     |         | The max distance from `q_vector` to stored vectors                                                |
+| `max_vectors`    | `integer`        | false    | 10      | The max number of vectors to return.                                                              |
+| `query_template` | `text`           | false    | Not set | Provide a Rell query function to transform the results (see below).                               |
+
+### Query template
+
+When no `query_template` is provided to `query_closest_objects` the result returned is a list of vector ids and their distance. This can however be transformed by providing a Rell query function:
+
+```
+query get_messages(closest_results: list<object_distance>): list<text> {
+    val closest_result_ids = closest_results @ {} ( @set(rowid(.id)) );
+    return message @ { .rowid in closest_result_ids } ( .text );
+}
+```
+
+This function will transform the vector search result `closest_results: list<object_distance>` into a list of text. When `query_template=get_messages` is provided to `query_closest_objects` the result will be a list of text. 
+
+## Local run and example
+
+This requires:
+ - Docker
+ - `chr`
+ - `pmc`
+
+Setup a node locally by using the [directory1-example image](https://gitlab.com/chromaway/example-projects/directory1-example/-/blob/dev/docs/images.md?ref_type=heads).
+
+```bash
+docker run --rm -it -p 7740:7740 registry.gitlab.com/chromaway/example-projects/directory1-example/managed-single:latest
+```
+
+In a separate terminal with `pmc` setup:
+
+```bash
+# Build the demo dapp
+cd vector-db-extension/rell
+chr build
+
+# Add a container
+pmc container add --name vector_container -sin vector_db_extension --cluster system --pubkeys $(pmc config --get pubkey)
+
+# Add the demo dapp
+pmc blockchain add -bc vector-db-extension/rell/build/vector_example.xml -c vector_container -n vector_blockchain
+
+# Get the blockchain rid - can be found manually from "pmc blockchains"
+vector_brid=$(pmc blockchains | jq -r '.[] | select(.Name == "vector_blockchain") | .Rid')
+```
+
+Add vectors by calling the `add_messages` operation. Please note this can't be made with `chr`, instead use your client implementation or the vault page.
+
+A few example queries:
+
+```bash
+# Plain query with no query_template:
+curl -s "http://localhost:7740/query/$vector_brid?type=query_closest_objects&context=0&q_vector=\[1,2,2\]&max_distance=1.0&max_vectors=2" | jq .
+[
+  {
+    "distance": "0.02004211298777725",
+    "id": 1
+  },
+  {
+    "distance": "0.02004211298777725",
+    "id": 4
+  }
+]
+
+# Basic query_template provided to return the text messages:
+curl -sX POST -H "Content-type: application/json" -d '{"type": "query_closest_objects", "context": 0, "q_vector": "[1,2,3]", "max_distance": "1.0", "max_vectors": 2, "query_template": {"type": "get_messages"}}' "http://localhost:7740/query/$vector_brid" | jq .
+[
+  "hello",
+  "test1"
+]
+
+# Another query_template which returns text and distance:
+curl -sX POST -H "Content-type: application/json" -d '{"type": "query_closest_objects", "context": 0, "q_vector": "[1,2,2]", "max_distance": "1.0", "query_template": {"type": "get_messages_with_distance"}}' "http://localhost:7740/query/$vector_brid" | jq .
+[
+  {
+    "distance": "0.02004211298777725",
+    "text": "hello"
+  },
+  {
+    "distance": "0.02004211298777725",
+    "text": "test1"
+  }
+]
+
+# Additional arguments passed to the query_template function
+curl -sX POST -H "Content-type: application/json" -d '{"type": "query_closest_objects", "context": 0, "q_vector": "[1,2,2]", "max_distance": "1.0", "query_template": {"type": "get_messages_with_filter"}, "args": {"text_filter", "hello"}}' "http://localhost:7740/query/$vector_brid" | jq .
+[
+  {
+    "distance": "0.02004211298777725",
+    "text": "hello"
+  }
+]
+```
