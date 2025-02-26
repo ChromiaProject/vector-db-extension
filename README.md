@@ -125,52 +125,57 @@ pmc blockchain add -bc vector-db-extension/rell/build/vector_example.xml -c vect
 
 # Get the blockchain rid - can be found manually from "pmc blockchains"
 vector_brid=$(pmc blockchains | jq -r '.[] | select(.Name == "vector_blockchain") | .Rid')
+
 ```
 
-Add vectors by calling the `add_messages` operation. Please note this can't be made with `chr`, instead use your client implementation or the vault page.
+Add some messages:
+
+```bash
+chr tx -brid $vector_brid add_message hej "[1.0, 2.0, 3.0]"
+chr tx -brid $vector_brid add_message hello "[1.0, 2.5, 3.0]"
+chr tx -brid $vector_brid add_message hei "[1.0, 2.0, 3.1]"
+chr tx -brid $vector_brid add_message "guten tag" "[1.0, 1.5, 3.5]"
+```
 
 A few example queries:
 
 ```bash
 # Plain query with no query_template:
-curl -s "http://localhost:7740/query/$vector_brid?type=query_closest_objects&context=0&q_vector=\[1,2,2\]&max_distance=1.0&max_vectors=2" | jq .
+chr query -brid $vector_brid query_closest_objects context=0 q_vector="[1.0, 2.0, 3.0]" max_distance=1.0 max_vectors=2
 [
-  {
-    "distance": "0.02004211298777725",
+  [
+    "distance": "0",
     "id": 1
-  },
-  {
-    "distance": "0.02004211298777725",
-    "id": 4
-  }
+  ],
+  [
+    "distance": "0.0001212999220387978",
+    "id": 3
+  ]
 ]
 
 # Basic query_template provided to return the text messages:
-curl -sX POST -H "Content-type: application/json" -d '{"type": "query_closest_objects", "context": 0, "q_vector": "[1,2,3]", "max_distance": "1.0", "max_vectors": 2, "query_template": {"type": "get_messages"}}' "http://localhost:7740/query/$vector_brid" | jq .
+chr query -brid $vector_brid query_closest_objects context=0 q_vector="[1.0, 2.5, 3.0]" max_distance=1.0 max_vectors=2 'query_template=["type":"get_messages"]'
 [
   "hello",
-  "test1"
+  "hej"
 ]
 
 # Another query_template which returns text and distance:
-curl -sX POST -H "Content-type: application/json" -d '{"type": "query_closest_objects", "context": 0, "q_vector": "[1,2,2]", "max_distance": "1.0", "query_template": {"type": "get_messages_with_distance"}}' "http://localhost:7740/query/$vector_brid" | jq .
+chr query -brid $vector_brid query_closest_objects context=0 q_vector="[1.0, 2.5, 3.0]" max_distance=1.0 max_vectors=2 'query_template=["type":"get_messages_with_distance"]'
 [
-  {
-    "distance": "0.02004211298777725",
+  [
+    "distance": "0",
     "text": "hello"
-  },
-  {
-    "distance": "0.02004211298777725",
-    "text": "test1"
-  }
+  ],
+  [
+    "distance": "0.005509683802306209",
+    "text": "hej"
+  ]
 ]
 
 # Additional arguments passed to the query_template function
-curl -sX POST -H "Content-type: application/json" -d '{"type": "query_closest_objects", "context": 0, "q_vector": "[1,2,2]", "max_distance": "1.0", "query_template": {"type": "get_messages_with_filter"}, "args": {"text_filter", "hello"}}' "http://localhost:7740/query/$vector_brid" | jq .
+chr query -brid $vector_brid query_closest_objects context=0 q_vector="[1.0, 2.5, 3.0]" max_distance=1.0 max_vectors=2 'query_template=["type":"get_messages_with_filter", "args":["text_filter": "j"]]'
 [
-  {
-    "distance": "0.02004211298777725",
-    "text": "hello"
-  }
+  "hej",
 ]
 ```
