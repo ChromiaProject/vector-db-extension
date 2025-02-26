@@ -39,17 +39,18 @@ class VectorDbGTXModule(
             val context = args["context"]?.asInteger() ?: throw UserMistake("No context argument supplied")
             val vectorQuery = args["q_vector"]?.asString() ?: throw UserMistake("No q_vector argument supplied")
             val maxDistance = BigDecimal(args["max_distance"]?.asString() ?: throw UserMistake("No max_distance argument supplied"))
-            val maxVectors = args["max_vectors"]?.asInteger() ?: throw UserMistake("No max_vectors argument supplied")
+            val maxVectors = args["max_vectors"]?.asInteger() ?: 10L
             val queryTemplate = args["query_template"]?.asDict()
-            val queryTemplateType = queryTemplate?.get("type")?.asString()
 
             val vectorResult = moduleContext.databaseOperations.queryClosestObjects(ctx, context, vectorQuery, maxDistance, maxVectors)
 
-            return if (queryTemplateType == null) {
+            return if (queryTemplate == null) {
                 vectorResult
             } else {
+                val queryTemplateType = queryTemplate["type"]?.asString() ?: throw UserMistake("No type argument supplied to query_template")
+                val queryTemplateArgs = queryTemplate["args"]?.asDict() ?: mapOf()
                 return moduleContext.module.query(ctx, queryTemplateType,
-                        gtv(mapOf("closest_results" to vectorResult)))
+                        gtv(mapOf("closest_results" to vectorResult) + queryTemplateArgs))
             }
         }
     }
