@@ -117,11 +117,8 @@ In a separate terminal with `pmc` setup:
 cd vector-db-extension/rell
 chr build
 
-# Add a container
-pmc container add --name vector_container -sin vector_db_extension --cluster system --pubkeys $(pmc config --get pubkey)
-
 # Add the demo dapp
-pmc blockchain add -bc vector-db-extension/rell/build/vector_example.xml -c vector_container -n vector_blockchain
+pmc blockchain add -bc vector-db-extension/rell/build/vector_example.xml -c dapp -n vector_blockchain
 
 # Get the blockchain rid - can be found manually from "pmc blockchains"
 vector_brid=$(pmc blockchains | jq -r '.[] | select(.Name == "vector_blockchain") | .Rid')
