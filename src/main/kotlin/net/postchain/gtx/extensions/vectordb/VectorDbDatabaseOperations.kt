@@ -24,7 +24,8 @@ class VectorDbDatabaseOperations {
         const val VECTOR_DB_COLUMN_EMBEDDING = "embedding"
 
         const val VECTOR_DB_INDEX_CONTEXT_ID = "context_id"
-        const val VECTOR_DB_INDEX_EMBEDDING_HNSW = "embedding_hnsw_index"
+        const val VECTOR_DB_INDEX_EMBEDDING_HNSW = "embedding_hnsw_index" // L2 not used
+        const val VECTOR_DB_INDEX_EMBEDDING_HNSW_COSINE = "embedding_hnsw_index_cosine"
     }
 
     fun initialize(ctx: EContext, vectorDbConfig: VectorDbConfig) {
@@ -50,8 +51,13 @@ class VectorDbDatabaseOperations {
 
             val embeddedHnswIndexName = getVectorDbTableIndexName(ctx, VECTOR_DB_INDEX_EMBEDDING_HNSW)
             ctx.conn.createStatement().execute("""
-                CREATE INDEX IF NOT EXISTS "$embeddedHnswIndexName"
-                ON $tableName USING hnsw (($VECTOR_DB_COLUMN_EMBEDDING::halfvec(${vectorDbConfig.dimensions})) halfvec_l2_ops)
+                DROP INDEX IF EXISTS "$embeddedHnswIndexName"
+                """.trimIndent()
+            )
+            val embeddedHnswCosineIndexName = getVectorDbTableIndexName(ctx, VECTOR_DB_INDEX_EMBEDDING_HNSW_COSINE)
+            ctx.conn.createStatement().execute("""
+                CREATE INDEX IF NOT EXISTS "$embeddedHnswCosineIndexName"
+                ON $tableName USING hnsw ($VECTOR_DB_COLUMN_EMBEDDING halfvec_cosine_ops)
                 """.trimIndent()
             )
         }
@@ -93,11 +99,11 @@ class VectorDbDatabaseOperations {
             ctx.conn.prepareStatement(
                     """
                     WITH nearest_results AS MATERIALIZED (
-                        SELECT $VECTOR_DB_COLUMN_ID, $VECTOR_DB_COLUMN_EMBEDDING <=> ?::vector AS distance 
+                        SELECT $VECTOR_DB_COLUMN_ID, $VECTOR_DB_COLUMN_EMBEDDING <=> ?::halfvec AS distance 
                         FROM $tableName
                         WHERE $VECTOR_DB_COLUMN_CONTEXT = ? ORDER BY distance
                         LIMIT ?
-                    ) SELECT $VECTOR_DB_COLUMN_ID, distance FROM nearest_results WHERE distance <= ? ORDER BY distance;
+                    ) SELECT $VECTOR_DB_COLUMN_ID, distance FROM nearest_results WHERE distance <= ? ORDER BY distance
                     """.trimIndent()
             ).use { stmt ->
                 stmt.setString(1, vectorQuery)
