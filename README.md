@@ -31,6 +31,7 @@ blockchains:
       vector_db_extension:
         dimensions: 300 # Set number of dimensions to use
         max_vectors: 10 # Optional: Limits the search results. Default if not set is 10.
+        store_batch_size: 300 # Optional: Set the size of each batch inserted into database. Just for optimization while inserting.
 ```
 
 And make sure you deploy your chain to a container with the extension supported.

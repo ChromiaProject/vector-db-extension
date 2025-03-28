@@ -16,7 +16,8 @@ const val EVENT_DELETE_VECTOR_NAME = "delete_vector"
 const val EVENT_DELETE_VECTORS_NAME = "delete_vectors"
 
 class VectorDbEventProcessor(
-        private val databaseOperations: VectorDbDatabaseOperations
+        private val databaseOperations: VectorDbDatabaseOperations,
+        private val vectorDbConfig: VectorDbConfig
 ) : BaseBlockBuilderExtension, TxEventSink {
 
     override fun init(blockEContext: BlockEContext, baseBB: BaseBlockBuilder) {
@@ -52,7 +53,7 @@ class VectorDbEventProcessor(
             vector to id
         } ?: throw UserMistake("No vectors argument supplied")
 
-        databaseOperations.storeVectors(ctxt, context, vectors)
+        databaseOperations.storeVectors(ctxt, context, vectors, vectorDbConfig.storeBatchSize)
     }
 
     private fun deleteVectorEvent(ctxt: TxEContext, args: GtvDictionary) {

@@ -65,7 +65,7 @@ class VectorDbPerformance {
 
         val ctx = BaseEContext(DriverManager.getConnection(url, user, password), 100, PostgreSQLDatabaseAccess())
         val vectorDbDatabaseOperations = VectorDbDatabaseOperations()
-        vectorDbDatabaseOperations.initialize(ctx, VectorDbConfig(dimensions.toLong(), 10))
+        vectorDbDatabaseOperations.initialize(ctx, VectorDbConfig(dimensions.toLong(), 10, 300))
 
         return { queue ->
             for (i in 1..count) {
@@ -81,7 +81,7 @@ class VectorDbPerformance {
         val abstracts = AtomicLong(0)
         val ctx = BaseEContext(DriverManager.getConnection(url, user, password), 100, PostgreSQLDatabaseAccess())
         val vectorDbDatabaseOperations = VectorDbDatabaseOperations()
-        vectorDbDatabaseOperations.initialize(ctx, VectorDbConfig(dimensions.toLong(), 10))
+        vectorDbDatabaseOperations.initialize(ctx, VectorDbConfig(dimensions.toLong(), 10, 300))
         return { queue ->
             Files.readLines(File(file), Charset.defaultCharset()).forEach {
                 val sf = gson.fromJson(it, Map::class.java)
