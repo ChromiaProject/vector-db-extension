@@ -11,8 +11,37 @@ function store_vector(context: integer, vector: text, id: integer) {
     op_context.emit_event("store_vector", (context = context, vector = vector, id = id).to_gtv_pretty());
 }
 
+/**
+ * Struct used to store vectors and id when sent to store_vectors as list.
+ */
+struct vector_db_data {
+    vector: text;
+    id: integer;
+}
+
+/**
+ * Store a list of vectors in the database.
+ *
+ * @param context The context of the vector.
+ * @param vectors List of vectors to store.
+ */
+function store_vectors(context: integer, vectors: list<vector_db_data>) {
+    op_context.emit_event("store_vectors", (context = context, vectors = vectors).to_gtv_pretty());
+}
+
+
+/**
+ * Delete one vector from database.
+ */
 function delete_vector(context: integer, id: integer) {
     op_context.emit_event("delete_vector", (context = context, id = id).to_gtv_pretty());
+}
+
+/**
+ * Delete a set of vectors from the database.
+ */
+function delete_vectors(context: integer, ids: set<integer>) {
+    op_context.emit_event("delete_vectors", (context = context, ids = ids).to_gtv_pretty());
 }
 
 /** A vector search result object. The query template function gets a list of this object. */

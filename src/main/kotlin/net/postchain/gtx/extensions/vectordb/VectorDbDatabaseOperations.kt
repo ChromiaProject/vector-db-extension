@@ -63,33 +63,38 @@ class VectorDbDatabaseOperations {
         }
     }
 
-    fun storeVector(ctx: TxEContext, id: Long, context: Long, vector: String) {
+    fun storeVectors(ctx: TxEContext, context: Long, vectors: List<Pair<String, Long>>) {
         DatabaseAccess.of(ctx).apply {
             val tableName = getVectorDbTableName(ctx)
-            ctx.conn.prepareStatement("""
+            vectors.forEach {
+                ctx.conn.prepareStatement("""
                     INSERT INTO $tableName ($VECTOR_DB_COLUMN_CONTEXT, $VECTOR_DB_COLUMN_ID, $VECTOR_DB_COLUMN_EMBEDDING) VALUES (?, ?, ?::vector)
                     """.trimIndent()
-            ).use { stmt ->
-                stmt.setLong(1, context)
-                stmt.setLong(2, id)
-                stmt.setString(3, vector)
-                stmt.execute()
+                ).use { stmt ->
+                    stmt.setLong(1, context)
+                    stmt.setLong(2, it.second)
+                    stmt.setString(3, it.first)
+                    stmt.execute()
+                }
             }
         }
     }
 
-    fun deleteVector(ctx: TxEContext, id: Long, context: Long) {
+    fun deleteVectors(ctx: TxEContext, context: Long, ids: List<Long>) {
         DatabaseAccess.of(ctx).apply {
             val tableName = getVectorDbTableName(ctx)
-            ctx.conn.prepareStatement("""
+            var rowsAffected = 0
+            ids.forEach {
+                ctx.conn.prepareStatement("""
                     DELETE FROM $tableName WHERE $VECTOR_DB_COLUMN_CONTEXT = ? AND $VECTOR_DB_COLUMN_ID = ?
                     """.trimIndent()
-            ).use { stmt ->
-                stmt.setLong(1, context)
-                stmt.setLong(2, id)
-                val rowsAffected = stmt.executeUpdate()
-                logger.info { "Deleted $rowsAffected vectors" }
+                ).use { stmt ->
+                    stmt.setLong(1, context)
+                    stmt.setLong(2, it)
+                    rowsAffected += stmt.executeUpdate()
+                }
             }
+            logger.info { "Deleted $rowsAffected vectors" }
         }
     }
 
