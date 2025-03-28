@@ -6,8 +6,6 @@ import assertk.assertions.isEqualTo
 import net.postchain.devtools.IntegrationTestSetup
 import net.postchain.devtools.PostchainTestNode.Companion.DEFAULT_CHAIN_IID
 import net.postchain.gtv.GtvFactory.gtv
-import org.awaitility.Awaitility.await
-import org.awaitility.Duration
 import org.junit.jupiter.api.Test
 
 class VectorDbIT : IntegrationTestSetup() {
@@ -32,11 +30,18 @@ class VectorDbIT : IntegrationTestSetup() {
 
         assertThat(getVectors(engine, DEFAULT_CHAIN_IID)).hasSize(1)
 
+        addMessages(engine, listOf(
+                "abc" to "[1, 2, 3]",
+                "def" to "[1, 2, 3]",
+                "ghi" to "[1, 2, 3]",
+        ))
+        buildBlock(DEFAULT_CHAIN_IID)
+        assertThat(getVectors(engine, DEFAULT_CHAIN_IID)).hasSize(4)
+
+        deleteMessage(engine, listOf("abc", "def", "ghi"))
         deleteMessage(engine, "hello")
         buildBlock(DEFAULT_CHAIN_IID)
-        await().atMost(Duration.TEN_SECONDS).untilAsserted {
-            assertThat(getVectors(engine, DEFAULT_CHAIN_IID)).hasSize(0)
-        }
+        assertThat(getVectors(engine, DEFAULT_CHAIN_IID)).hasSize(0)
     }
 
     @Test
@@ -144,23 +149,17 @@ class VectorDbIT : IntegrationTestSetup() {
 
         deleteMessage(engine, "beta")
         buildBlock(DEFAULT_CHAIN_IID)
-        await().atMost(Duration.TEN_SECONDS).untilAsserted {
-            assertThat(getVectors(engine, DEFAULT_CHAIN_IID)).hasSize(2)
-        }
+        assertThat(getVectors(engine, DEFAULT_CHAIN_IID)).hasSize(2)
 
         addMessage(engine, "delta", "[1, 2, 3]")
         deleteMessage(engine, "charlie")
         buildBlock(DEFAULT_CHAIN_IID)
-        await().atMost(Duration.TEN_SECONDS).untilAsserted {
-            assertThat(getVectors(engine, DEFAULT_CHAIN_IID)).hasSize(2)
-        }
+        assertThat(getVectors(engine, DEFAULT_CHAIN_IID)).hasSize(2)
 
         addMessage(engine, "dave", "[1, 2, 3]")
         deleteMessage(engine, "dave")
         deleteMessage(engine, "alpha")
         buildBlock(DEFAULT_CHAIN_IID)
-        await().atMost(Duration.TEN_SECONDS).untilAsserted {
-            assertThat(getVectors(engine, DEFAULT_CHAIN_IID)).hasSize(1)
-        }
+        assertThat(getVectors(engine, DEFAULT_CHAIN_IID)).hasSize(1)
     }
 }

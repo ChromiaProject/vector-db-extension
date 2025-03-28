@@ -86,8 +86,26 @@ fun addMessage(engine: BlockchainEngine, message: String, vector: String) {
     engine.getTransactionQueue().enqueue(tx)
 }
 
+fun addMessages(engine: BlockchainEngine, messages: List<Pair<String, String>>) {
+    val op = GtxOp("add_messages", gtv(messages.map {
+        gtv(listOf(gtv(it.first), gtv(it.second)))
+    }))
+    val tx = engine.getConfiguration().getTransactionFactory().decodeTransaction(
+            Gtx(GtxBody(engine.getConfiguration().blockchainRid, listOf(op), listOf()), listOf()).encode()
+    )
+    engine.getTransactionQueue().enqueue(tx)
+}
+
 fun deleteMessage(engine: BlockchainEngine, message: String) {
     val op = GtxOp("delete_message", gtv(message))
+    val tx = engine.getConfiguration().getTransactionFactory().decodeTransaction(
+            Gtx(GtxBody(engine.getConfiguration().blockchainRid, listOf(op), listOf()), listOf()).encode()
+    )
+    engine.getTransactionQueue().enqueue(tx)
+}
+
+fun deleteMessage(engine: BlockchainEngine, message: List<String>) {
+    val op = GtxOp("delete_messages", gtv(message.map { gtv(it) }))
     val tx = engine.getConfiguration().getTransactionFactory().decodeTransaction(
             Gtx(GtxBody(engine.getConfiguration().blockchainRid, listOf(op), listOf()), listOf()).encode()
     )

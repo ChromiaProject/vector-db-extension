@@ -22,6 +22,11 @@ class VectorDbGTXModuleContext(
         val databaseOperations: VectorDbDatabaseOperations,
 ) {
     lateinit var module: GTXModule
+    lateinit var vectorDbConfig: VectorDbConfig
+
+    fun isInitialized(): Boolean {
+        return this::module.isInitialized && this::vectorDbConfig.isInitialized
+    }
 }
 
 class VectorDbGTXModule(
@@ -36,10 +41,19 @@ class VectorDbGTXModule(
 
     companion object : KLogging() {
         fun queryClosestObjects(moduleContext: VectorDbGTXModuleContext, ctx: EContext, args: Gtv): Gtv {
+            if (!moduleContext.isInitialized()) {
+                throw UserMistake("Module is not initialized")
+            }
+
             val context = args["context"]?.asInteger() ?: throw UserMistake("No context argument supplied")
             val vectorQuery = args["q_vector"]?.asString() ?: throw UserMistake("No q_vector argument supplied")
             val maxDistance = BigDecimal(args["max_distance"]?.asString() ?: throw UserMistake("No max_distance argument supplied"))
-            val maxVectors = args["max_vectors"]?.asInteger() ?: 10L
+            val maxVectors = args["max_vectors"]?.asInteger()?.let {
+                if (it > moduleContext.vectorDbConfig.maxVectors) {
+                    throw UserMistake("max_vectors ($it) exceeds the maximum of ${moduleContext.vectorDbConfig.maxVectors}")
+                }
+                it
+            } ?: moduleContext.vectorDbConfig.maxVectors
             val queryTemplate = args["query_template"]?.asDict()
 
             val vectorResult = moduleContext.databaseOperations.queryClosestObjects(ctx, context, vectorQuery, maxDistance, maxVectors)
@@ -57,15 +71,14 @@ class VectorDbGTXModule(
 
     override fun initializeContext(configuration: BlockchainConfiguration, postchainContext: PostchainContext) {
         conf.module = (configuration as GTXModuleAware).module
-
-        val vectorDbConfig = configuration.rawConfig["vector_db_extension"]?.toObject<VectorDbConfig>()
+        conf.vectorDbConfig = configuration.rawConfig["vector_db_extension"]?.toObject<VectorDbConfig>()
                 ?: throw UserMistake("No vector db extension config present")
 
         if (chainId != null) {
 
             val ctx = postchainContext.blockBuilderStorage.openWriteConnection(chainId!!)
             try{
-                databaseOperations.initialize(ctx, vectorDbConfig)
+                databaseOperations.initialize(ctx, conf.vectorDbConfig)
             } finally {
                 postchainContext.blockBuilderStorage.closeWriteConnection(ctx, true)
             }

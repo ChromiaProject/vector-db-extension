@@ -14,8 +14,22 @@ val CONTEXT_MESSAGE = 0;
  * @param vector The vector on format [1.0,2.0,...]
  */
 operation add_message(text, vector: text) {
-    val msg = create message (text);
-    store_vector(CONTEXT_MESSAGE, vector, msg.rowid.to_integer());
+    val message_entity = create message (text);
+    store_vector(CONTEXT_MESSAGE, vector, message_entity.rowid.to_integer());
+}
+
+struct message_data {
+    text;
+    vector: text;
+}
+
+operation add_messages(messages: list<message_data>) {
+    val vector_ids = list<vector_db_data>();
+    for (message in messages) {
+        val message_entity = create message (message.text);
+        vector_ids.add(vector_db_data(message.vector, message_entity.rowid.to_integer()));
+    }
+    store_vectors(CONTEXT_MESSAGE, vector_ids);
 }
 
 /** Delete text and its vector */
@@ -23,6 +37,12 @@ operation delete_message(text) {
     val msg = message @ { text };
     delete_vector(CONTEXT_MESSAGE, msg.rowid.to_integer());
     delete msg;
+}
+
+operation delete_messages(texts: list<text>) {
+    val message_entities = message @* { .text in texts };
+    delete_vectors(CONTEXT_MESSAGE, message_entities @ {} (@set .rowid.to_integer()));
+    delete message_entities;
 }
 
 /**
