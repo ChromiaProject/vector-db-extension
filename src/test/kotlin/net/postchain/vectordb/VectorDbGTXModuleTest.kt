@@ -33,7 +33,7 @@ class VectorDbGTXModuleTest{
     fun `validate max vectors`() {
         val context = VectorDbGTXModuleContext(VectorDbDatabaseOperations())
         context.module = VectorDbGTXModule()
-        context.vectorDbConfig = VectorDbConfig(100, 10)
+        context.vectorDbConfig = VectorDbConfig(100, 10, 300)
 
         // More than limit set in blockchain config - reject
         assertThat(assertThrows<UserMistake> {

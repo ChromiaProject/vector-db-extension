@@ -92,6 +92,6 @@ class VectorDbGTXModule(
     override fun getSpecialTxExtensions() = emptyList<GTXSpecialTxExtension>()
 
     override fun makeBlockBuilderExtensions(): List<BaseBlockBuilderExtension>  {
-        return listOf(VectorDbEventProcessor(databaseOperations))
+        return listOf(VectorDbEventProcessor(databaseOperations, conf.vectorDbConfig))
     }
 }

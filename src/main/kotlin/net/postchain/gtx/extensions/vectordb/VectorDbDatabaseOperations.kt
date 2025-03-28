@@ -63,19 +63,24 @@ class VectorDbDatabaseOperations {
         }
     }
 
-    fun storeVectors(ctx: TxEContext, context: Long, vectors: List<Pair<String, Long>>) {
+    fun storeVectors(ctx: TxEContext, context: Long, vectors: List<Pair<String, Long>>, batchSize: Long = 300) {
         DatabaseAccess.of(ctx).apply {
             val tableName = getVectorDbTableName(ctx)
-            vectors.forEach {
-                ctx.conn.prepareStatement("""
-                    INSERT INTO $tableName ($VECTOR_DB_COLUMN_CONTEXT, $VECTOR_DB_COLUMN_ID, $VECTOR_DB_COLUMN_EMBEDDING) VALUES (?, ?, ?::vector)
-                    """.trimIndent()
-                ).use { stmt ->
+            ctx.conn.prepareStatement("""
+                INSERT INTO $tableName ($VECTOR_DB_COLUMN_CONTEXT, $VECTOR_DB_COLUMN_ID, $VECTOR_DB_COLUMN_EMBEDDING) VALUES (?, ?, ?::vector)
+                """.trimIndent()
+            ).use { stmt ->
+                vectors.forEachIndexed { index, data ->
                     stmt.setLong(1, context)
-                    stmt.setLong(2, it.second)
-                    stmt.setString(3, it.first)
-                    stmt.execute()
+                    stmt.setLong(2, data.second)
+                    stmt.setString(3, data.first)
+                    stmt.addBatch()
+
+                    if (index % batchSize == 0L) {
+                        stmt.executeBatch()
+                    }
                 }
+                stmt.executeBatch()
             }
         }
     }
