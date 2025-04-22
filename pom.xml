@@ -182,7 +182,7 @@
                 <configuration>
                     <allowInsecureRegistries>false</allowInsecureRegistries>
                     <from>
-                        <image>registry.gitlab.com/chromaway/postchain-chromia/chromaway/chromia-subnode:3.25.0@sha256:ea246c242e074cc22a1b5fb85c0cbbbe6c2ef0985cc9795c5d3bfbef966efc37</image>
+                        <image>registry.gitlab.com/chromaway/postchain-chromia/chromaway/chromia-subnode:3.28.2@sha256:fa9a3165abb708ebcf759c1ffbee13ad735c9673c0a0aaaa978b045eb740f1bf</image>
                     </from>
                     <to>
                         <image>${image.name}</image>
