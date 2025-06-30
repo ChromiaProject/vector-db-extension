@@ -1,6 +1,7 @@
 package net.postchain.gtx.extensions.vectordb
 
 import net.postchain.base.data.DatabaseAccess
+import net.postchain.client.core.PostchainClient
 import net.postchain.concurrent.util.get
 import net.postchain.core.BlockchainEngine
 import net.postchain.gtv.Gtv
@@ -43,6 +44,14 @@ fun queryClosestObjectsGetIdAndDistance(engine: BlockchainEngine, context: Long,
                     "distance" to it.asDict()["distance"]!!.asString()
             )}
 }
+fun PostchainClient.queryClosestObjectsGetIdAndDistance(context: Long, vector: String, maxDistance: Double, maxVectors: Long, queryTemplateType: String? = null): List<Map<String, Any>> {
+    return queryClosestObjects(this::query, VECTOR_DB_QUERY_CLOSEST_OBJECTS, context, vector, maxDistance, maxVectors, buildQueryTemplateOrNull(queryTemplateType))
+            .asArray()
+            .map { mapOf(
+                    "id" to it.asDict()["id"]!!.asInteger(),
+                    "distance" to it.asDict()["distance"]!!.asString()
+            )}
+}
 
 fun queryClosestObjectsGetTextAndDistance(engine: BlockchainEngine, context: Long, vector: String, maxDistance: Double, maxVectors: Long, queryTemplateType: String? = null): List<Map<String, String>> {
     return queryClosestObjects(engine, VECTOR_DB_QUERY_CLOSEST_OBJECTS, context, vector, maxDistance, maxVectors, buildQueryTemplateOrNull(queryTemplateType)).asArray()
@@ -53,6 +62,10 @@ fun queryClosestObjectsGetTextAndDistance(engine: BlockchainEngine, context: Lon
 }
 
 fun queryClosestObjects(engine: BlockchainEngine, queryName: String, context: Long, vector: String, maxDistance: Double, maxVectors: Long, queryTemplate: GtvDictionary? = null): Gtv {
+    return queryClosestObjects(engine.getBlockQueries()::query, queryName, context, vector, maxDistance, maxVectors, queryTemplate).get()
+}
+
+fun <T> queryClosestObjects(query: (String, Gtv) -> T, queryName: String, context: Long, vector: String, maxDistance: Double, maxVectors: Long, queryTemplate: GtvDictionary? = null): T {
     val args = mutableListOf<Pair<String, Gtv>>(
             "context" to gtv(context),
             "q_vector" to gtv(vector),
@@ -62,7 +75,7 @@ fun queryClosestObjects(engine: BlockchainEngine, queryName: String, context: Lo
     if (queryTemplate != null) {
         args.add("query_template" to queryTemplate)
     }
-    return engine.getBlockQueries().query(queryName, gtv(mapOf(*args.toTypedArray()))).get()
+    return query(queryName, gtv(mapOf(*args.toTypedArray())))
 }
 
 fun buildQueryTemplateOrNull(type: String?, args: Gtv? = null): GtvDictionary? {

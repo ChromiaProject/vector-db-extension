@@ -32,6 +32,7 @@ blockchains:
         dimensions: 300 # Set number of dimensions to use
         max_vectors: 10 # Optional: Limits the search results. Default if not set is 10.
         store_batch_size: 300 # Optional: Set the size of each batch inserted into database. Just for optimization while inserting.
+        index: HNSW_COSINE # Optional: type of distance algorithm. HNSW_L1, HNSW_L2 and HNSW_IP are also supported.
 ```
 
 And make sure you deploy your chain to a container with the extension supported.

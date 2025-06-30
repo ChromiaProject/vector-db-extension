@@ -29,7 +29,7 @@ class VectorDbGTXModuleContext(
     }
 }
 
-class VectorDbGTXModule(
+open class VectorDbGTXModule(
         private val databaseOperations: VectorDbDatabaseOperations = VectorDbDatabaseOperations()
 ) : SimpleGTXModule<VectorDbGTXModuleContext>(
         VectorDbGTXModuleContext(databaseOperations), mapOf(), mapOf(
@@ -75,6 +75,8 @@ class VectorDbGTXModule(
                 ?: throw UserMistake("No vector db extension config present")
 
         if (chainId != null) {
+
+            logger.info { "VectorDB config: ${configuration.rawConfig["vector_db_extension"]?.asDict()}" }
 
             val ctx = postchainContext.blockBuilderStorage.openWriteConnection(chainId!!)
             try{

@@ -1,4 +1,4 @@
-package net.postchain.vectordb
+package net.postchain.gtx.extensions.vectordb
 
 import assertk.assertThat
 import assertk.assertions.isEqualTo
@@ -6,17 +6,13 @@ import net.postchain.common.exception.ProgrammerMistake
 import net.postchain.common.exception.UserMistake
 import net.postchain.core.EContext
 import net.postchain.gtv.GtvFactory.gtv
-import net.postchain.gtx.extensions.vectordb.VectorDbConfig
-import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseOperations
-import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule
-import net.postchain.gtx.extensions.vectordb.VectorDbGTXModuleContext
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.sql.Connection
 
 class VectorDbGTXModuleTest{
 
-    open class TestEContext() : EContext {
+    open class TestEContext(override val id: String = "1") : EContext {
         override val chainID: Long
             get() = TODO("Not yet implemented")
         override val conn: Connection
@@ -33,7 +29,7 @@ class VectorDbGTXModuleTest{
     fun `validate max vectors`() {
         val context = VectorDbGTXModuleContext(VectorDbDatabaseOperations())
         context.module = VectorDbGTXModule()
-        context.vectorDbConfig = VectorDbConfig(100, 10, 300)
+        context.vectorDbConfig = VectorDbConfig(100, 10, 300, VectorDBIndex.HNSW_COSINE.name)
 
         // More than limit set in blockchain config - reject
         assertThat(assertThrows<UserMistake> {

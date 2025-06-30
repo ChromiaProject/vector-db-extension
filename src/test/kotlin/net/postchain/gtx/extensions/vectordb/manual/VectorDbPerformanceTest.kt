@@ -1,4 +1,4 @@
-package net.postchain.gtx.extensions.vectordb
+package net.postchain.gtx.extensions.vectordb.manual
 
 import com.google.common.io.Files
 import com.google.gson.Gson
@@ -8,11 +8,13 @@ import net.postchain.client.config.PostchainClientConfig
 import net.postchain.client.impl.PostchainClientImpl
 import net.postchain.client.request.EndpointPool
 import net.postchain.d1.client.StandardChromiaClient
-import net.postchain.gtv.GtvFactory.gtv
+import net.postchain.gtv.GtvFactory
+import net.postchain.gtx.extensions.vectordb.VectorDBIndex
+import net.postchain.gtx.extensions.vectordb.VectorDbConfig
+import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseOperations
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import java.io.File
-import java.lang.Thread.sleep
 import java.math.BigDecimal
 import java.nio.charset.Charset
 import java.sql.DriverManager
@@ -26,7 +28,7 @@ import java.util.concurrent.atomic.AtomicLong
 import kotlin.random.Random
 import kotlin.time.measureTime
 
-class VectorDbPerformance {
+class VectorDbPerformanceTest {
 
     private val gson = Gson()
         private val url = "jdbc:postgresql://172.17.0.1:5439/postchain?currentSchema=postchain0_c1" // Postchain sub node container
@@ -65,7 +67,7 @@ class VectorDbPerformance {
 
         val ctx = BaseEContext(DriverManager.getConnection(url, user, password), 100, PostgreSQLDatabaseAccess())
         val vectorDbDatabaseOperations = VectorDbDatabaseOperations()
-        vectorDbDatabaseOperations.initialize(ctx, VectorDbConfig(dimensions.toLong(), 10, 300))
+        vectorDbDatabaseOperations.initialize(ctx, VectorDbConfig(dimensions.toLong(), 10, 300, VectorDBIndex.HNSW_COSINE.name))
 
         return { queue ->
             for (i in 1..count) {
@@ -81,7 +83,7 @@ class VectorDbPerformance {
         val abstracts = AtomicLong(0)
         val ctx = BaseEContext(DriverManager.getConnection(url, user, password), 100, PostgreSQLDatabaseAccess())
         val vectorDbDatabaseOperations = VectorDbDatabaseOperations()
-        vectorDbDatabaseOperations.initialize(ctx, VectorDbConfig(dimensions.toLong(), 10, 300))
+        vectorDbDatabaseOperations.initialize(ctx, VectorDbConfig(dimensions.toLong(), 10, 300, VectorDBIndex.HNSW_COSINE.name))
         return { queue ->
             Files.readLines(File(file), Charset.defaultCharset()).forEach {
                 val sf = gson.fromJson(it, Map::class.java)
@@ -136,10 +138,10 @@ class VectorDbPerformance {
             Thread.ofVirtual()
                     .unstarted {
                         while (run.get()) {
-                            val result = vc.query("query_closest_objects", gtv(mapOf(
-                                    "context" to gtv(0),
-                                    "q_vector" to gtv(vectorProvider()),
-                                    "max_distance" to gtv(maxDistance),
+                            val result = vc.query("query_closest_objects", GtvFactory.gtv(mapOf(
+                                    "context" to GtvFactory.gtv(0),
+                                    "q_vector" to GtvFactory.gtv(vectorProvider()),
+                                    "max_distance" to GtvFactory.gtv(maxDistance),
                             )))
                             requests.incrementAndGet()
                             if (result.asArray().isNotEmpty()) {
@@ -175,7 +177,7 @@ class VectorDbPerformance {
             val start = System.currentTimeMillis()
             threads.forEach { it.start() }
 
-            sleep(millis)
+            Thread.sleep(millis)
             val tp = requests.get() / ((System.currentTimeMillis() - start) / 1000.0)
             print("$numOfThreads threads, requests: ${requests.get()}, Hits: ${hits.get()}, req/s: " + String.format("%.2f", tp))
 
@@ -332,4 +334,3 @@ class VectorDbPerformance {
         return decimals.joinToString(",", "[", "]")
     }
 }
-
