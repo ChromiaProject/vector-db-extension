@@ -20,6 +20,6 @@ data class VectorDbConfig(
         val storeBatchSize: Long,
 
         @Name("index")
-        @DefaultValue(defaultString = "HNSW_COSINE")
+        @DefaultValue(defaultString = "hnsw_cosine")
         val index: String,
 )

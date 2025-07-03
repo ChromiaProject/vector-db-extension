@@ -35,9 +35,9 @@ class VectorDbDatabaseOperations {
         logger.info { "Initializing vector db" }
 
         try {
-            throw UserMistake("Invalid index type: ${vectorDbConfig.index}. Valid types are: ${VectorDBIndex.entries.joinToString(", ") { it.name }}")
+            vectorIndex = VectorDBIndex.valueOf(vectorDbConfig.index.uppercase())
         } catch (e: IllegalArgumentException) {
-            throw UserMistake("Invalid index type: ${vectorDbConfig.index}")
+            throw UserMistake("Invalid index type: ${vectorDbConfig.index}. Valid types are: ${VectorDBIndex.entries.joinToString(", ") { it.name.lowercase() }}")
         }
 
         DatabaseAccess.of(ctx).apply {
