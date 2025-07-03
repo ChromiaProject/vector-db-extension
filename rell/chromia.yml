@@ -2,6 +2,8 @@ blockchains:
   vector_example:
     module: vector_example
     config:
+      features:
+        merkle_hash_version: 2
       gtx:
         modules:
           - "net.postchain.rell.module.RellPostchainModuleFactory"

@@ -1,14 +1,18 @@
 package net.postchain.gtx.extensions.vectordb
 
 import assertk.assertThat
+import assertk.assertions.hasMessage
 import assertk.assertions.hasSize
 import assertk.assertions.isEqualTo
+import assertk.assertions.isNotNull
 import net.postchain.devtools.IntegrationTestSetup
 import net.postchain.devtools.PostchainTestNode.Companion.DEFAULT_CHAIN_IID
 import net.postchain.gtv.GtvFactory.gtv
+import org.awaitility.Awaitility
+import org.awaitility.Duration
 import org.junit.jupiter.api.Test
 
-class VectorDbIT : IntegrationTestSetup() {
+class VectorDbTest : IntegrationTestSetup() {
 
     init {
         configOverrides.setProperty("messaging.port", 0)
@@ -136,6 +140,25 @@ class VectorDbIT : IntegrationTestSetup() {
     }
 
     @Test
+    fun `query - without query template - l2`() {
+        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d_l2.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
+
+        addMessage(engine, "alpha", "[1, 2, 3]")
+        addMessage(engine, "beta", "[1, 4, 3]")
+        buildBlock(DEFAULT_CHAIN_IID)
+
+        assertThat(
+                queryClosestObjectsGetIdAndDistance(engine, 0, "[1, 2, 3]", 0.0, 1)
+        ).isEqualTo(listOf(
+                mapOf(
+                        "id" to 1L,
+                        "distance" to "0"
+                )
+        ))
+    }
+
+    @Test
     fun `test add and delete`() {
         val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
@@ -161,5 +184,25 @@ class VectorDbIT : IntegrationTestSetup() {
         deleteMessage(engine, "alpha")
         buildBlock(DEFAULT_CHAIN_IID)
         assertThat(getVectors(engine, DEFAULT_CHAIN_IID)).hasSize(1)
+    }
+
+    @Test
+    fun `reject config with new distance type`() {
+        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
+
+        addMessage(engine, "alpha", "[1, 2, 3]")
+        buildBlock(DEFAULT_CHAIN_IID)
+
+        val blockchainGtvConfig = readBlockchainConfig("/net/postchain/gtx/extensions/vectordb/vector_example_3d_l2_test_gtx.xml")
+        node.addConfiguration(DEFAULT_CHAIN_IID, 2, blockchainGtvConfig)
+
+        buildBlockNoWait(listOf(node), DEFAULT_CHAIN_IID, 2)
+
+        Awaitility.await().atMost(Duration.TEN_SECONDS)
+                .untilAsserted {
+                    assertThat(VectorDbTestGTXModule.INIT_DB_EXCEPTION).isNotNull().hasMessage("Changing embedded index is not supported")
+                }
+
     }
 }

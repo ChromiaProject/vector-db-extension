@@ -18,4 +18,8 @@ data class VectorDbConfig(
         @Name("store_batch_size")
         @DefaultValue(defaultLong = 300L)
         val storeBatchSize: Long,
+
+        @Name("index")
+        @DefaultValue(defaultString = "hnsw_cosine")
+        val index: String,
 )

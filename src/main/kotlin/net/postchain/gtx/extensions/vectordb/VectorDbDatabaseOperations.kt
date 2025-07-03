@@ -2,6 +2,7 @@ package net.postchain.gtx.extensions.vectordb
 
 import mu.KLogging
 import net.postchain.base.data.DatabaseAccess
+import net.postchain.common.exception.UserMistake
 import net.postchain.core.EContext
 import net.postchain.core.TxEContext
 import net.postchain.gtv.Gtv
@@ -24,43 +25,87 @@ class VectorDbDatabaseOperations {
         const val VECTOR_DB_COLUMN_EMBEDDING = "embedding"
 
         const val VECTOR_DB_INDEX_CONTEXT_ID = "context_id"
-        const val VECTOR_DB_INDEX_EMBEDDING_HNSW = "embedding_hnsw_index" // L2 not used
-        const val VECTOR_DB_INDEX_EMBEDDING_HNSW_COSINE = "embedding_hnsw_index_cosine"
+        const val VECTOR_DB_INDEX_EMBEDDING_HNSW = "embedding_hnsw_index" // Deprecated
     }
+
+    private lateinit var vectorIndex: VectorDBIndex
 
     fun initialize(ctx: EContext, vectorDbConfig: VectorDbConfig) {
 
+        logger.info { "Initializing vector db" }
+
+        try {
+            vectorIndex = VectorDBIndex.valueOf(vectorDbConfig.index.uppercase())
+        } catch (e: IllegalArgumentException) {
+            throw UserMistake("Invalid index type: ${vectorDbConfig.index}. Valid types are: ${VectorDBIndex.entries.joinToString(", ") { it.name.lowercase() }}")
+        }
+
         DatabaseAccess.of(ctx).apply {
 
+            // Create PG vector extension in this schema
             ctx.conn.createStatement()
                     .execute("CREATE EXTENSION IF NOT EXISTS vector")
 
+            removeLegacyStructure(ctx)
             val tableName = getVectorDbTableName(ctx)
 
+            // Create the vector table
             ctx.conn.createStatement()
                     .execute("""
                         CREATE TABLE IF NOT EXISTS $tableName ($VECTOR_DB_COLUMN_CONTEXT bigint,$VECTOR_DB_COLUMN_ID bigint,
                             $VECTOR_DB_COLUMN_EMBEDDING halfvec(${vectorDbConfig.dimensions}))
                         """.trimIndent())
 
+            // Context id index
             val contextIdIndexName = getVectorDbTableIndexName(ctx, VECTOR_DB_INDEX_CONTEXT_ID)
             ctx.conn.createStatement().execute("""
                 CREATE INDEX IF NOT EXISTS "$contextIdIndexName" on $tableName ("$VECTOR_DB_COLUMN_CONTEXT", "$VECTOR_DB_COLUMN_ID")
                 """.trimIndent()
             )
 
-            val embeddedHnswIndexName = getVectorDbTableIndexName(ctx, VECTOR_DB_INDEX_EMBEDDING_HNSW)
-            ctx.conn.createStatement().execute("""
-                DROP INDEX IF EXISTS "$embeddedHnswIndexName"
-                """.trimIndent()
-            )
-            val embeddedHnswCosineIndexName = getVectorDbTableIndexName(ctx, VECTOR_DB_INDEX_EMBEDDING_HNSW_COSINE)
-            ctx.conn.createStatement().execute("""
-                CREATE INDEX IF NOT EXISTS "$embeddedHnswCosineIndexName"
-                ON $tableName USING hnsw ($VECTOR_DB_COLUMN_EMBEDDING halfvec_cosine_ops)
-                """.trimIndent()
-            )
+            // Create embedding index
+            val embeddedHnswIndexName = getVectorDbTableIndexName(ctx, vectorIndex.indexName)
+
+            // Make sure we don't add a new index type - if we want to support this we need to expand the query part
+            // to provide the distance query operator for each index
+            val embeddingIndexList = VectorDBIndex.entries.map { getVectorDbTableIndexName(ctx, it.indexName) }
+            val tableEmbeddingIndexes = getTableIndexes(ctx, tableName)
+                    .filter { embeddingIndexList.contains(it) }
+            if (tableEmbeddingIndexes.any { it != embeddedHnswIndexName }) {
+                throw UserMistake("Changing embedded index is not supported")
+            } else {
+
+                logger.info { "Creating embedding index of type ${vectorIndex.indexEmbedding}" }
+
+                ctx.conn.createStatement().execute(
+                        """
+                        CREATE INDEX IF NOT EXISTS "$embeddedHnswIndexName"
+                        ON $tableName USING hnsw ($VECTOR_DB_COLUMN_EMBEDDING ${vectorIndex.indexEmbedding})
+                        """.trimIndent()
+                )
+            }
         }
+    }
+
+    private fun getTableIndexes(ctx: EContext, tableName: String): Set<String> {
+        val results = mutableSetOf<String>()
+        val resultSet = ctx.conn.metaData.getIndexInfo(null, null, tableName.replace("\"", ""), false, false)
+        while (resultSet.next()) {
+            val indexName = resultSet.getString("INDEX_NAME")
+            results.add(indexName)
+        }
+
+        return results
+    }
+
+    private fun DatabaseAccess.removeLegacyStructure(ctx: EContext) {
+
+        // One of the first index names, most likely not in use anywhere
+        val embeddedHnswIndexName = getVectorDbTableIndexName(ctx, VECTOR_DB_INDEX_EMBEDDING_HNSW)
+        ctx.conn.createStatement().execute("""
+                    DROP INDEX IF EXISTS "$embeddedHnswIndexName"
+                    """.trimIndent()
+        )
     }
 
     fun storeVectors(ctx: TxEContext, context: Long, vectors: List<Pair<String, Long>>, batchSize: Long = 300) {
@@ -109,7 +154,7 @@ class VectorDbDatabaseOperations {
             ctx.conn.prepareStatement(
                     """
                     WITH nearest_results AS MATERIALIZED (
-                        SELECT $VECTOR_DB_COLUMN_ID, $VECTOR_DB_COLUMN_EMBEDDING <=> ?::halfvec AS distance 
+                        SELECT $VECTOR_DB_COLUMN_ID, $VECTOR_DB_COLUMN_EMBEDDING ${vectorIndex.operator} ?::halfvec AS distance 
                         FROM $tableName
                         WHERE $VECTOR_DB_COLUMN_CONTEXT = ? ORDER BY distance
                         LIMIT ?

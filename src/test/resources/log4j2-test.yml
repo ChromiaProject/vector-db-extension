@@ -1,38 +1,35 @@
 Configuration:
+  name: Default
 
   Properties:
     Property:
-      - name: logs
-        value: "logs"
-      - name: logfile
-        value: "test"
-      - name: logpattern
-        value: "%-5level %d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %c{1} --%notEmpty{ [%notEmpty{node=%.-8X{node.pubkey}}%notEmpty{, bc-rid=%.-2X{blockchainRID}:%.4X{blockchainRID}}%notEmpty{, chain-id=%X{chainIID}}]:} %msg%n"
+      - name: log.fork.id
+        value: "${sys:forkId:-0}"
 
   Appenders:
     Console:
       - name: ConsoleAppender
         target: SYSTEM_OUT
         PatternLayout:
-          pattern: ${logpattern}
+          pattern: "[${log.fork.id}] %d{yyyy-MM-dd HH:mm:ss.SSS} +++ %msg +++%n"
+
     File:
       - name: FileAppender
-        fileName: "${logs}/${logfile}.log"
+        fileName: "logs/test-${log.fork.id}.log"
+        createOnDemand: true
         PatternLayout:
-          Pattern: ${logpattern}
-
+          pattern: "%d{yyyy-MM-dd HH:mm:ss.SSS} +++ %msg +++%n"
   Loggers:
 
     Root:
-      level: warn
+      level: info
+      additivity: false
       AppenderRef:
-        - ref: ConsoleAppender
         - ref: FileAppender
 
     Logger:
-
-      - name: net.postchain
-        level: debug
+      - name: TestLogger
+        level: info
         additivity: false
         AppenderRef:
           - ref: ConsoleAppender
