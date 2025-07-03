@@ -35,7 +35,7 @@ class VectorDbDatabaseOperations {
         logger.info { "Initializing vector db" }
 
         try {
-            vectorIndex = VectorDBIndex.valueOf(vectorDbConfig.index.uppercase())
+            throw UserMistake("Invalid index type: ${vectorDbConfig.index}. Valid types are: ${VectorDBIndex.entries.joinToString(", ") { it.name }}")
         } catch (e: IllegalArgumentException) {
             throw UserMistake("Invalid index type: ${vectorDbConfig.index}")
         }
@@ -87,7 +87,7 @@ class VectorDbDatabaseOperations {
         }
     }
 
-    private fun getTableIndexes(ctx: EContext, tableName: String): MutableSet<String> {
+    private fun getTableIndexes(ctx: EContext, tableName: String): Set<String> {
         val results = mutableSetOf<String>()
         val resultSet = ctx.conn.metaData.getIndexInfo(null, null, tableName.replace("\"", ""), false, false)
         while (resultSet.next()) {
