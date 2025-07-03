@@ -243,6 +243,9 @@
                         <PROJECT_VERSION>${project.version}</PROJECT_VERSION>
                         <TESTCONTAINERS_RYUK_DISABLED>true</TESTCONTAINERS_RYUK_DISABLED>
                         <POSTCHAIN_TEST_DOCKER_IMAGE_POSTCHAIN_SERVER>registry.gitlab.com/chromaway/postchain-chromia/chromaway/chromia-server:latest-snapshot</POSTCHAIN_TEST_DOCKER_IMAGE_POSTCHAIN_SERVER>
+                        <!-- Set our subnode to use the daemon user and group. This will be accepted by initdb
+                             since the user exists in the host mounted /etc/passwd file. -->
+                        <POSTCHAIN_SUBNODE_USER>1:1</POSTCHAIN_SUBNODE_USER>
                     </environmentVariables>
                 </configuration>
                 <executions>
