@@ -25,11 +25,11 @@
         <kotlin.compiler.jvmTarget>21</kotlin.compiler.jvmTarget>
         <kotlin.code.style>obsolete</kotlin.code.style> <!-- Kotlin obsolete IntelliJ IDEA codestyle -->
 
-        <postchain.version>3.40.3</postchain.version>
+        <postchain.version>3.42.0</postchain.version>
         <rell.version>0.14.12</rell.version>
 
         <!-- Tests -->
-        <postchain.chromia.version>3.32.6</postchain.chromia.version>
+        <postchain.chromia.version>3.32.12</postchain.chromia.version>
         <directory.chain.version>1.91.0</directory.chain.version>
         <directory.source>${project.build.directory}/directory-chain/src</directory.source>
         <directory.config>${project.basedir}/src/test/resources/net/postchain/images/directory1/directory1.yml</directory.config>
@@ -201,7 +201,7 @@
                 <configuration>
                     <allowInsecureRegistries>false</allowInsecureRegistries>
                     <from>
-                        <image>registry.gitlab.com/chromaway/postchain-chromia/chromaway/chromia-subnode:3.32.6@sha256:dac3e9490a9a90593a6a6fd9beeaa48237d36c9bfcb1200daa641dd260fdff02</image>
+                        <image>registry.gitlab.com/chromaway/postchain-chromia/chromaway/chromia-subnode:3.32.12@sha256:54066e0425f668bcc76a99894ed12a7d18b8d1833efc0732fe20a49587eadc5f</image>
                     </from>
                     <to>
                         <image>${image.name}</image>
