@@ -79,17 +79,18 @@ The extension will add a query function named `query_closest_objects` which can 
 It supports the following parameters:
 
 
-| Name             | Type             | Required | Default | Description                                                                                       |
-|------------------|------------------|----------|---------|---------------------------------------------------------------------------------------------------|
-| `context`        | `integer`        | true     |         | Context used by dApp. Can be any number and a dApp can use multiple contexts to separate vectors. |
-| `q_vector`       | vector as `text` | true     |         | The vector to search for as `text` on format `[1,2,3]`.                                           |
-| `max_distance`   | `decimal`        | true     |         | The max distance from `q_vector` to stored vectors                                                |
-| `max_vectors`    | `integer`        | false    | 10      | The max number of vectors to return.                                                              |
-| `query_template` | `text`           | false    | Not set | Provide a Rell query function to transform the results (see below).                               |
+| Name             | Type                                 | Required | Default | Description                                                                                       |
+|------------------|--------------------------------------|----------|---------|---------------------------------------------------------------------------------------------------|
+| `context`        | `integer`                            | true     |         | Context used by dApp. Can be any number and a dApp can use multiple contexts to separate vectors. |
+| `q_vector`       | vector as `text`                     | true     |         | The vector to search for as `text` on format `[1,2,3]`.                                           |
+| `max_distance`   | `decimal`                            | true     |         | The max distance from `q_vector` to stored vectors                                                |
+| `max_vectors`    | `integer`                            | false    | 10      | The max number of vectors to return.                                                              |
+| `query_template` | `(type: text, args: map<text, gtv>)` | false    | Not set | Provide a Rell query function to transform the results (see below).                               |
 
 ### Query template
 
-When no `query_template` is provided to `query_closest_objects` the result returned is a list of vector ids and their distance. This can however be transformed by providing a Rell query function:
+When no `query_template` is provided to `query_closest_objects` the result returned is a list of vector ids and their distance. 
+This can however be transformed by providing a Rell query function:
 
 ```
 query get_messages(closest_results: list<object_distance>): list<text> {
@@ -98,7 +99,8 @@ query get_messages(closest_results: list<object_distance>): list<text> {
 }
 ```
 
-This function will transform the vector search result `closest_results: list<object_distance>` into a list of text. When `query_template=get_messages` is provided to `query_closest_objects` the result will be a list of text. 
+This function will transform the vector search result `closest_results: list<object_distance>` into a list of text. 
+When `query_template=(type: "get_messages")` is provided to `query_closest_objects` the result will be a list of text. 
 
 ## Local run and example
 
