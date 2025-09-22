@@ -35,7 +35,11 @@ function store_vectors(collection: text, context: integer, vectors: list<vector_
 }
 
 /**
- * Delete one vector from database.
+ * Delete one vector from database. For performance consider using `delete_vectors` instead.
+ *
+ * @param collection The name of the collection defined in the blockchain configuration.
+ * @param context The context of the vector.
+ * @param id The ID for the vector to delete.
  */
 function delete_vector(collection: text, context: integer, id: integer) {
     delete_vectors(collection, context, set([id]));
@@ -43,6 +47,10 @@ function delete_vector(collection: text, context: integer, id: integer) {
 
 /**
  * Delete a set of vectors from the database.
+ *
+ * @param collection The name of the collection defined in the blockchain configuration.
+ * @param context The context of the vector.
+ * @param ids The list of vector IDs to delete.
  */
 function delete_vectors(collection: text, context: integer, ids: set<integer>) {
     op_context.emit_event("delete_vectors", (collection = collection, context = context, ids = ids).to_gtv_pretty());
