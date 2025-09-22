@@ -10,5 +10,8 @@ blockchains:
           - "net.postchain.gtx.StandardOpsGTXModule"
           - "net.postchain.gtx.extensions.vectordb.VectorDbGTXModule"
       vector_db_extension:
-        dimensions: 3
-        max_vectors: 10
+        collections:
+          messages:
+            dimensions: 3
+            query_max_vectors: 10
+            index: hnsw_cosine

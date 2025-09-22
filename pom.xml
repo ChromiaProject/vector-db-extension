@@ -25,18 +25,17 @@
         <kotlin.compiler.jvmTarget>21</kotlin.compiler.jvmTarget>
         <kotlin.code.style>obsolete</kotlin.code.style> <!-- Kotlin obsolete IntelliJ IDEA codestyle -->
 
-        <postchain.version>3.42.0</postchain.version>
+        <postchain.version>dev</postchain.version>
+        <postchain-chromia.version>3.32.13</postchain-chromia.version>
         <rell.version>0.14.12</rell.version>
 
         <!-- Tests -->
-        <postchain.chromia.version>3.32.12</postchain.chromia.version>
         <directory.chain.version>1.91.0</directory.chain.version>
         <directory.source>${project.build.directory}/directory-chain/src</directory.source>
         <directory.config>${project.basedir}/src/test/resources/net/postchain/images/directory1/directory1.yml</directory.config>
-        <rell.maven.plugin.version>0.14.5</rell.maven.plugin.version>
+        <rell.maven.plugin.version>0.14.9</rell.maven.plugin.version>
 
         <junit.version>5.9.1</junit.version>
-        <log4j.version>2.23.1</log4j.version>
         <testcontainers.version>1.20.3</testcontainers.version>
 
         <!--suppress UnresolvedMavenProperty -->
@@ -46,7 +45,7 @@
         <gitlab.registry>registry.gitlab.com/chromaway/core/vector-db-extension</gitlab.registry>
         <docker.cache>/tmp/docker-cache</docker.cache>
         <image.platforms>linux/amd64,linux/arm64</image.platforms>
-        <image.name>chromaway/vector-db-extension-chromia-subnode</image.name>
+        <image.name>chromaway/vector-db-extension-v2-chromia-subnode</image.name>
     </properties>
 
     <dependencyManagement>
@@ -55,6 +54,13 @@
                 <groupId>net.postchain</groupId>
                 <artifactId>postchain</artifactId>
                 <version>${postchain.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>net.postchain</groupId>
+                <artifactId>postchain-chromia</artifactId>
+                <version>${postchain-chromia.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -93,17 +99,22 @@
             <artifactId>postchain-spi</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>net.postchain.images</groupId>
+            <artifactId>chromia-subnode</artifactId>
+            <version>${postchain-chromia.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.github.microutils</groupId>
+            <artifactId>kotlin-logging-jvm</artifactId>
+        </dependency>
+
         <!-- Test -->
         <dependency>
             <groupId>net.postchain</groupId>
-            <artifactId>chromia-core</artifactId>
-            <version>${postchain.chromia.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.postchain</groupId>
             <artifactId>deployment-test</artifactId>
-            <version>${postchain.chromia.version}</version>
+            <version>${postchain-chromia.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -111,17 +122,12 @@
             <artifactId>deployment-test</artifactId>
             <classifier>tests</classifier>
             <type>test-jar</type>
-            <version>${postchain.chromia.version}</version>
+            <version>${postchain-chromia.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.jetbrains.kotlinx</groupId>
             <artifactId>kotlinx-coroutines-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.logging.log4j</groupId>
-            <artifactId>log4j-slf4j-impl</artifactId>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -149,22 +155,26 @@
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
-        <!-- Needed for testcontainers -->
-        <dependency>
-            <groupId>commons-codec</groupId>
-            <artifactId>commons-codec</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.postchain.rell</groupId>
-            <artifactId>rell-gtx</artifactId>
-            <version>${rell.version}</version>
-            <scope>test</scope>
-        </dependency>
         <dependency>
             <groupId>net.postchain.client</groupId>
             <artifactId>chromia-client</artifactId>
             <version>3.26.1</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Needed for testcontainers -->
+        <dependency>
+            <groupId>commons-codec</groupId>
+            <artifactId>commons-codec</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -201,18 +211,30 @@
                 <configuration>
                     <allowInsecureRegistries>false</allowInsecureRegistries>
                     <from>
-                        <image>registry.gitlab.com/chromaway/postchain-chromia/chromaway/chromia-subnode:3.32.12@sha256:54066e0425f668bcc76a99894ed12a7d18b8d1833efc0732fe20a49587eadc5f</image>
+                        <image>registry.gitlab.com/chromaway/core-tools/chromia-images/java21-postgres16-ubuntu:1.1.0@sha256:6f2f6626874756d80a458f80dd6af0b744d1ee28c6af2c25319e2149e251f73a</image>
+<!--                        <image>docker://java21-postgres16-ubuntu</image>-->
                     </from>
                     <to>
                         <image>${image.name}</image>
                     </to>
                     <container>
                         <appRoot>/opt/chromaway/postchain</appRoot>
-                        <entrypoint>INHERIT</entrypoint>
+                        <workingDirectory>/opt/chromaway/postchain</workingDirectory>
+                        <entrypoint>/bin/bash</entrypoint>
+                        <args>entrypoint.sh</args>
+                        <environment>
+                            <POSTCHAIN_RUNNING_IN_CONTAINER>true</POSTCHAIN_RUNNING_IN_CONTAINER>
+                            <LOG4J_CONFIGURATION_FILE>/opt/chromaway/postchain/log4j2.yml</LOG4J_CONFIGURATION_FILE>
+                            <POSTCHAIN_DIR>/opt/chromaway/postchain</POSTCHAIN_DIR>
+                            <PGDATA>/var/lib/postgresql/data</PGDATA>
+                            <POSTGRES_DB>postchain</POSTGRES_DB>
+                            <POSTGRES_USER>postchain</POSTGRES_USER>
+                            <POSTGRES_PASSWORD>postchain</POSTGRES_PASSWORD>
+                            <POSTGRES_INITDB_ARGS>--lc-collate=C.UTF-8 --lc-ctype=C.UTF-8 --encoding=UTF-8</POSTGRES_INITDB_ARGS>
+                        </environment>
                         <creationTime>${git.commit.time}</creationTime>
                         <filesModificationTime>${git.commit.time}</filesModificationTime>
                     </container>
-                    <containerizingMode>packaged</containerizingMode>
                 </configuration>
                 <executions>
                     <execution>
@@ -244,9 +266,20 @@
                         <TESTCONTAINERS_RYUK_DISABLED>true</TESTCONTAINERS_RYUK_DISABLED>
                         <POSTCHAIN_TEST_DOCKER_IMAGE_POSTCHAIN_SERVER>registry.gitlab.com/chromaway/postchain-chromia/chromaway/chromia-server:latest-snapshot</POSTCHAIN_TEST_DOCKER_IMAGE_POSTCHAIN_SERVER>
                     </environmentVariables>
+                    <includes>
+                        <include>**/*SlowIntegrationTest.*</include>
+                    </includes>
                 </configuration>
                 <executions>
                     <execution>
+                        <id>failsafe-in-test-phase</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>integration-test</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>failsafe-default-verify</id>
                         <goals>
                             <goal>integration-test</goal>
                             <goal>verify</goal>
@@ -269,7 +302,7 @@
                         <configuration>
                             <configPath>${project.basedir}/rell/chromia.yml</configPath>
                             <source>${project.basedir}/rell/src</source>
-                            <target>target/test-classes/directory1deployment</target>
+                            <target>${project.build.directory}/test-classes/directory1deployment</target>
                         </configuration>
                     </execution>
                     <execution>

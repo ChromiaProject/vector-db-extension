@@ -35,7 +35,7 @@
             <entry key="rell">
                 <dict>
                     <entry key="compilerVersion">
-                        <string>0.14.7</string>
+                        <string>0.14.12</string>
                     </entry>
                     <entry key="modules">
                         <array>
@@ -48,35 +48,56 @@
                                 <string>module;
 
 /**
- * Stores a vector in the database.
+ * Stores a vector in the database. For performance consider using `store_vectors` instead.
  *
+ * @param collection Name of collection.
  * @param context The context of the vector.
  * @param vector The vector to store.
  * @param id The id of the vector, this is the id to be returned from a search.
  */
-function store_vector(context: integer, vector: text, id: integer) {
-    op_context.emit_event("store_vector", (context = context, vector = vector, id = id).to_gtv_pretty());
+function store_vector(collection: text, context: integer, vector: text, id: integer) {
+                                    store_vectors(collection, context, [vector_db_data(vector, id)]);
 }
 
+                                    /**
+                                    * Struct used to store vectors and id when sent to store_vectors as list.
+                                    */
 struct vector_db_data {
+    /** A vector string on format '[0.0,...]' */
     vector: text;
+
+    /** The reference ID for this vector, */
     id: integer;
 }
 
-function store_vectors(context: integer, vectors: list&lt;vector_db_data&gt;) {
-    op_context.emit_event("store_vectors", (context = context, vectors = vectors).to_gtv_pretty());
+                                    /**
+                                    * Store a list of vectors in the database.
+                                    *
+ * @param collection The name of the collection defined in the blockchain configuration.
+                                    * @param context The context of the vector.
+                                    * @param vectors List of vectors to store.
+                                    */
+function store_vectors(collection: text, context: integer, vectors: list&lt;vector_db_data&gt;) {
+    op_context.emit_event("store_vectors", (collection = collection, context = context, vectors = vectors).to_gtv_pretty());
 }
 
-function delete_vector(context: integer, id: integer) {
-    op_context.emit_event("delete_vector", (context = context, id = id).to_gtv_pretty());
+                                    /**
+                                    * Delete one vector from database.
+                                    */
+                                    function delete_vector(collection: text, context: integer, id: integer) {
+                                    delete_vectors(collection, context, set([id]));
 }
 
-function delete_vectors(context: integer, ids: set&lt;integer&gt;) {
-    op_context.emit_event("delete_vectors", (context = context, ids = ids).to_gtv_pretty());
+                                    /**
+                                    * Delete a set of vectors from the database.
+                                    */
+function delete_vectors(collection: text, context: integer, ids: set&lt;integer&gt;) {
+    op_context.emit_event("delete_vectors", (collection = collection, context = context, ids = ids).to_gtv_pretty());
 }
 
 /** A vector search result object. The query template function gets a list of this object. */
 struct object_distance {
+                                    context: integer;
     id: integer;
     distance: decimal;
 }</string>
@@ -88,6 +109,7 @@ import lib.*;
 
 entity message { text; }
 
+                                    val COLLECTION = "messages";
 val CONTEXT_MESSAGE = 0;
 
 /**
@@ -99,7 +121,7 @@ val CONTEXT_MESSAGE = 0;
  */
 operation add_message(text, vector: text) {
     val message_entity = create message (text);
-    store_vector(CONTEXT_MESSAGE, vector, message_entity.rowid.to_integer());
+    store_vector(COLLECTION, CONTEXT_MESSAGE, vector, message_entity.rowid.to_integer());
 }
 
 struct message_data {
@@ -113,19 +135,19 @@ operation add_messages(messages: list&lt;message_data&gt;) {
         val message_entity = create message (message.text);
         vector_ids.add(vector_db_data(message.vector, message_entity.rowid.to_integer()));
     }
-    store_vectors(CONTEXT_MESSAGE, vector_ids);
+                                    store_vectors(COLLECTION, CONTEXT_MESSAGE, vector_ids);
 }
 
 /** Delete text and its vector */
 operation delete_message(text) {
     val msg = message @ { text };
-    delete_vector(CONTEXT_MESSAGE, msg.rowid.to_integer());
+                                    delete_vector(COLLECTION, CONTEXT_MESSAGE, msg.rowid.to_integer());
     delete msg;
 }
 
 operation delete_messages(texts: list&lt;text&gt;) {
     val message_entities = message @* { .text in texts };
-    delete_vectors(CONTEXT_MESSAGE, message_entities @ {} (@set .rowid.to_integer()));
+    delete_vectors(COLLECTION, CONTEXT_MESSAGE, message_entities @ {} (@set .rowid.to_integer()));
     delete message_entities;
 }
 
@@ -190,7 +212,7 @@ query get_messages_with_filter(closest_results: list&lt;object_distance&gt;, tex
                         <int>1</int>
                     </entry>
                     <entry key="version">
-                        <string>0.14.2</string>
+                        <string>0.14.5</string>
                     </entry>
                 </dict>
             </entry>
@@ -211,7 +233,7 @@ query get_messages_with_filter(closest_results: list&lt;object_distance&gt;, tex
             <entry key="dimensions">
                 <int>3</int>
             </entry>
-            <entry key="max_vectors">
+            <entry key="query_max_vectors">
                 <int>10</int>
             </entry>
         </dict>

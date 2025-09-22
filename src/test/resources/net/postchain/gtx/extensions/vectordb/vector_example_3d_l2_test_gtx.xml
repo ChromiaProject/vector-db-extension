@@ -29,7 +29,7 @@
         <dict>
             <entry key="modules">
                 <array>
-                    <string>net.postchain.gtx.extensions.vectordb.VectorDbTestGTXModule</string>
+                    <string>net.postchain.gtx.extensions.vectordb.helpers.VectorDbTestGTXModule</string>
                 </array>
             </entry>
         </dict>
@@ -46,14 +46,22 @@
     </entry>
     <entry key="vector_db_extension">
         <dict>
+            <entry key="collections">
+                <dict>
+                    <entry key="messages">
+        <dict>
             <entry key="dimensions">
                 <int>3</int>
             </entry>
-            <entry key="max_vectors">
+                            <entry key="index">
+                                <string>hnsw_l2</string>
+                            </entry>
+            <entry key="query_max_vectors">
                 <int>10</int>
             </entry>
-            <entry key="index">
-                <string>hnsw_l2</string>
+                        </dict>
+                    </entry>
+                </dict>
             </entry>
         </dict>
     </entry>
