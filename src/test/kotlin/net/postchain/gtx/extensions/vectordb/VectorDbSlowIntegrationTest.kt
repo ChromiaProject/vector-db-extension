@@ -148,7 +148,7 @@ class VectorDbSlowIntegrationTest : ManagedModeBase("vectordb") {
                     "max_distance" to gtv("1.0"),
                     "query_max_vectors" to gtv(2),
                     "query_template" to gtv(
-                            "type" to gtv("get_messages"),
+                            "name" to gtv("get_messages"),
                     ),
             ))
             assertThat(result.asArray().map { it.asString() }).isEqualTo(listOf("hello", "world"))

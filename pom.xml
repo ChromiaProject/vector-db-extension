@@ -110,6 +110,11 @@
             <artifactId>kotlin-logging-jvm</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+        </dependency>
+
         <!-- Test -->
         <dependency>
             <groupId>net.postchain</groupId>
@@ -163,11 +168,6 @@
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
-            <artifactId>log4j-core</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-core-test</artifactId>
             <scope>test</scope>
         </dependency>
@@ -212,7 +212,6 @@
                     <allowInsecureRegistries>false</allowInsecureRegistries>
                     <from>
                         <image>registry.gitlab.com/chromaway/core-tools/chromia-images/java21-postgres16-ubuntu:1.1.0@sha256:6f2f6626874756d80a458f80dd6af0b744d1ee28c6af2c25319e2149e251f73a</image>
-<!--                        <image>docker://java21-postgres16-ubuntu</image>-->
                     </from>
                     <to>
                         <image>${image.name}</image>
@@ -272,16 +271,16 @@
                 </configuration>
                 <executions>
                     <execution>
-                        <id>failsafe-in-test-phase</id>
-                        <phase>test</phase>
+                        <id>integration-test</id>
+                        <phase>integration-test</phase>
                         <goals>
                             <goal>integration-test</goal>
                         </goals>
                     </execution>
                     <execution>
-                        <id>failsafe-default-verify</id>
+                        <id>verify</id>
+                        <phase>verify</phase>
                         <goals>
-                            <goal>integration-test</goal>
                             <goal>verify</goal>
                         </goals>
                     </execution>

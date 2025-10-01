@@ -2,6 +2,8 @@ blockchains:
   vector_example:
     module: vector_example
     config:
+      blockstrategy:
+        maxblocktime: 2000
       features:
         merkle_hash_version: 2
       gtx:
