@@ -156,7 +156,7 @@ class VectorDbSlowIntegrationTest : ManagedModeBase("vectordb") {
     }
 
     @Test
-    @Order(30)
+    @Order(40)
     fun `query - without query template`() {
 
         assertThat(
