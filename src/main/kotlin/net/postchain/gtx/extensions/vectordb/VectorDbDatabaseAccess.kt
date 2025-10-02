@@ -75,7 +75,6 @@ class VectorDbDatabaseAccess{
         // Create PG vector extension in this schema
         ctx.conn.createStatement()
                 .execute("CREATE EXTENSION IF NOT EXISTS vector")
-//                .execute("CREATE EXTENSION IF NOT EXISTS vector SCHEMA public")
 
         pgVectorSchema = getPgVectorExtensionSchema(ctx, databaseSchema)
         if (pgVectorSchema != null) {

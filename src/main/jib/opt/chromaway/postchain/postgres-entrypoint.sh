@@ -134,11 +134,21 @@ configure_resource_limits() {
     MAX_LOCKS_PER_TRANSACTION=${POSTGRES_MAX_LOCKS_PER_TRANSACTION:-1024}
     echo "max_locks_per_transaction = $MAX_LOCKS_PER_TRANSACTION"
 
+    # Parse properties from directory chain container configuration
+    if [ -n "$DIRECTORY_CONTAINER_CONFIGURATION" ]; then
+      # Read the slow_db_statement_log_ms property from the configuration
+      LOG_MIN_DURATION_STATEMENT=$(echo "$DIRECTORY_CONTAINER_CONFIGURATION" | jq -r '.slow_db_statement_log_ms // -1')
+    else
+      LOG_MIN_DURATION_STATEMENT=-1
+    fi
+    echo "log_min_duration_statement = $LOG_MIN_DURATION_STATEMENT"
+
     update_file_if_changed "$PGDATA/postgresql.conf" "$(sed -E "/^shared_buffers =/ s/= .*/= ${SHARED_BUFFERS_LIMIT}MB/" $PGDATA/postgresql.conf)"
     update_file_if_changed "$PGDATA/postgresql.conf" "$(sed -E "/^#?max_connections =/ s/.*/max_connections = ${MAX_DB_CONNECTIONS}/" $PGDATA/postgresql.conf)"
     update_file_if_changed "$PGDATA/postgresql.conf" "$(sed -E "/^#?work_mem =/ s/.*/work_mem = ${WORK_MEM_LIMIT}MB/" $PGDATA/postgresql.conf)"
     update_file_if_changed "$PGDATA/postgresql.conf" "$(sed -E "/^#?effective_cache_size =/ s/.*/effective_cache_size = ${EFFECTIVE_CACHE_SIZE_LIMIT}MB/" $PGDATA/postgresql.conf)"
     update_file_if_changed "$PGDATA/postgresql.conf" "$(sed -E "/^#?max_locks_per_transaction =/ s/.*/max_locks_per_transaction = ${MAX_LOCKS_PER_TRANSACTION}/" $PGDATA/postgresql.conf)"
+    update_file_if_changed "$PGDATA/postgresql.conf" "$(sed -E "/^#?log_min_duration_statement =/ s/.*/log_min_duration_statement = ${LOG_MIN_DURATION_STATEMENT}/" $PGDATA/postgresql.conf)"
   fi
 }
 

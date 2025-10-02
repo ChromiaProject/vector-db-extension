@@ -107,13 +107,10 @@ open class VectorDbGTXModule(
 
         validateConfiguration(conf.vectorDbConfig)
 
-        if (chainId == null) {
-            throw ProgrammerMistake("Chain ID not set. This module is not initialized in expected order.")
-        }
-
         logger.info { "VectorDB config: ${configuration.rawConfig[VECTOR_DB_EXTENSION_CONFIG_NAME]?.asDict()}" }
 
-        val ctx = postchainContext.blockBuilderStorage.openWriteConnection(chainId!!)
+        chainId = configuration.chainID
+        val ctx = postchainContext.blockBuilderStorage.openWriteConnection(configuration.chainID)
         try {
             initializeDb(ctx, conf.vectorDbConfig, conf.postchainContext.appConfig.databaseSchema)
         } finally {
@@ -186,7 +183,6 @@ open class VectorDbGTXModule(
     }
 
     override fun initializeDB(ctx: EContext) {
-        chainId = ctx.chainID
     }
 
     override fun initializeSnapshotContext(context: SnapshotContext) {
