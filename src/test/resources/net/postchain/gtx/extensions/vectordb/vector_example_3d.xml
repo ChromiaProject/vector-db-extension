@@ -142,7 +142,6 @@ operation add_messages(messages: list&lt;message_data&gt;) {
 }
 
 operation add_messages_in_context(context: integer, messages: list&lt;message_data&gt;) {
-                                    log("JJJJ GOOOO");
     val vector_ids = list&lt;vector_db_data&gt;();
     for (message in messages) {
         val message_entity = create message (message.text);
@@ -264,13 +263,7 @@ query get_messages_with_filter(closest_results: list&lt;object_distance&gt;, tex
     </entry>
     <entry key="features">
         <dict>
-            <entry key="snapshot_enabled"><int>1</int></entry>
             <entry key="merkle_hash_version"><int>2</int></entry>
-        </dict>
-    </entry>
-    <entry key="snapshot">
-        <dict>
-            <entry key="interval"><int>2</int></entry>
         </dict>
     </entry>
 </dict>

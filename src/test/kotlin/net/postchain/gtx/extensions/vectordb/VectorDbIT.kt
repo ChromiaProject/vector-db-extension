@@ -12,12 +12,14 @@ import net.postchain.gtv.GtvFactory.gtv
 import net.postchain.gtx.Gtx
 import net.postchain.gtx.GtxBody
 import net.postchain.gtx.GtxOp
+import net.postchain.gtx.extensions.vectordb.config.VectorDBIndex
 import net.postchain.gtx.extensions.vectordb.helpers.VectorDbTestGTXModule
 import net.postchain.gtx.extensions.vectordb.helpers.addMessage
 import net.postchain.gtx.extensions.vectordb.helpers.addMessages
 import net.postchain.gtx.extensions.vectordb.helpers.buildQueryTemplateOrNull
 import net.postchain.gtx.extensions.vectordb.helpers.deleteMessage
 import net.postchain.gtx.extensions.vectordb.helpers.getVectors
+import net.postchain.gtx.extensions.vectordb.helpers.modify
 import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjects
 import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsGetIdAndDistance
 import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsGetStrings
@@ -261,7 +263,13 @@ class VectorDbIT : IntegrationTestSetup() {
         addMessage(engine, "alpha", "[1, 2, 3]")
         buildBlock(DEFAULT_CHAIN_IID)
 
-        val blockchainGtvConfig = readBlockchainConfig("/net/postchain/gtx/extensions/vectordb/vector_example_3d_l2_test_gtx.xml")
+        val blockchainGtvConfig = readBlockchainConfig("/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")
+                .modify(listOf("gtx", "modules")) {
+                    gtv(gtv("net.postchain.gtx.extensions.vectordb.helpers.VectorDbTestGTXModule"))
+                }
+                .modify(listOf("vector_db_extension", "collections", "messages", "index")) {
+                    gtv(VectorDBIndex.HNSW_L2.name)
+                }
         node.addConfiguration(DEFAULT_CHAIN_IID, 2, blockchainGtvConfig)
 
         buildBlockNoWait(listOf(node), DEFAULT_CHAIN_IID, 2)

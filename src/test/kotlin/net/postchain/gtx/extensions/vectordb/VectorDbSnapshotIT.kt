@@ -9,6 +9,7 @@ import net.postchain.base.snapshot.SnapshotBlockchainConfigurationData
 import net.postchain.base.snapshot.SnapshotPageStore
 import net.postchain.base.withReadConnection
 import net.postchain.common.data.Hash
+import net.postchain.common.hexStringToByteArray
 import net.postchain.concurrent.util.get
 import net.postchain.devtools.ManagedModeTest
 import net.postchain.devtools.PostchainTestNode
@@ -77,7 +78,11 @@ class VectorDbSnapshotIT : ManagedModeTest() {
 
         startManagedSystem(4, 0, restApi = true)
 
-        val config = GtvMLParser.parseGtvML(Any::class::class.java.getResource("/net/postchain/gtx/extensions/vectordb/vector_example_3d_4signers.xml")!!.readText())
+        val config = GtvMLParser.parseGtvML(Any::class::class.java.getResource("/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")!!.readText())
+                .modify(listOf("signers")) {
+                    configEntry ->
+                    gtv(configEntry.asArray().toList() + nodes.map { gtv(it.pubKey.hexStringToByteArray()) })
+                }
                 .modify(listOf("features")) { configEntry ->
                     gtv(configEntry.asDict() + mapOf("snapshot_enabled" to gtv(true)))
                 }
