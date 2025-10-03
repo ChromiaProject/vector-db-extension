@@ -1,7 +1,8 @@
-package net.postchain.gtx.extensions.vectordb
+package net.postchain.gtx.extensions.vectordb.helpers
 
 import net.postchain.PostchainContext
 import net.postchain.core.BlockchainConfiguration
+import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule
 
 class VectorDbTestGTXModule : VectorDbGTXModule() {
 

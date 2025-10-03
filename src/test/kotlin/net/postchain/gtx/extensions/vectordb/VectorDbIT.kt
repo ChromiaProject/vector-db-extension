@@ -1,152 +1,153 @@
 package net.postchain.gtx.extensions.vectordb
 
 import assertk.assertThat
+import assertk.assertions.hasMessage
+import assertk.assertions.hasSize
 import assertk.assertions.isEqualTo
 import assertk.assertions.isNotNull
 import assertk.assertions.isTrue
-import net.postchain.chain0.common.init.initOperation
-import net.postchain.chain0.common.queries.getAllNodes
-import net.postchain.chain0.common.queries.getAllProviders
-import net.postchain.chain0.common.queries.getBlockchainInfo
-import net.postchain.chain0.common.queries.getBlockchains
-import net.postchain.chain0.common.queries.getNodeData
-import net.postchain.chain0.common.queries.getSummary
-import net.postchain.chain0.direct_container.createContainerOperation
-import net.postchain.chain0.proposal.BlockchainConfigurationUpdateState
-import net.postchain.chain0.proposal.ProposalType
-import net.postchain.chain0.proposal.getBlockchainConfigurationUpdateAttemptStateByProposal
-import net.postchain.chain0.proposal.getRelevantProposals
-import net.postchain.chain0.proposal_blockchain.proposeConfigurationOperation
-import net.postchain.client.core.PostchainClient
-import net.postchain.client.transaction.awaitConfirmation
-import net.postchain.dapp.postTransactionUntilConfirmed
-import net.postchain.gtv.Gtv
-import net.postchain.gtv.GtvEncoder
+import net.postchain.devtools.IntegrationTestSetup
+import net.postchain.devtools.PostchainTestNode.Companion.DEFAULT_CHAIN_IID
 import net.postchain.gtv.GtvFactory.gtv
-import net.postchain.gtv.gtvml.GtvMLEncoder
-import net.postchain.gtv.gtvml.GtvMLParser
-import net.postchain.gtx.extensions.vectordb.vector_example.MessageData
-import net.postchain.gtx.extensions.vectordb.vector_example.addMessagesOperation
-import net.postchain.images.common.ManagedModeBase
-import net.postchain.images.directory1.Directory1TestBase.Companion.provider1KeyPair
-import net.postchain.images.directory1.awaitUntilAsserted
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.BeforeAll
-import org.junit.jupiter.api.MethodOrderer
-import org.junit.jupiter.api.Order
+import net.postchain.gtx.Gtx
+import net.postchain.gtx.GtxBody
+import net.postchain.gtx.GtxOp
+import net.postchain.gtx.extensions.vectordb.config.VectorDBIndex
+import net.postchain.gtx.extensions.vectordb.helpers.VectorDbTestGTXModule
+import net.postchain.gtx.extensions.vectordb.helpers.addMessage
+import net.postchain.gtx.extensions.vectordb.helpers.addMessages
+import net.postchain.gtx.extensions.vectordb.helpers.buildQueryTemplateOrNull
+import net.postchain.gtx.extensions.vectordb.helpers.deleteMessage
+import net.postchain.gtx.extensions.vectordb.helpers.getVectors
+import net.postchain.gtx.extensions.vectordb.helpers.modify
+import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjects
+import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsGetIdAndDistance
+import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsGetStrings
+import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsGetTextAndDistance
+import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsNoTemplate
+import org.awaitility.Awaitility
+import org.awaitility.Duration
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.TestInstance
-import org.junit.jupiter.api.TestMethodOrder
-import org.junitpioneer.jupiter.DisableIfTestFails
-import org.testcontainers.junit.jupiter.Testcontainers
 
-@Testcontainers(disabledWithoutDocker = true)
-@TestMethodOrder(MethodOrderer.OrderAnnotation::class)
-@DisableIfTestFails
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class VectorDbIT : ManagedModeBase("vectordb") {
+class VectorDbIT : IntegrationTestSetup() {
 
-    private lateinit var vectorClient: PostchainClient
-
-    @BeforeAll
-    fun init() {
-        // Nodes
-        val chain0TextConfig = GtvMLParser.parseGtvML(this::class.java.getResource("/directory1deployment/manager.xml")!!.readText())
-        val chain0ModifiedConfig = modifyGTV(chain0TextConfig, listOf("gtx", "rell", "moduleArgs", "proposal_blockchain.util", "allowed_dapp_chain_gtx_modules")) { configEntry ->
-            gtv(listOf(
-                    *configEntry.asArray(),
-                    gtv("net.postchain.gtx.extensions.vectordb.VectorDbGTXModule"),
-            ))
-        }
-
-        chain0Config = GtvMLEncoder.encodeXMLGtv(chain0ModifiedConfig)
-        node1 = postchainServerWithSubnodes("node1",
-                provider1KeyPair,
-                "/net/postchain/gtx/extensions/vectordb/config-all-subnodes",
-                true)
-
-        startNodesAndChain0()
+    init {
+        configOverrides.setProperty("messaging.port", 0)
     }
 
     @Test
-    @Order(10)
-    fun `setup the network`() {
-        testLogger.info("Setup the network")
-        getDb(node1).awaitBlockHeight(0)
-        with(node1.c0) {
-            val clusterAnchoringGtvConfig = GtvMLParser.parseGtvML(this::class.java.getResource("/directory1deployment/cluster_anchoring.xml")!!.readText())
-            val systemAnchoringGtvConfig = GtvMLParser.parseGtvML(this::class.java.getResource("/directory1deployment/system_anchoring.xml")!!.readText())
-            transactionBuilder()
-                    .initOperation(GtvEncoder.encodeGtv(systemAnchoringGtvConfig), GtvEncoder.encodeGtv(clusterAnchoringGtvConfig))
-                    .postTransactionUntilConfirmed("init")
-            assertThat(getSummary().providers).isEqualTo(1L)
-            assertThat(getNodeData(node1.nodeKeyPair.pubKey).active).isTrue()
-        }
-        assertAnchoringChainProperties()
+    fun `basics - add, query and delete`() {
 
-        assertChainSigners(chain0Brid, *nodes())
+        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
 
-        node1.client(chain0Brid, listOf(node1.provider)).transactionBuilder().addNop()
-                .createContainerOperation(node1.providerPubkey, "container1", "system", 1, listOf(node1.providerPubkey))
-                .postTransactionUntilConfirmed("Create container")
-                .awaitConfirmation(node1.c0)
+        addMessage(engine, "hello", "[1, 2, 3]")
+        buildBlock(DEFAULT_CHAIN_IID)
 
-        assertThat(node1.c0.getAllProviders().size).isEqualTo(1)
-        assertThat(node1.c0.getAllNodes(true).size).isEqualTo(1)
-    }
+        val queryResults = queryClosestObjectsGetStrings(engine, "messages", 0, "[1, 2, 3]", 1.0, 1, "get_messages")
 
-    @Test
-    @Order(20)
-    fun `deploy vector dapp`() {
-        nodes().forEach { node ->
-            assertThat(node.c0.getBlockchains(true).size).isEqualTo(3)
-        }
+        assertThat(queryResults).hasSize(1)
+        assertThat(queryResults[0]).isEqualTo("hello")
 
-        deployDapp("vector_example", "container1", assertSigners = arrayOf(node1))
+        assertThat(getVectors(engine, DEFAULT_CHAIN_IID, "messages")).hasSize(1)
 
-        node1.c0.getBlockchainInfo(dapps["vector_example"]!!.data)!!.apply {
-            testLogger.info("Blockchain info: $this")
-        }
-
-        // Asserting that blockchain is added
-        nodes().forEach { node ->
-            assertThat(node.c0.getBlockchains(true).size).isEqualTo(4)
-        }
-
-        vectorClient = node1.client(dapps["vector_example"]!!)
-    }
-
-    @Test
-    @Order(30)
-    fun `add vectors`() {
-
-        vectorClient.transactionBuilder().addMessagesOperation(listOf(
-                MessageData("hello", "[1, 2, 3]"),
-                MessageData("world", "[4, 5, 6]")
+        addMessages(engine, listOf(
+                "abc" to "[1, 2, 3]",
+                "def" to "[1, 2, 3]",
+                "ghi" to "[1, 2, 3]",
         ))
-                .postTransactionUntilConfirmed("Add vectors")
-                .awaitConfirmation(node1.c0)
+        buildBlock(DEFAULT_CHAIN_IID)
+        assertThat(getVectors(engine, DEFAULT_CHAIN_IID, "messages")).hasSize(4)
 
-        awaitUntilAsserted {
-            val result = vectorClient.query("query_closest_objects", gtv(
-                    "context" to gtv(0),
-                    "q_vector" to gtv("[1.0, 2.5, 3.0]"),
-                    "max_distance" to gtv("1.0"),
-                    "max_vectors" to gtv(2),
-                    "query_template" to gtv(
-                            "type" to gtv("get_messages"),
-                    ),
-            ))
-            assertThat(result.asArray().map { it.asString() }).isEqualTo(listOf("hello", "world"))
-        }
+        deleteMessage(engine, listOf("abc", "def", "ghi"))
+        deleteMessage(engine, "hello")
+        buildBlock(DEFAULT_CHAIN_IID)
+        assertThat(getVectors(engine, DEFAULT_CHAIN_IID, "messages")).hasSize(0)
     }
 
     @Test
-    @Order(30)
-    fun `query - without query template`() {
+    fun `query - different limitations`() {
+        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
+
+        addMessage(engine, "alpha", "[1, 2, 3]")
+        addMessage(engine, "beta", "[1, 4, 3]")
+        addMessage(engine, "charlie", "[7, 4, 3]")
+        addMessage(engine, "dave", "[9, 8, 4]")
+        addMessage(engine, "eve", "[2, 3, 7]")
+        buildBlock(DEFAULT_CHAIN_IID)
 
         assertThat(
-                vectorClient.queryClosestObjectsGetIdAndDistance(0, "[1, 2, 3]", 0.0, 1)
+                queryClosestObjectsGetStrings(engine, "messages", 0, "[1, 2, 3]", 1.0, 3, "get_messages")
+        ).isEqualTo(listOf("alpha", "eve", "beta"))
+
+        assertThat(
+                queryClosestObjectsGetStrings(engine, "messages", 0, "[1, 2, 3]", 0.02, 3, "get_messages")
+        ).isEqualTo(listOf("alpha", "eve"))
+    }
+
+    @Test
+    fun `query - with distance`() {
+        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
+
+        addMessage(engine, "alpha", "[1, 2, 3]")
+        addMessage(engine, "beta", "[1, 4, 3]")
+        addMessage(engine, "charlie", "[7, 4, 3]")
+        addMessage(engine, "dave", "[9, 8, 4]")
+        addMessage(engine, "eve", "[2, 3, 7]")
+        buildBlock(DEFAULT_CHAIN_IID)
+
+        assertThat(
+                queryClosestObjectsGetTextAndDistance(engine, "messages", 0, "[1, 2, 3]", 1.0, 3, "get_messages_with_distance")
+        ).isEqualTo(listOf(
+                mapOf("text" to "alpha", "distance" to "0"),
+                mapOf("text" to "eve", "distance"  to "0.015675861711910488"),
+                mapOf("text" to "beta", "distance"  to "0.056543646950273474")
+        ))
+
+        assertThat(
+                queryClosestObjectsGetTextAndDistance(engine, "messages", 0, "[1, 2, 3]", 0.02, 3, "get_messages_with_distance")
+        ).isEqualTo(listOf(
+                mapOf("text" to "alpha", "distance" to "0"),
+                mapOf("text" to "eve", "distance"  to "0.015675861711910488"),
+        ))
+    }
+
+    @Test
+    fun `query - with custom template arguments`() {
+        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
+
+        addMessage(engine, "alpha", "[1, 2, 3]")
+        addMessage(engine, "beta", "[1, 4, 3]")
+        addMessage(engine, "charlie", "[7, 4, 3]")
+        addMessage(engine, "dave", "[9, 8, 4]")
+        addMessage(engine, "eve", "[2, 3, 7]")
+        buildBlock(DEFAULT_CHAIN_IID)
+
+        assertThat(
+                queryClosestObjects(engine, VECTOR_DB_QUERY_CLOSEST_OBJECTS, "messages", 0, "[1, 2, 3]", 1.0, 3,
+                        buildQueryTemplateOrNull("get_messages_with_filter",
+                                gtv(mapOf(
+                                        "text_filter" to gtv("v"),
+                                ))
+                        )
+                ).asArray().map { it.asString() }
+        ).isEqualTo(listOf("eve"))
+    }
+
+    @Test
+    fun `query - without query template`() {
+        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
+
+        addMessage(engine, "alpha", "[1, 2, 3]")
+        addMessage(engine, "beta", "[1, 4, 3]")
+        buildBlock(DEFAULT_CHAIN_IID)
+
+        assertThat(
+                queryClosestObjectsGetIdAndDistance(engine, "messages", 0, "[1, 2, 3]", 0.0, 1)
         ).isEqualTo(listOf(
                 mapOf(
                         "id" to 1L,
@@ -156,53 +157,126 @@ class VectorDbIT : ManagedModeBase("vectordb") {
     }
 
     @Test
-    @Order(50)
-    fun `fail to update config with new distance index`() {
+    fun `query - without query template - l2`() {
+        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d_l2.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
 
-        val originalConfig = GtvMLParser.parseGtvML(this::class.java.getResource("/directory1deployment/vector_example.xml")!!.readText())
-        val config = modifyGTV(originalConfig, listOf("vector_db_extension")) { configEntry ->
-            gtv(mapOf(
-                    *configEntry.asDict().toList().toTypedArray(),
-                    "index" to gtv(VectorDBIndex.HNSW_L2.name),
-            ))
-        }
+        addMessage(engine, "alpha", "[1, 2, 3]")
+        addMessage(engine, "beta", "[1, 4, 3]")
+        buildBlock(DEFAULT_CHAIN_IID)
 
-        node1.c0.transactionBuilder()
-                .proposeConfigurationOperation(node1.providerPubkey, dapps["vector_example"]!!, GtvEncoder.encodeGtv(config), "", null)
-                .postTransactionUntilConfirmed("Propose new config")
-                .awaitConfirmation(node1.c0)
-
-        testLogger.info { "Waiting for configuration to be rejected" }
-        awaitUntilAsserted {
-            val configProposal = node1.c0.getRelevantProposals(0, Long.MAX_VALUE, false, node1.providerPubkey).lastOrNull {
-                it.proposalType == ProposalType.configuration
-            }
-            assertThat(configProposal).isNotNull()
-            val configUpdateAttempt = node1.c0.getBlockchainConfigurationUpdateAttemptStateByProposal(configProposal!!.rowid)
-            testLogger.info { "Config update status: ${configUpdateAttempt?.state}" }
-            if (configUpdateAttempt?.state == BlockchainConfigurationUpdateState.SUCCESSFUL) {
-                throw RuntimeException("Config update attempt should have failed")
-            }
-            assertThat(configUpdateAttempt?.state).isEqualTo(BlockchainConfigurationUpdateState.FAILED)
-        }
+        assertThat(
+                queryClosestObjectsGetIdAndDistance(engine, "messages", 0, "[1, 2, 3]", 0.0, 1)
+        ).isEqualTo(listOf(
+                mapOf(
+                        "id" to 1L,
+                        "distance" to "0"
+                )
+        ))
     }
 
-    @AfterAll
-    fun cleanup() {
-        super.breakdown()
+    @Test
+    fun `query - with and without context`() {
+        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
+
+        addMessage(engine, "hello", "[1, 2, 3]")
+        buildBlock(DEFAULT_CHAIN_IID)
+
+        // No context = search in all contexts
+        var queryResults = queryClosestObjectsGetStrings(engine, "messages", null, "[1, 2, 3]", 1.0, 1, "get_messages")
+        assertThat(queryResults).hasSize(1)
+        assertThat(queryResults[0]).isEqualTo("hello")
+
+        // Context 0
+        queryResults = queryClosestObjectsGetStrings(engine, "messages", 0, "[1, 2, 3]", 1.0, 1, "get_messages")
+        assertThat(queryResults).hasSize(1)
+        assertThat(queryResults[0]).isEqualTo("hello")
+
+        // Context 100 (no message in that context)
+        queryResults = queryClosestObjectsGetStrings(engine, "messages", 100, "[1, 2, 3]", 1.0, 1, "get_messages")
+        assertThat(queryResults).hasSize(0)
     }
 
-    private fun modifyGTV(config: Gtv, dictPath: List<String>, modifier: (Gtv) -> Gtv): Gtv {
-        return if (dictPath.isEmpty()) {
-            modifier(config)
-        } else {
-            gtv(config.asDict().mapValues { dictEntry ->
-                if (dictEntry.key == dictPath[0]) {
-                    modifyGTV(dictEntry.value, dictPath.drop(1), modifier)
-                } else {
-                    dictEntry.value
+    @Test
+    fun `query - without context and multiple hits`() {
+        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
+
+        // Context 1
+        val op1 = GtxOp("add_messages_in_context", gtv(1), gtv(
+                listOf(gtv(gtv("hello 1"), gtv("[1, 2, 3]")))))
+
+        // Context 2
+        val op2 = GtxOp("add_messages_in_context", gtv(2), gtv(
+                listOf(gtv(gtv("hello 2"), gtv("[1, 2, 3]")))))
+        val tx = engine.getConfiguration().getTransactionFactory().decodeTransaction(
+                Gtx(GtxBody(engine.getConfiguration().blockchainRid, listOf(op1, op2), listOf()), listOf()).encode()
+        )
+        buildBlock(DEFAULT_CHAIN_IID, tx)
+
+        // No context = search in all contexts
+        var queryResults = queryClosestObjectsNoTemplate(engine, "messages", null, "[1, 2, 3]", 1.0, 10)
+        assertThat(queryResults).hasSize(2)
+        assertThat(queryResults.any { it.first == 1L && it.second == 1L }).isTrue()
+        assertThat(queryResults.any { it.first == 2L && it.second == 2L }).isTrue()
+
+        // Context 1
+        queryResults = queryClosestObjectsNoTemplate(engine, "messages", 1, "[1, 2, 3]", 1.0, 10)
+        assertThat(queryResults).hasSize(1)
+        assertThat(queryResults.any { it.first == 1L && it.second == 1L }).isTrue()
+    }
+
+    @Test
+    fun `test add and delete`() {
+        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
+
+        addMessage(engine, "alpha", "[1, 2, 3]")
+        addMessage(engine, "beta", "[1, 2, 3]")
+        addMessage(engine, "charlie", "[1, 2, 3]")
+        buildBlock(DEFAULT_CHAIN_IID)
+
+        assertThat(getVectors(engine, DEFAULT_CHAIN_IID, "messages")).hasSize(3)
+
+        deleteMessage(engine, "beta")
+        buildBlock(DEFAULT_CHAIN_IID)
+        assertThat(getVectors(engine, DEFAULT_CHAIN_IID, "messages")).hasSize(2)
+
+        addMessage(engine, "delta", "[1, 2, 3]")
+        deleteMessage(engine, "charlie")
+        buildBlock(DEFAULT_CHAIN_IID)
+        assertThat(getVectors(engine, DEFAULT_CHAIN_IID, "messages")).hasSize(2)
+
+        addMessage(engine, "dave", "[1, 2, 3]")
+        deleteMessage(engine, "dave")
+        deleteMessage(engine, "alpha")
+        buildBlock(DEFAULT_CHAIN_IID)
+        assertThat(getVectors(engine, DEFAULT_CHAIN_IID, "messages")).hasSize(1)
+    }
+
+    @Test
+    fun `reject config with new distance type`() {
+        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
+
+        addMessage(engine, "alpha", "[1, 2, 3]")
+        buildBlock(DEFAULT_CHAIN_IID)
+
+        val blockchainGtvConfig = readBlockchainConfig("/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")
+                .modify(listOf("gtx", "modules")) {
+                    gtv(gtv("net.postchain.gtx.extensions.vectordb.helpers.VectorDbTestGTXModule"))
                 }
-            })
-        }
+                .modify(listOf("vector_db_extension", "collections", "messages", "index")) {
+                    gtv(VectorDBIndex.HNSW_L2.name)
+                }
+        node.addConfiguration(DEFAULT_CHAIN_IID, 2, blockchainGtvConfig)
+
+        buildBlockNoWait(listOf(node), DEFAULT_CHAIN_IID, 2)
+
+        Awaitility.await().atMost(Duration.TEN_SECONDS)
+                .untilAsserted {
+                    assertThat(VectorDbTestGTXModule.INIT_DB_EXCEPTION).isNotNull().hasMessage("Changing embedded index is not supported")
+                }
     }
 }

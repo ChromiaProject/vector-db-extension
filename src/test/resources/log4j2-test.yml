@@ -1,36 +1,28 @@
 Configuration:
   name: Default
 
-  Properties:
-    Property:
-      - name: log.fork.id
-        value: "${sys:forkId:-0}"
-
   Appenders:
     Console:
       - name: ConsoleAppender
         target: SYSTEM_OUT
         PatternLayout:
-          pattern: "[${log.fork.id}] %d{yyyy-MM-dd HH:mm:ss.SSS} +++ %msg +++%n"
-
-    File:
-      - name: FileAppender
-        fileName: "logs/test-${log.fork.id}.log"
-        createOnDemand: true
-        PatternLayout:
-          pattern: "%d{yyyy-MM-dd HH:mm:ss.SSS} +++ %msg +++%n"
+          pattern: "%-5level %d{HH:mm:ss.SSS} [%t] %c{1} -%replace{%notEmpty{ [%notEmpty{bc-rid=%.-2X{blockchainRID}:%.4X{blockchainRID}}%notEmpty{, chain-id=%X{chainIID}}%notEmpty{, block-rid=%.-2X{blockRID}:%.4X{blockRID}}%notEmpty{, req-source=%X{requestSource}}%notEmpty{, req-rest-comp=%X{requestRestComponent}}%notEmpty{, req-rest-method=%X{requestRestMethod}}]:}}{\\[, }{[} %msg%n"
   Loggers:
 
     Root:
       level: info
       additivity: false
       AppenderRef:
-        - ref: FileAppender
+        - ref: ConsoleAppender
 
     Logger:
-      - name: TestLogger
-        level: info
+      - name: net.postchain
+        level: debug
         additivity: false
         AppenderRef:
           - ref: ConsoleAppender
-          - ref: FileAppender
+      - name: TestLogger
+        level: debug
+        additivity: false
+        AppenderRef:
+          - ref: ConsoleAppender

@@ -1,5 +1,7 @@
 # Vector DB Extension
 
+📝 **Note:** This documentation is for version 2. You can find the documentation for version 1 [here](https://gitlab.com/chromaway/core/vector-db-extension/-/tree/support/v1).
+
 ## Setup
 
 ### Register extension in directory-chain
@@ -14,7 +16,7 @@ pmc subnode-image add --name vector_db_extension \
   -gtx net.postchain.gtx.extensions.vectordb.VectorDbGTXModule
 ```
 
-Replace the `<digest>` with the latest image version found [here](https://gitlab.com/chromaway/core/vector-db-extension/container_registry/8296249).
+Replace the `<digest>` with the latest `2.x.x` image version found [here](https://gitlab.com/chromaway/core/vector-db-extension/container_registry/8296249).
 
 ### Blockchain configuration
 
@@ -29,10 +31,12 @@ blockchains:
         modules:
           - "net.postchain.gtx.extensions.vectordb.VectorDbGTXModule"
       vector_db_extension:
-        dimensions: 300 # Set number of dimensions to use
-        max_vectors: 10 # Optional: Limits the search results. Default if not set is 10.
-        store_batch_size: 300 # Optional: Set the size of each batch inserted into database. Just for optimization while inserting.
-        index: HNSW_COSINE # Optional: type of distance algorithm. HNSW_L1, HNSW_L2 and HNSW_IP are also supported.
+        collections:
+          messages:
+            dimensions: 300 # Number of dimensions for vectors stored in this collection
+            query_max_vectors: 10 # Optional: Upper limit for per-query results. Default is 10 if not set.
+            store_batch_size: 300 # Optional: Batch size used when inserting into the database.
+            index: HNSW_COSINE # Optional: distance/metric type. HNSW_L1, HNSW_L2 and HNSW_IP are also supported.
 ```
 
 And make sure you deploy your chain to a container with the extension supported.
@@ -52,9 +56,9 @@ There is a optional but recommended library available to store vectors:
     insecure: false
 ```
 
-Set `<version>` with [latest version](https://gitlab.com/chromaway/core/vector-db-extension/-/tags), run `chr install` and then update the `rid` to what they output says it is (`Was: ...`).
+Set `<version>` to latest `2.x.x` version found on [releases](https://gitlab.com/chromaway/core/vector-db-extension/-/tags), run `chr install` and then update the `rid` to what they output says it is (`Was: ...`).
 
-Once installed you can add and remove vectors by calling the `store_vector` or `delete_vector` functions.
+Once installed you can add and remove vectors by calling the `store_vectors` or `delete_vectors` functions.
 
 ### Insert vectors
 
@@ -63,12 +67,27 @@ Simple dapp to store and remove vectors:
 ```
 import lib.vector_db.*;
 
-operation add_vector(context: integer, vector: text, id: integer) {
-    store_vector(context, vector, id);
+/**
+ * Add a message to the vector database
+ *
+ * @param collection The name of the collection to store the message in, must match one defined in blockchain config.
+ * @param context The context grouping key used by dApp.
+ * @param text The text message represented by this vector
+ * @param vector The vector on format [1.0,2.0,...]
+ */
+operation add_message(collection: text, context: integer, vector: text, id: integer) {
+    store_vector(collection, context, vector, id);
 }
 
-operation delete_vector(context: integer, id: integer) {
-    delete_vector(context, id);
+/**
+ * Delete a message from the vector database
+ *
+ * @param collection The name of the collection to store the message in, must match one defined in blockchain config.
+ * @param context The context grouping key used by dApp.
+ * @param id The id of the message to delete
+ */
+operation delete_message(collection: text, context: integer, id: integer) {
+    delete_vector(collection, context, id);
 }
 ```
 
@@ -78,14 +97,14 @@ The extension will add a query function named `query_closest_objects` which can 
 
 It supports the following parameters:
 
-
-| Name             | Type                                 | Required | Default | Description                                                                                       |
-|------------------|--------------------------------------|----------|---------|---------------------------------------------------------------------------------------------------|
-| `context`        | `integer`                            | true     |         | Context used by dApp. Can be any number and a dApp can use multiple contexts to separate vectors. |
-| `q_vector`       | vector as `text`                     | true     |         | The vector to search for as `text` on format `[1,2,3]`.                                           |
-| `max_distance`   | `decimal`                            | true     |         | The max distance from `q_vector` to stored vectors                                                |
-| `max_vectors`    | `integer`                            | false    | 10      | The max number of vectors to return.                                                              |
-| `query_template` | `(type: text, args: map<text, gtv>)` | false    | Not set | Provide a Rell query function to transform the results (see below).                               |
+| Name               | Type                                 | Required | Default | Description                                                                                                |
+|--------------------|--------------------------------------|----------|---------|------------------------------------------------------------------------------------------------------------|
+| `collection`       | `text`                               | true     |         | Name of the collection to search (must match one defined in blockchain config).                            |
+| `context`          | `integer`                            | false    |         | Optional context grouping key used by dApp. If omitted, search runs across all contexts in the collection. |
+| `q_vector`         | vector as `text`                     | true     |         | The query vector as `text` on format `[1,2,3]`.                                                            |
+| `max_distance`     | `decimal`                            | true     |         | The max distance from `q_vector` to stored vectors.                                                        |
+| `query_max_vectors`| `integer`                            | false    | 10      | The max number of vectors to return (cannot exceed the limit defined in collection configuration).   |
+| `query_template`   | `(name: text, args: map<text, gtv>)` | false    | Not set | Provide a Rell query function to transform the results (see below).                                        |
 
 ### Query template
 
@@ -100,7 +119,7 @@ query get_messages(closest_results: list<object_distance>): list<text> {
 ```
 
 This function will transform the vector search result `closest_results: list<object_distance>` into a list of text. 
-When `query_template=(type: "get_messages")` is provided to `query_closest_objects` the result will be a list of text. 
+When `query_template=(name: "get_messages")` is provided to `query_closest_objects` the result will be a list of text. 
 
 ## Local run and example
 
@@ -143,7 +162,7 @@ A few example queries:
 
 ```bash
 # Plain query with no query_template:
-chr query -brid $vector_brid query_closest_objects context=0 q_vector="[1.0, 2.0, 3.0]" max_distance=1.0 max_vectors=2
+chr query -brid $vector_brid query_closest_objects collection=messages context=0 q_vector="[1.0, 2.0, 3.0]" max_distance=1.0 query_max_vectors=2
 [
   [
     "distance": "0",
@@ -156,14 +175,14 @@ chr query -brid $vector_brid query_closest_objects context=0 q_vector="[1.0, 2.0
 ]
 
 # Basic query_template provided to return the text messages:
-chr query -brid $vector_brid query_closest_objects context=0 q_vector="[1.0, 2.5, 3.0]" max_distance=1.0 max_vectors=2 'query_template=["type":"get_messages"]'
+chr query -brid $vector_brid query_closest_objects collection=messages context=0 q_vector="[1.0, 2.5, 3.0]" max_distance=1.0 query_max_vectors=2 'query_template=["name":"get_messages"]'
 [
   "hello",
   "hej"
 ]
 
 # Another query_template which returns text and distance:
-chr query -brid $vector_brid query_closest_objects context=0 q_vector="[1.0, 2.5, 3.0]" max_distance=1.0 max_vectors=2 'query_template=["type":"get_messages_with_distance"]'
+chr query -brid $vector_brid query_closest_objects collection=messages context=0 q_vector="[1.0, 2.5, 3.0]" max_distance=1.0 query_max_vectors=2 'query_template=["name":"get_messages_with_distance"]'
 [
   [
     "distance": "0",
@@ -176,7 +195,7 @@ chr query -brid $vector_brid query_closest_objects context=0 q_vector="[1.0, 2.5
 ]
 
 # Additional arguments passed to the query_template function
-chr query -brid $vector_brid query_closest_objects context=0 q_vector="[1.0, 2.5, 3.0]" max_distance=1.0 max_vectors=2 'query_template=["type":"get_messages_with_filter", "args":["text_filter": "j"]]'
+chr query -brid $vector_brid query_closest_objects collection=messages context=0 q_vector="[1.0, 2.5, 3.0]" max_distance=1.0 query_max_vectors=2 'query_template=["name":"get_messages_with_filter", "args":["text_filter": "j"]]'
 [
   "hej",
 ]

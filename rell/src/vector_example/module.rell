@@ -4,6 +4,7 @@ import lib.*;
 
 entity message { text; }
 
+val COLLECTION = "messages";
 val CONTEXT_MESSAGE = 0;
 
 /**
@@ -15,7 +16,7 @@ val CONTEXT_MESSAGE = 0;
  */
 operation add_message(text, vector: text) {
     val message_entity = create message (text);
-    store_vector(CONTEXT_MESSAGE, vector, message_entity.rowid.to_integer());
+    store_vector(COLLECTION, CONTEXT_MESSAGE, vector, message_entity.rowid.to_integer());
 }
 
 struct message_data {
@@ -29,19 +30,19 @@ operation add_messages(messages: list<message_data>) {
         val message_entity = create message (message.text);
         vector_ids.add(vector_db_data(message.vector, message_entity.rowid.to_integer()));
     }
-    store_vectors(CONTEXT_MESSAGE, vector_ids);
+    store_vectors(COLLECTION, CONTEXT_MESSAGE, vector_ids);
 }
 
 /** Delete text and its vector */
 operation delete_message(text) {
     val msg = message @ { text };
-    delete_vector(CONTEXT_MESSAGE, msg.rowid.to_integer());
+    delete_vector(COLLECTION, CONTEXT_MESSAGE, msg.rowid.to_integer());
     delete msg;
 }
 
 operation delete_messages(texts: list<text>) {
     val message_entities = message @* { .text in texts };
-    delete_vectors(CONTEXT_MESSAGE, message_entities @ {} (@set .rowid.to_integer()));
+    delete_vectors(COLLECTION, CONTEXT_MESSAGE, message_entities @ {} (@set .rowid.to_integer()));
     delete message_entities;
 }
 
