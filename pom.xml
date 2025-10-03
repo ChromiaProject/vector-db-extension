@@ -234,6 +234,7 @@
                         <creationTime>${git.commit.time}</creationTime>
                         <filesModificationTime>${git.commit.time}</filesModificationTime>
                     </container>
+                    <containerizingMode>packaged</containerizingMode>
                 </configuration>
                 <executions>
                     <execution>
