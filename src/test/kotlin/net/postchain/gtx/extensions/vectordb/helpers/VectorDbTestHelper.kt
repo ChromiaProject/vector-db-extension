@@ -138,25 +138,3 @@ fun deleteMessage(engine: BlockchainEngine, message: List<String>) {
 }
 
 data class Vector(val context: Long, val id: Long, val embedding: String)
-
-fun modifyGTV(config: Gtv, dictPath: List<String>, modifier: (Gtv) -> Gtv): Gtv {
-    return if (dictPath.isEmpty()) {
-        modifier(config)
-    } else if (!config.asDict().containsKey(dictPath[0])) {
-        gtv(
-                config.asDict() + mapOf(dictPath[0] to modifier(gtv(emptyMap())))
-        )
-    } else {
-        gtv(config.asDict().mapValues { dictEntry ->
-            if (dictEntry.key == dictPath[0]) {
-                modifyGTV(dictEntry.value, dictPath.drop(1), modifier)
-            } else {
-                dictEntry.value
-            }
-        })
-    }
-}
-
-fun Gtv.modify(dictPath: List<String>, modifier: (Gtv) -> Gtv): Gtv {
-    return modifyGTV(this, dictPath, modifier)
-}

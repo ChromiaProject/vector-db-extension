@@ -9,7 +9,6 @@ import net.postchain.base.snapshot.SnapshotBlockchainConfigurationData
 import net.postchain.base.snapshot.SnapshotPageStore
 import net.postchain.base.withReadConnection
 import net.postchain.common.data.Hash
-import net.postchain.common.hexStringToByteArray
 import net.postchain.concurrent.util.get
 import net.postchain.devtools.ManagedModeTest
 import net.postchain.devtools.PostchainTestNode
@@ -25,8 +24,8 @@ import net.postchain.gtx.GTXBlockchainConfigurationFactory
 import net.postchain.gtx.GtxBuilder
 import net.postchain.gtx.SNAPSHOT_TABLE_PREFIX
 import net.postchain.gtx.extensions.vectordb.helpers.getVectors
-import net.postchain.gtx.extensions.vectordb.helpers.modify
 import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsGetStrings
+import net.postchain.test.modify
 import org.apache.logging.log4j.core.Logger
 import org.apache.logging.log4j.core.LoggerContext
 import org.apache.logging.log4j.core.test.appender.ListAppender
@@ -78,14 +77,7 @@ class VectorDbSnapshotIT : ManagedModeTest() {
 
         startManagedSystem(4, 0, restApi = true)
 
-        val config = GtvMLParser.parseGtvML(Any::class::class.java.getResource("/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")!!.readText())
-                .modify(listOf("signers")) {
-                    configEntry ->
-                    gtv(configEntry.asArray().toList() + nodes.map { gtv(it.pubKey.hexStringToByteArray()) })
-                }
-                .modify(listOf("features")) { configEntry ->
-                    gtv(configEntry.asDict() + mapOf("snapshot_enabled" to gtv(true)))
-                }
+        val config = GtvMLParser.parseGtvML(Any::class::class.java.getResource("/chains/vector_example_test.xml")!!.readText())
                 .modify(listOf("snapshot")) {
                     gtv("interval" to gtv(1))
                 }

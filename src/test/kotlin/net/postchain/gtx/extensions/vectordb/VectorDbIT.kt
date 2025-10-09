@@ -19,12 +19,12 @@ import net.postchain.gtx.extensions.vectordb.helpers.addMessages
 import net.postchain.gtx.extensions.vectordb.helpers.buildQueryTemplateOrNull
 import net.postchain.gtx.extensions.vectordb.helpers.deleteMessage
 import net.postchain.gtx.extensions.vectordb.helpers.getVectors
-import net.postchain.gtx.extensions.vectordb.helpers.modify
 import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjects
 import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsGetIdAndDistance
 import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsGetStrings
 import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsGetTextAndDistance
 import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsNoTemplate
+import net.postchain.test.modify
 import org.awaitility.Awaitility
 import org.awaitility.Duration
 import org.junit.jupiter.api.Test
@@ -38,7 +38,7 @@ class VectorDbIT : IntegrationTestSetup() {
     @Test
     fun `basics - add, query and delete`() {
 
-        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
+        val node = createNodes(1, "/chains/vector_example_test.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
 
         addMessage(engine, "hello", "[1, 2, 3]")
@@ -67,7 +67,7 @@ class VectorDbIT : IntegrationTestSetup() {
 
     @Test
     fun `query - different limitations`() {
-        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
+        val node = createNodes(1, "/chains/vector_example_test.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
 
         addMessage(engine, "alpha", "[1, 2, 3]")
@@ -88,7 +88,7 @@ class VectorDbIT : IntegrationTestSetup() {
 
     @Test
     fun `query - with distance`() {
-        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
+        val node = createNodes(1, "/chains/vector_example_test.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
 
         addMessage(engine, "alpha", "[1, 2, 3]")
@@ -116,7 +116,7 @@ class VectorDbIT : IntegrationTestSetup() {
 
     @Test
     fun `query - with custom template arguments`() {
-        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
+        val node = createNodes(1, "/chains/vector_example_test.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
 
         addMessage(engine, "alpha", "[1, 2, 3]")
@@ -139,7 +139,7 @@ class VectorDbIT : IntegrationTestSetup() {
 
     @Test
     fun `query - without query template`() {
-        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
+        val node = createNodes(1, "/chains/vector_example_test.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
 
         addMessage(engine, "alpha", "[1, 2, 3]")
@@ -158,7 +158,7 @@ class VectorDbIT : IntegrationTestSetup() {
 
     @Test
     fun `query - without query template - l2`() {
-        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d_l2.xml")[0]
+        val node = createNodes(1, "/chains/vector_example_test_hnsw_l2.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
 
         addMessage(engine, "alpha", "[1, 2, 3]")
@@ -177,7 +177,7 @@ class VectorDbIT : IntegrationTestSetup() {
 
     @Test
     fun `query - with and without context`() {
-        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
+        val node = createNodes(1, "/chains/vector_example_test.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
 
         addMessage(engine, "hello", "[1, 2, 3]")
@@ -200,7 +200,7 @@ class VectorDbIT : IntegrationTestSetup() {
 
     @Test
     fun `query - without context and multiple hits`() {
-        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
+        val node = createNodes(1, "/chains/vector_example_test.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
 
         // Context 1
@@ -229,7 +229,7 @@ class VectorDbIT : IntegrationTestSetup() {
 
     @Test
     fun `test add and delete`() {
-        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
+        val node = createNodes(1, "/chains/vector_example_test.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
 
         addMessage(engine, "alpha", "[1, 2, 3]")
@@ -257,13 +257,13 @@ class VectorDbIT : IntegrationTestSetup() {
 
     @Test
     fun `reject config with new distance type`() {
-        val node = createNodes(1, "/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")[0]
+        val node = createNodes(1, "/chains/vector_example_test.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
 
         addMessage(engine, "alpha", "[1, 2, 3]")
         buildBlock(DEFAULT_CHAIN_IID)
 
-        val blockchainGtvConfig = readBlockchainConfig("/net/postchain/gtx/extensions/vectordb/vector_example_3d.xml")
+        val blockchainGtvConfig = readBlockchainConfig("/chains/vector_example_test.xml")
                 .modify(listOf("gtx", "modules")) {
                     gtv(gtv("net.postchain.gtx.extensions.vectordb.helpers.VectorDbTestGTXModule"))
                 }

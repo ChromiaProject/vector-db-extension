@@ -23,7 +23,6 @@ import net.postchain.gtv.GtvFactory.gtv
 import net.postchain.gtv.gtvml.GtvMLEncoder
 import net.postchain.gtv.gtvml.GtvMLParser
 import net.postchain.gtx.extensions.vectordb.config.VectorDBIndex
-import net.postchain.gtx.extensions.vectordb.helpers.modifyGTV
 import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsGetIdAndDistance
 import net.postchain.gtx.extensions.vectordb.vector_example.MessageData
 import net.postchain.gtx.extensions.vectordb.vector_example.addMessagesOperation
@@ -32,6 +31,7 @@ import net.postchain.images.directory1.Directory1TestBase.Companion.provider1Key
 import net.postchain.images.directory1.Directory1TestBase.Companion.provider2KeyPair
 import net.postchain.images.directory1.Directory1TestBase.Companion.provider3KeyPair
 import net.postchain.images.directory1.awaitUntilAsserted
+import net.postchain.test.modify
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.MethodOrderer
 import org.junit.jupiter.api.Order
@@ -47,6 +47,15 @@ import org.testcontainers.junit.jupiter.Testcontainers
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class VectorDbSlowIntegrationTest : ManagedModeBase("vectordb") {
 
+    override var chain0Config = GtvMLEncoder.encodeXMLGtv(
+            GtvMLParser.parseGtvML(this::class.java.getResource("/directory1deployment/manager.xml")!!.readText()
+            ).modify(listOf("gtx", "rell", "moduleArgs", "proposal_blockchain.util", "allowed_dapp_chain_gtx_modules")) { configEntry ->
+                gtv(listOf(
+                        *configEntry.asArray(),
+                        gtv("net.postchain.gtx.extensions.vectordb.VectorDbGTXModule"),
+                ))
+            })
+
     private val dappName = "vector_example"
     private lateinit var vectorClient: PostchainClient
 
@@ -55,19 +64,9 @@ class VectorDbSlowIntegrationTest : ManagedModeBase("vectordb") {
     fun `setup the network`() {
 
         // Fail fast on missing dapp config
-        assertThat(this::class.java.getResource("/directory1deployment/$dappName.xml")).isNotNull()
+        assertThat(this::class.java.getResource("/chains/vector_example_test.xml")).isNotNull()
 
         testLogger.info("Setup the network")
-
-        val chain0TextConfig = GtvMLParser.parseGtvML(this::class.java.getResource("/directory1deployment/manager.xml")!!.readText())
-        val chain0ModifiedConfig = modifyGTV(chain0TextConfig, listOf("gtx", "rell", "moduleArgs", "proposal_blockchain.util", "allowed_dapp_chain_gtx_modules")) { configEntry ->
-            gtv(listOf(
-                    *configEntry.asArray(),
-                    gtv("net.postchain.gtx.extensions.vectordb.VectorDbGTXModule"),
-            ))
-        }
-
-        chain0Config = GtvMLEncoder.encodeXMLGtv(chain0ModifiedConfig)
 
         node1 = postchainServerWithSubnodes("node1",
                 provider1KeyPair,
@@ -120,7 +119,8 @@ class VectorDbSlowIntegrationTest : ManagedModeBase("vectordb") {
     @Order(20)
     fun `deploy vector dapp`() {
 
-        deployDapp(dappName, "container1", assertSigners = nodes())
+        deployDapp(dappName, "container1", this::class.java.getResource("/chains/vector_example.xml").readText(),
+                assertSigners = nodes())
 
         node1.c0.getBlockchainInfo(dapps[dappName]!!.data)!!.apply {
             testLogger.info("Blockchain info: $this")
@@ -173,13 +173,13 @@ class VectorDbSlowIntegrationTest : ManagedModeBase("vectordb") {
     @Order(50)
     fun `fail to update config with new distance index`() {
 
-        val originalConfig = GtvMLParser.parseGtvML(this::class.java.getResource("/directory1deployment/vector_example.xml")!!.readText())
-        val config = modifyGTV(originalConfig, listOf("vector_db_extension", "collections", "messages")) { configEntry ->
-            gtv(mapOf(
-                    *configEntry.asDict().toList().toTypedArray(),
-                    "index" to gtv(VectorDBIndex.HNSW_L2.name),
-            ))
-        }
+        val config = GtvMLParser.parseGtvML(this::class.java.getResource("/chains/vector_example.xml")!!.readText())
+                .modify(listOf("vector_db_extension", "collections", "messages")) { configEntry ->
+                    gtv(mapOf(
+                            *configEntry.asDict().toList().toTypedArray(),
+                            "index" to gtv(VectorDBIndex.HNSW_L2.name),
+                    ))
+                }
 
         node1.c0.transactionBuilder()
                 .proposeConfigurationOperation(node1.providerPubkey, dapps["vector_example"]!!, GtvEncoder.encodeGtv(config), "", null)

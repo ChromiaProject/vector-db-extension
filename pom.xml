@@ -26,8 +26,7 @@
         <kotlin.code.style>obsolete</kotlin.code.style> <!-- Kotlin obsolete IntelliJ IDEA codestyle -->
 
         <postchain.version>3.44.0</postchain.version>
-        <postchain-chromia.version>3.32.13</postchain-chromia.version>
-        <rell.version>0.14.12</rell.version>
+        <postchain-chromia.version>3.34.2</postchain-chromia.version>
 
         <!-- Tests -->
         <directory.chain.version>1.91.0</directory.chain.version>
@@ -119,14 +118,6 @@
         <dependency>
             <groupId>net.postchain</groupId>
             <artifactId>deployment-test</artifactId>
-            <version>${postchain-chromia.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.postchain</groupId>
-            <artifactId>deployment-test</artifactId>
-            <classifier>tests</classifier>
-            <type>test-jar</type>
             <version>${postchain-chromia.version}</version>
             <scope>test</scope>
         </dependency>
@@ -302,7 +293,7 @@
                         <configuration>
                             <configPath>${project.basedir}/rell/chromia.yml</configPath>
                             <source>${project.basedir}/rell/src</source>
-                            <target>${project.build.directory}/test-classes/directory1deployment</target>
+                            <target>${project.build.directory}/test-classes/chains/</target>
                         </configuration>
                     </execution>
                     <execution>
@@ -318,6 +309,7 @@
                             <force>true</force>
                             <mainModules>
                                 <mainModule>vector_example</mainModule>
+                                <mainModule>vector_example_test</mainModule>
                             </mainModules>
                         </configuration>
                     </execution>
@@ -337,7 +329,7 @@
                         </goals>
                         <configuration>
                             <sources>
-                                <source>target/generated-test-sources</source>
+                                <source>${project.build.directory}/generated-test-sources</source>
                             </sources>
                         </configuration>
                     </execution>
