@@ -1,0 +1,12 @@
+module;
+
+import vector_example.*;
+
+operation add_messages_in_context(context: integer, messages: list<message_data>) {
+    val vector_ids = list<vector_db_data>();
+    for (message in messages) {
+        val message_entity = create message (message.text);
+        vector_ids.add(vector_db_data(message.vector, message_entity.rowid.to_integer()));
+    }
+    store_vectors(COLLECTION, context, vector_ids);
+}
