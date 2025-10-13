@@ -97,14 +97,14 @@ The extension will add a query function named `query_closest_objects` which can 
 
 It supports the following parameters:
 
-| Name               | Type                                 | Required | Default | Description                                                                                                |
-|--------------------|--------------------------------------|----------|---------|------------------------------------------------------------------------------------------------------------|
-| `collection`       | `text`                               | true     |         | Name of the collection to search (must match one defined in blockchain config).                            |
-| `context`          | `integer`                            | false    |         | Optional context grouping key used by dApp. If omitted, search runs across all contexts in the collection. |
-| `q_vector`         | vector as `text`                     | true     |         | The query vector as `text` on format `[1,2,3]`.                                                            |
-| `max_distance`     | `decimal`                            | true     |         | The max distance from `q_vector` to stored vectors.                                                        |
-| `query_max_vectors`| `integer`                            | false    | 10      | The max number of vectors to return (cannot exceed the limit defined in collection configuration).   |
-| `query_template`   | `(name: text, args: map<text, gtv>)` | false    | Not set | Provide a Rell query function to transform the results (see below).                                        |
+| Name                 | Type                                 | Required | Default | Description                                                                                                |
+|----------------------|--------------------------------------|----------|---------|------------------------------------------------------------------------------------------------------------|
+| `collection`         | `text`                               | true     |         | Name of the collection to search (must match one defined in blockchain config).                            |
+| `context`            | `integer`                            | false    |         | Optional context grouping key used by dApp. If omitted, search runs across all contexts in the collection. |
+| `q_vector`           | vector as `text`                     | true     |         | The query vector as `text` on format `[1,2,3]`.                                                            |
+| `max_distance`       | `decimal`                            | true     |         | The max distance from `q_vector` to stored vectors.                                                        |
+| `query_max_vectors`  | `integer`                            | false    | 10      | The max number of vectors to return (cannot exceed the limit defined in collection configuration).         |
+| `query_template`     | `(name: text, args: map<text, gtv>)` | false    | Not set | Provide a Rell query function to transform the results (see below).                                        |
 
 ### Query template
 
@@ -152,17 +152,17 @@ vector_brid=$(pmc blockchains | jq -r '.[] | select(.Name == "vector_blockchain"
 Add some messages:
 
 ```bash
-chr tx -brid $vector_brid add_message hej "[1.0, 2.0, 3.0]"
-chr tx -brid $vector_brid add_message hello "[1.0, 2.5, 3.0]"
-chr tx -brid $vector_brid add_message hei "[1.0, 2.0, 3.1]"
-chr tx -brid $vector_brid add_message "guten tag" "[1.0, 1.5, 3.5]"
+chr tx -brid $vector_brid add_message hej '"[1.0, 2.0, 3.0]"'
+chr tx -brid $vector_brid add_message hello '"[1.0, 2.5, 3.0]"'
+chr tx -brid $vector_brid add_message hei '"[1.0, 2.0, 3.1]"'
+chr tx -brid $vector_brid add_message "guten tag" '"[1.0, 1.5, 3.5]"'
 ```
 
 A few example queries:
 
 ```bash
 # Plain query with no query_template:
-chr query -brid $vector_brid query_closest_objects collection=messages context=0 q_vector="[1.0, 2.0, 3.0]" max_distance=1.0 query_max_vectors=2
+chr query -brid $vector_brid query_closest_objects collection=messages context=0 'q_vector="[1.0, 2.0, 3.0]"' max_distance=1.0 query_max_vectors=2
 [
   [
     "distance": "0",
@@ -175,14 +175,14 @@ chr query -brid $vector_brid query_closest_objects collection=messages context=0
 ]
 
 # Basic query_template provided to return the text messages:
-chr query -brid $vector_brid query_closest_objects collection=messages context=0 q_vector="[1.0, 2.5, 3.0]" max_distance=1.0 query_max_vectors=2 'query_template=["name":"get_messages"]'
+chr query -brid $vector_brid query_closest_objects collection=messages context=0 'q_vector="[1.0, 2.5, 3.0]"' max_distance=1.0 query_max_vectors=2 'query_template=["name":"get_messages"]'
 [
   "hello",
   "hej"
 ]
 
 # Another query_template which returns text and distance:
-chr query -brid $vector_brid query_closest_objects collection=messages context=0 q_vector="[1.0, 2.5, 3.0]" max_distance=1.0 query_max_vectors=2 'query_template=["name":"get_messages_with_distance"]'
+chr query -brid $vector_brid query_closest_objects collection=messages context=0 'q_vector="[1.0, 2.5, 3.0]"' max_distance=1.0 query_max_vectors=2 'query_template=["name":"get_messages_with_distance"]'
 [
   [
     "distance": "0",
@@ -195,7 +195,7 @@ chr query -brid $vector_brid query_closest_objects collection=messages context=0
 ]
 
 # Additional arguments passed to the query_template function
-chr query -brid $vector_brid query_closest_objects collection=messages context=0 q_vector="[1.0, 2.5, 3.0]" max_distance=1.0 query_max_vectors=2 'query_template=["name":"get_messages_with_filter", "args":["text_filter": "j"]]'
+chr query -brid $vector_brid query_closest_objects collection=messages context=0 'q_vector="[1.0, 2.5, 3.0]"' max_distance=1.0 query_max_vectors=2 'query_template=["name":"get_messages_with_filter", "args":["text_filter": "j"]]'
 [
   "hej",
 ]
