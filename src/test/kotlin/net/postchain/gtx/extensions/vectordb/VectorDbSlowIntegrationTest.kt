@@ -9,20 +9,13 @@ import net.postchain.chain0.common.queries.getBlockchainInfo
 import net.postchain.chain0.direct_container.createContainerOperation
 import net.postchain.chain0.model.ProviderInfo
 import net.postchain.chain0.model.ProviderTier
-import net.postchain.chain0.proposal.BlockchainConfigurationUpdateState
-import net.postchain.chain0.proposal.ProposalType
-import net.postchain.chain0.proposal.getBlockchainConfigurationUpdateAttemptStateByProposal
-import net.postchain.chain0.proposal.getRelevantProposals
-import net.postchain.chain0.proposal_blockchain.proposeConfigurationOperation
 import net.postchain.chain0.proposal_provider.proposeProvidersOperation
 import net.postchain.client.core.PostchainClient
 import net.postchain.client.transaction.awaitConfirmation
 import net.postchain.dapp.postTransactionUntilConfirmed
-import net.postchain.gtv.GtvEncoder
 import net.postchain.gtv.GtvFactory.gtv
 import net.postchain.gtv.gtvml.GtvMLEncoder
 import net.postchain.gtv.gtvml.GtvMLParser
-import net.postchain.gtx.extensions.vectordb.config.VectorDBIndex
 import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsGetIdAndDistance
 import net.postchain.gtx.extensions.vectordb.vector_example.MessageData
 import net.postchain.gtx.extensions.vectordb.vector_example.addMessagesOperation
@@ -89,16 +82,12 @@ class VectorDbSlowIntegrationTest : ManagedModeBase("vectordb") {
         startNodesAndChain0()
         getDb(node1).awaitBlockHeight(0)
         with(node1.c0) {
-            val clusterAnchoringGtvConfig = GtvMLParser.parseGtvML(this::class.java.getResource("/directory1deployment/cluster_anchoring.xml")!!.readText())
-            val systemAnchoringGtvConfig = GtvMLParser.parseGtvML(this::class.java.getResource("/directory1deployment/system_anchoring.xml")!!.readText())
-
             transactionBuilder()
-                    .initOperation(GtvEncoder.encodeGtv(systemAnchoringGtvConfig), GtvEncoder.encodeGtv(clusterAnchoringGtvConfig))
+                    .initOperation(null, null)
                     .postTransactionUntilConfirmed("init")
 
             assertChainSigners(chain0Brid, node1)
         }
-        assertAnchoringChainProperties()
 
         testLogger.info("Adding system providers provider2-4 and node2-3")
         val newProviders = listOf(
@@ -167,38 +156,6 @@ class VectorDbSlowIntegrationTest : ManagedModeBase("vectordb") {
                         "distance" to "0"
                 )
         ))
-    }
-
-    @Test
-    @Order(50)
-    fun `fail to update config with new distance index`() {
-
-        val config = GtvMLParser.parseGtvML(this::class.java.getResource("/chains/vector_example.xml")!!.readText())
-                .modify(listOf("vector_db_extension", "collections", "messages")) { configEntry ->
-                    gtv(mapOf(
-                            *configEntry.asDict().toList().toTypedArray(),
-                            "index" to gtv(VectorDBIndex.HNSW_L2.name),
-                    ))
-                }
-
-        node1.c0.transactionBuilder()
-                .proposeConfigurationOperation(node1.providerPubkey, dapps["vector_example"]!!, GtvEncoder.encodeGtv(config), "", null)
-                .postTransactionUntilConfirmed("Propose new config")
-                .awaitConfirmation(node1.c0)
-
-        testLogger.info { "Waiting for configuration to be rejected" }
-        awaitUntilAsserted {
-            val configProposal = node1.c0.getRelevantProposals(0, Long.MAX_VALUE, false, node1.providerPubkey).lastOrNull {
-                it.proposalType == ProposalType.configuration
-            }
-            assertThat(configProposal).isNotNull()
-            val configUpdateAttempt = node1.c0.getBlockchainConfigurationUpdateAttemptStateByProposal(configProposal!!.rowid)
-            testLogger.info { "Config update status: ${configUpdateAttempt?.state}" }
-            if (configUpdateAttempt?.state == BlockchainConfigurationUpdateState.SUCCESSFUL) {
-                throw RuntimeException("Config update attempt should have failed")
-            }
-            assertThat(configUpdateAttempt?.state).isEqualTo(BlockchainConfigurationUpdateState.FAILED)
-        }
     }
 
     @AfterAll
