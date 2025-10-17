@@ -3,71 +3,26 @@ package net.postchain.gtx.extensions.vectordb
 import assertk.assertThat
 import assertk.assertions.hasSize
 import assertk.assertions.isEqualTo
-import assertk.assertions.isTrue
-import net.postchain.base.snapshot.SimpleDigestSystem
-import net.postchain.base.snapshot.SnapshotBlockchainConfigurationData
-import net.postchain.base.snapshot.SnapshotPageStore
-import net.postchain.base.withReadConnection
-import net.postchain.common.data.Hash
+import net.postchain.base.withWriteConnection
 import net.postchain.concurrent.util.get
-import net.postchain.devtools.ManagedModeTest
 import net.postchain.devtools.PostchainTestNode
 import net.postchain.devtools.PostchainTestNode.Companion.DEFAULT_CHAIN_IID
-import net.postchain.devtools.utils.configuration.NodeSetup
-import net.postchain.ebft.syncmanager.common.SnapshotSynchronizer
-import net.postchain.gtv.Gtv
+import net.postchain.devtools.snapshot.SnapshotTestBase
 import net.postchain.gtv.GtvEncoder
 import net.postchain.gtv.GtvFactory.gtv
 import net.postchain.gtv.gtvml.GtvMLParser
 import net.postchain.gtv.merkle.GtvMerkleHashCalculatorV2
 import net.postchain.gtx.GTXBlockchainConfigurationFactory
 import net.postchain.gtx.GtxBuilder
-import net.postchain.gtx.SNAPSHOT_TABLE_PREFIX
 import net.postchain.gtx.extensions.vectordb.helpers.getVectors
 import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsGetStrings
+import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsNoTemplate
 import net.postchain.test.modify
-import org.apache.logging.log4j.core.Logger
-import org.apache.logging.log4j.core.LoggerContext
-import org.apache.logging.log4j.core.test.appender.ListAppender
-import org.awaitility.Awaitility
-import org.awaitility.Duration
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
 import java.util.concurrent.TimeUnit
 
-// We must only create one per name per run since multiple with mess things up
-private var SINGLETON_LOG_APPENDERS = mutableMapOf<String, ListAppender>()
-
-fun createLogCaptor(cls: Class<*>, name: String): ListAppender {
-    return SINGLETON_LOG_APPENDERS[name] ?: run{
-        val context = LoggerContext.getContext(false)
-        val logger = context.getLogger(cls) as Logger
-        val appender = ListAppender(name).apply {
-            start()
-        }
-        context.configuration.addLoggerAppender(logger, appender)
-        SINGLETON_LOG_APPENDERS[name] = appender
-        appender
-    }
-}
-
-
-class VectorDbSnapshotIT : ManagedModeTest() {
-
-    private val nodeConfigurationOverrides = mutableMapOf<String, Any>()
-    private val appender = createLogCaptor(SnapshotSynchronizer::class.java, "List")
-
-    override fun addNodeConfigurationOverrides(nodeSetup: NodeSetup) {
-        super.addNodeConfigurationOverrides(nodeSetup)
-        nodeSetup.nodeSpecificConfigs.setProperty("snapshotsync.threshold", 0) // Always sync by default
-        nodeConfigurationOverrides.forEach { (key, value) -> nodeSetup.nodeSpecificConfigs.setProperty(key, value) }
-    }
-
-    @BeforeEach
-    fun beforeEach() {
-        appender.clear()
-    }
+class VectorDbSnapshotIT : SnapshotTestBase() {
 
     /** With 4 nodes, create vectors and then do a clean restart of node 4 to make it sync snapshot. */
     @Test
@@ -77,9 +32,18 @@ class VectorDbSnapshotIT : ManagedModeTest() {
 
         startManagedSystem(4, 0, restApi = true)
 
+        // Avoid race condition to create the pg vector extension by making sure the extension is created by one node only
+        withWriteConnection(nodes[0].postchainContext.sharedStorage, 0) {
+            it.conn.createStatement().execute("CREATE EXTENSION IF NOT EXISTS vector")
+            true
+        }
+
         val config = GtvMLParser.parseGtvML(Any::class::class.java.getResource("/chains/vector_example_test.xml")!!.readText())
                 .modify(listOf("snapshot")) {
                     gtv("interval" to gtv(1))
+                }
+                .modify(listOf("features")) { configEntry ->
+                    gtv(configEntry.asDict() + mapOf("snapshot_enabled" to gtv(true)))
                 }
         startNewBlockchain(setOf(0, 1, 2, 3), setOf(), null, rawBlockchainConfiguration = GtvEncoder.encodeGtv(config), blockchainConfigurationFactory = GTXBlockchainConfigurationFactory())
         buildBlock(DEFAULT_CHAIN_IID)
@@ -95,43 +59,28 @@ class VectorDbSnapshotIT : ManagedModeTest() {
 
         assertThat(queryResults).hasSize(1)
         assertThat(queryResults[0]).isEqualTo("hello 1")
-
         assertThat(getVectors(engine, DEFAULT_CHAIN_IID, "messages")).hasSize(messages)
 
         val height = nodes[0].blockQueries().getLastBlockHeight().get()
         assertThat(height).isEqualTo(1)
-        val node0RootHash = getSnapshotRootHash(nodes[0], DEFAULT_CHAIN_IID, height, config)
 
         // Assert that we could snapshot sync the chain on the replica node
-        restartNodeClean(3, DEFAULT_CHAIN_IID, -1)
-        Awaitility.await().atMost(Duration.TEN_MINUTES).untilAsserted {
+        restartAndAwaitSnapshotSync(3, height)
 
-            // Make sure we actually ran snapshot sync
-            assertThat(appender.eventsForNodeContains(nodes[3], "Snapshot sync starts from nodes")).isTrue()
-            assertThat(appender.eventsForNodeContains(nodes[3], "Finished snapshot syncing successfully")).isTrue()
+        // Verify database content for vector module is identical
+        assertThat(nodes[3]).hasIdenticalTableContentAs(nodes[0],
+                basicChainTableContentProvider(listOf(
+                        "sys.x.vectordb.collection_0",
+                        "sys.x.vectordb.collection_ids",
+                        "sys.x.vectordb.datum_id_seq",
+                )))
 
-            assertThat(getSnapshotRootHash(nodes[3], DEFAULT_CHAIN_IID, height, config)).isEqualTo(node0RootHash)
+        // Verify queries return identical results on all nodes - we can't use query template here since Rell is not restored on node 3
+        assertThat(nodes).hasSameState { node ->
+            val engine = node.getBlockchainInstance().blockchainEngine
+            queryClosestObjectsNoTemplate(engine, "messages", 0, "[0.1, 0.2, 0.3]", 100.0, 1)
         }
     }
-
-    private fun getSnapshotRootHash(node: PostchainTestNode, chainId: Long, node0Height: Long, config: Gtv): Hash {
-        val replicaRootHash = withReadConnection(node.postchainContext.blockBuilderStorage, chainId) { ctx ->
-            SnapshotPageStore(ctx, getLevelsPerPage(config), 0, SimpleDigestSystem(node.appConfig.cryptoSystem),
-                    "${SNAPSHOT_TABLE_PREFIX}_root")
-                    .getRootHashAtHeight(node0Height)
-        }
-        return replicaRootHash
-    }
-
-    private fun getLevelsPerPage(config: Gtv) =
-            config["snapshot"]?.get("levels_per_page")?.asInteger()?.toInt()
-                    ?: SnapshotBlockchainConfigurationData.default.levelsPerPage
-
-    private fun ListAppender.eventsForNode(node: PostchainTestNode) =
-            events.filter { it.contextData.getValue<String>("node.pubkey") == node.appConfig.pubKey  }
-
-    private fun ListAppender.eventsForNodeContains(node: PostchainTestNode, message: String) =
-            eventsForNode(node).any { it.message.toString().contains(message) }
 
     private fun addMessagesAndBuildBlock(
             nodes: List<PostchainTestNode> = getChainNodes(DEFAULT_CHAIN_IID),

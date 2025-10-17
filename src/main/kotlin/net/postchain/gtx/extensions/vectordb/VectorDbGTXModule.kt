@@ -157,18 +157,12 @@ open class VectorDbGTXModule(
         }
     }
 
-    override fun finalizeImport() {
+    override fun finalizeImport(ctx: EContext) {
 
         logger.debug { "Finalizing vector db snapshot import" }
 
-        val ctx = conf.postchainContext.blockBuilderStorage.openWriteConnection(chainId!!)
-        try {
-            databaseOperations.getDatumIdMax(ctx)?.let {
-                databaseOperations.setDatumIdSequenceOffset(ctx, it + 1)
-                logger.debug { "Datum id max is $it" }
-            }
-        } finally {
-            conf.postchainContext.blockBuilderStorage.closeWriteConnection(ctx, true)
+        databaseOperations.getDatumIdMax(ctx)?.let {
+            databaseOperations.setDatumIdSequenceOffset(ctx, it + 1)
         }
     }
 
