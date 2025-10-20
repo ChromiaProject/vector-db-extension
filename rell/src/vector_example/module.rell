@@ -15,6 +15,7 @@ val CONTEXT_MESSAGE = 0;
  * @param vector The vector on format [1.0,2.0,...]
  */
 operation add_message(text, vector: text) {
+    require(empty(message @? { text }), "Message is already created");
     val message_entity = create message (text);
     store_vector(COLLECTION, CONTEXT_MESSAGE, vector, message_entity.rowid.to_integer());
 }
@@ -27,6 +28,7 @@ struct message_data {
 operation add_messages(messages: list<message_data>) {
     val vector_ids = list<vector_db_data>();
     for (message in messages) {
+        require(empty((m: message) @? { message.text }), "Message %s is already created".format(message.text));
         val message_entity = create message (message.text);
         vector_ids.add(vector_db_data(message.vector, message_entity.rowid.to_integer()));
     }
@@ -35,7 +37,7 @@ operation add_messages(messages: list<message_data>) {
 
 /** Delete text and its vector */
 operation delete_message(text) {
-    val msg = message @ { text };
+    val msg = require(message @? { text }, "Message not found");;
     delete_vector(COLLECTION, CONTEXT_MESSAGE, msg.rowid.to_integer());
     delete msg;
 }
