@@ -17,8 +17,10 @@ import net.postchain.gtv.GtvFactory.gtv
 import net.postchain.gtv.gtvml.GtvMLEncoder
 import net.postchain.gtv.gtvml.GtvMLParser
 import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsGetIdAndDistance
+import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsGetStrings
 import net.postchain.gtx.extensions.vectordb.vector_example.MessageData
 import net.postchain.gtx.extensions.vectordb.vector_example.addMessagesOperation
+import net.postchain.gtx.extensions.vectordb.vector_example.deleteMessageOperation
 import net.postchain.images.common.ManagedModeBase
 import net.postchain.images.directory1.Directory1TestBase.Companion.provider1KeyPair
 import net.postchain.images.directory1.Directory1TestBase.Companion.provider2KeyPair
@@ -108,7 +110,7 @@ class VectorDbSlowIntegrationTest : ManagedModeBase("vectordb") {
     @Order(20)
     fun `deploy vector dapp`() {
 
-        deployDapp(dappName, "container1", this::class.java.getResource("/chains/vector_example.xml").readText(),
+        deployDapp(dappName, "container1", this::class.java.getResource("/chains/vector_example.xml")!!.readText(),
                 assertSigners = nodes())
 
         node1.c0.getBlockchainInfo(dapps[dappName]!!.data)!!.apply {
@@ -120,42 +122,53 @@ class VectorDbSlowIntegrationTest : ManagedModeBase("vectordb") {
 
     @Test
     @Order(30)
-    fun `add vectors`() {
+    fun `add messages`() {
 
         vectorClient.transactionBuilder().addMessagesOperation(listOf(
-                MessageData("hello", "[1, 2, 3]"),
-                MessageData("world", "[4, 5, 6]")
+                MessageData("hello", "[0.1, 0.2, 0.3]"),
+                MessageData("world", "[0.4, 0.5, 0.6]")
         ))
                 .postTransactionUntilConfirmed("Add vectors")
                 .awaitConfirmation(node1.c0)
-
-        awaitUntilAsserted {
-            val result = vectorClient.query("query_closest_objects", gtv(
-                    "collection" to gtv("messages"),
-                    "context" to gtv(0),
-                    "q_vector" to gtv("[1.0, 2.5, 3.0]"),
-                    "max_distance" to gtv("1.0"),
-                    "query_max_vectors" to gtv(2),
-                    "query_template" to gtv(
-                            "name" to gtv("get_messages"),
-                    ),
-            ))
-            assertThat(result.asArray().map { it.asString() }).isEqualTo(listOf("hello", "world"))
-        }
     }
 
     @Test
     @Order(40)
     fun `query - without query template`() {
-
+        awaitUntilAsserted {
+            assertThat(
+                    vectorClient.queryClosestObjectsGetIdAndDistance("messages", 0, "[0.1, 0.2, 0.3]", 1.0, 1)
+            ).isEqualTo(listOf(
+                    mapOf(
+                            "id" to 1L,
+                            "distance" to "0"
+                    )
+            ))
+        }
+    }
+    @Test
+    @Order(41)
+    fun `query - with template`() {
         assertThat(
-                vectorClient.queryClosestObjectsGetIdAndDistance("messages", 0, "[1, 2, 3]", 0.0, 1)
-        ).isEqualTo(listOf(
-                mapOf(
-                        "id" to 1L,
-                        "distance" to "0"
-                )
-        ))
+                vectorClient.queryClosestObjectsGetStrings("messages", 0, "[0.3, 0.3, 0.3]", 1.0, 2, "get_messages")
+        ).isEqualTo(listOf("world", "hello"))
+    }
+
+    @Test
+    @Order(50)
+    fun `delete message`() {
+
+        // Delete message
+        vectorClient.transactionBuilder().deleteMessageOperation("hello")
+                .postTransactionUntilConfirmed("Delete vectors")
+                .awaitConfirmation(node1.c0)
+
+        // Hello is no longer returned
+        awaitUntilAsserted {
+            assertThat(
+                    vectorClient.queryClosestObjectsGetStrings("messages", 0, "[0.3, 0.3, 0.3]", 1.0, 2, "get_messages")
+            ).isEqualTo(listOf("world"))
+        }
     }
 
     @AfterAll

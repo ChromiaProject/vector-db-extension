@@ -35,6 +35,11 @@ fun queryClosestObjectsGetStrings(engine: BlockchainEngine, collection: String, 
             .asArray().map { it.asString() }
 }
 
+fun PostchainClient.queryClosestObjectsGetStrings(collection: String, context: Long?, vector: String, maxDistance: Double, maxVectors: Long, queryTemplateName: String? = null): List<String> {
+    return queryClosestObjects(this::query, VECTOR_DB_QUERY_CLOSEST_OBJECTS, collection, context, vector, maxDistance, maxVectors, buildQueryTemplateOrNull(queryTemplateName))
+            .asArray().map { it.asString() }
+}
+
 fun queryClosestObjectsGetIdAndDistance(engine: BlockchainEngine, collection: String, context: Long, vector: String, maxDistance: Double, maxVectors: Long, queryTemplateName: String? = null): List<Map<String, Any>> {
     return queryClosestObjects(engine, VECTOR_DB_QUERY_CLOSEST_OBJECTS, collection, context, vector, maxDistance, maxVectors, buildQueryTemplateOrNull(queryTemplateName))
             .asArray()
