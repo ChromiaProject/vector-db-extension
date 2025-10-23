@@ -66,15 +66,16 @@ class VectorDbDatabaseAccess{
         ) + tableIds.map { getCollectionTableName(ctx, it) }
                 .forEach {
                     logger.debug { "Dropping table $it" }
-                    ctx.conn.createStatement().execute("DROP TABLE IF EXISTS $it CASCADE")
+                    ctx.conn.createStatement().use { stmt -> stmt.execute("DROP TABLE IF EXISTS $it CASCADE") }
                 }
     }
 
     fun initializePgVector(ctx: EContext, databaseSchema: String) {
 
         // Create PG vector extension in this schema
-        ctx.conn.createStatement()
-                .execute("CREATE EXTENSION IF NOT EXISTS vector")
+        ctx.conn.createStatement().use { stmt ->
+            stmt.execute("CREATE EXTENSION IF NOT EXISTS vector")
+        }
 
         pgVectorSchema = getPgVectorExtensionSchema(ctx, databaseSchema)
         if (pgVectorSchema != null) {
@@ -84,33 +85,37 @@ class VectorDbDatabaseAccess{
 
     fun initializeCollectionsTable(ctx: EContext) {
         val collectionsTableName = getCollectionsTableName(ctx)
-        ctx.conn.createStatement()
-                .execute("""
+        ctx.conn.createStatement().use { stmt ->
+            stmt.execute("""
                         CREATE TABLE IF NOT EXISTS $collectionsTableName (
                         $COLLECTION_IDS_COLUMN_ID bigint NOT NULL PRIMARY KEY,
                         $COLLECTION_IDS_COLUMN_NAME text NOT NULL UNIQUE)
                         """)
+        }
     }
 
     fun initializeDatumSeqTable(ctx: EContext) {
         val datumSeqTableName = getDatumSeqTableName(ctx)
-        ctx.conn.createStatement()
-                .execute("CREATE TABLE IF NOT EXISTS $datumSeqTableName ($DATUM_ID_SEQ_COLUMN_ID bigint NOT NULL)")
+        ctx.conn.createStatement().use { stmt ->
+            stmt.execute("CREATE TABLE IF NOT EXISTS $datumSeqTableName ($DATUM_ID_SEQ_COLUMN_ID bigint NOT NULL)")
+        }
         setDatumIdSequenceOffset(ctx, getDatumIdSequenceOffset(ctx))
     }
 
     private fun getPgVectorExtensionSchema(ctx: EContext, databaseSchema: String): String? {
-        val rs = ctx.conn.createStatement()
-                .executeQuery("""
+        return ctx.conn.createStatement().use { stmt ->
+            stmt.executeQuery("""
                         SELECT n.nspname as schema_name
                         FROM pg_extension e
                                  JOIN pg_namespace n ON e.extnamespace = n.oid
                         WHERE e.extname = 'vector';
-                    """)
-        return if (rs.next()) {
-            val schema = rs.getString("schema_name")
-            if (schema != databaseSchema) schema else null
-        } else null
+                    """).use { rs ->
+                if (rs.next()) {
+                    val schema = rs.getString("schema_name")
+                    if (schema != databaseSchema) schema else null
+                } else null
+            }
+        }
     }
 
     fun storeCollections(ctx: EContext, tableIdNameMap: Map<Long, String>) {
@@ -140,21 +145,24 @@ class VectorDbDatabaseAccess{
         val tableName = getCollectionTableName(ctx, tableId)
 
         // Create the vector table
-        ctx.conn.createStatement()
-                .execute("""
+        ctx.conn.createStatement().use { stmt ->
+            stmt.execute("""
                         CREATE TABLE IF NOT EXISTS $tableName (
                         $COLLECTION_COLUMN_DATUM_ID bigint NOT NULL PRIMARY KEY,
                         $COLLECTION_COLUMN_CONTEXT bigint NOT NULL,
                         $COLLECTION_COLUMN_ID bigint NOT NULL,
                         $COLLECTION_COLUMN_EMBEDDING ${pgVectorDataTypePrefix}halfvec(${config.dimensions}) NOT NULL)
                         """)
+        }
 
         // Context & id index
         val contextIdIndexName = getTableIndexName(tableName, "datum_id_key")
-        ctx.conn.createStatement().execute("""
+        ctx.conn.createStatement().use { stmt ->
+            stmt.execute("""
                 CREATE INDEX IF NOT EXISTS "$contextIdIndexName" on $tableName ("$COLLECTION_COLUMN_CONTEXT", "$COLLECTION_COLUMN_ID")
                 """
-        )
+            )
+        }
 
         // Create embedding index
         val embeddedHnswIndexName = getTableIndexName(tableName, config.indexType.indexName)
@@ -170,12 +178,14 @@ class VectorDbDatabaseAccess{
 
             logger.info { "Creating embedding index of type ${config.indexType}" }
 
-            ctx.conn.createStatement().execute(
-                    """
+            ctx.conn.createStatement().use { stmt ->
+                stmt.execute(
+                        """
                     CREATE INDEX IF NOT EXISTS "$embeddedHnswIndexName"
                     ON $tableName USING hnsw ($COLLECTION_COLUMN_EMBEDDING ${pgVectorDataTypePrefix}${config.indexType.indexEmbedding})
                     """
-            )
+                )
+            }
         }
     }
 
@@ -320,9 +330,13 @@ class VectorDbDatabaseAccess{
 
     fun setDatumIdSequenceOffset(ctx: EContext, id: Long) {
         val tableName = getDatumSeqTableName(ctx)
-        val affected = ctx.conn.createStatement().executeUpdate("UPDATE $tableName SET $DATUM_ID_SEQ_COLUMN_ID = $id")
+        val affected = ctx.conn.createStatement().use { stmt ->
+            stmt.executeUpdate("UPDATE $tableName SET $DATUM_ID_SEQ_COLUMN_ID = $id")
+        }
         if (affected == 0) {
-            ctx.conn.createStatement().execute("INSERT INTO $tableName ($DATUM_ID_SEQ_COLUMN_ID) VALUES($id)")
+            ctx.conn.createStatement().use { stmt ->
+                stmt.execute("INSERT INTO $tableName ($DATUM_ID_SEQ_COLUMN_ID) VALUES($id)")
+            }
         } else if (affected > 1) {
             throw ProgrammerMistake("Incorrect datum id sequence state")
         }
