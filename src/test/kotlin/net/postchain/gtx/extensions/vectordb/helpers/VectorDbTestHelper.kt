@@ -18,12 +18,15 @@ fun getVectors(engine: BlockchainEngine, chainId: Long, collection: String): Lis
         VectorDbDatabaseAccess().apply {
             val tableId = getCollections(ctx)[collection]!!
             val tableName = getCollectionTableName(ctx, tableId)
-            val rs = ctx.conn.createStatement().executeQuery("SELECT ${VectorDbDatabaseAccess.COLLECTION_COLUMN_CONTEXT}, ${VectorDbDatabaseAccess.COLLECTION_COLUMN_ID}, ${VectorDbDatabaseAccess.COLLECTION_COLUMN_EMBEDDING} FROM $tableName")
-            val vectors = mutableListOf<Vector>()
-            while (rs.next()) {
-                vectors.add(Vector(rs.getLong(1), rs.getLong(2), rs.getString(3)))
+            return ctx.conn.createStatement().use { stmt ->
+                stmt.executeQuery("SELECT ${VectorDbDatabaseAccess.COLLECTION_COLUMN_CONTEXT}, ${VectorDbDatabaseAccess.COLLECTION_COLUMN_ID}, ${VectorDbDatabaseAccess.COLLECTION_COLUMN_EMBEDDING} FROM $tableName").use { rs ->
+                    val vectors = mutableListOf<Vector>()
+                    while (rs.next()) {
+                        vectors.add(Vector(rs.getLong(1), rs.getLong(2), rs.getString(3)))
+                    }
+                    vectors
+                }
             }
-            return vectors
         }
     } finally {
         engine.blockBuilderStorage.closeReadConnection(ctx)

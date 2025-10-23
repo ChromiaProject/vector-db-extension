@@ -34,7 +34,7 @@ class VectorDbSnapshotIT : SnapshotTestBase() {
 
         // Avoid race condition to create the pg vector extension by making sure the extension is created by one node only
         withWriteConnection(nodes[0].postchainContext.sharedStorage, 0) {
-            it.conn.createStatement().execute("CREATE EXTENSION IF NOT EXISTS vector")
+            it.conn.createStatement().use { stmt -> stmt.execute("CREATE EXTENSION IF NOT EXISTS vector") }
             true
         }
 
