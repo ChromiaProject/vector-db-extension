@@ -1,8 +1,11 @@
 package net.postchain.gtx.extensions.vectordb
 
 import assertk.assertThat
+import assertk.assertions.containsOnly
+import assertk.assertions.extracting
 import assertk.assertions.hasMessage
 import assertk.assertions.hasSize
+import assertk.assertions.isEmpty
 import assertk.assertions.isEqualTo
 import assertk.assertions.isNotNull
 import assertk.assertions.isTrue
@@ -14,16 +17,20 @@ import net.postchain.gtx.GtxBody
 import net.postchain.gtx.GtxOp
 import net.postchain.gtx.extensions.vectordb.config.VectorDBIndex
 import net.postchain.gtx.extensions.vectordb.helpers.VectorDbTestGTXModule
+import net.postchain.gtx.extensions.vectordb.helpers.addCollection
 import net.postchain.gtx.extensions.vectordb.helpers.addMessage
 import net.postchain.gtx.extensions.vectordb.helpers.addMessages
 import net.postchain.gtx.extensions.vectordb.helpers.buildQueryTemplateOrNull
+import net.postchain.gtx.extensions.vectordb.helpers.changeCollection
 import net.postchain.gtx.extensions.vectordb.helpers.deleteMessage
+import net.postchain.gtx.extensions.vectordb.helpers.getVectorCollections
 import net.postchain.gtx.extensions.vectordb.helpers.getVectors
 import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjects
 import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsGetIdAndDistance
 import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsGetStrings
 import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsGetTextAndDistance
 import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsNoTemplate
+import net.postchain.gtx.extensions.vectordb.helpers.removeCollection
 import net.postchain.test.modify
 import org.awaitility.Awaitility
 import org.awaitility.Duration
@@ -278,5 +285,146 @@ class VectorDbIT : IntegrationTestSetup() {
                 .untilAsserted {
                     assertThat(VectorDbTestGTXModule.INIT_DB_EXCEPTION).isNotNull().hasMessage("Changing embedded index is not supported")
                 }
+    }
+
+    @Test
+    fun `dynamic collection - create and delete`() {
+        val node = createNodes(1, "/chains/vector_example_test_dynamic_collections.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
+        val collectionName = "customers"
+
+        addCollection(engine, collectionName, 128, VectorDBIndex.HNSW_COSINE, 10, 100)
+        buildBlock(DEFAULT_CHAIN_IID)
+
+        val collections = getVectorCollections(engine)
+        assertThat(collections).extracting { it.name }.containsOnly(collectionName)
+
+        removeCollection(engine, collectionName)
+        buildBlock(DEFAULT_CHAIN_IID)
+        val collectionsAfterDelete = getVectorCollections(engine)
+        assertThat(collectionsAfterDelete).isEmpty()
+    }
+
+    @Test
+    fun `static collection - remove not allowed`() {
+        val node = createNodes(1, "/chains/vector_example_test.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
+        val collectionName = "messages"
+
+        val collections = getVectorCollections(engine)
+        assertThat(collections).extracting { it.name }.containsOnly(collectionName)
+
+        removeCollection(engine, collectionName)
+        buildBlock(DEFAULT_CHAIN_IID)
+
+        val collectionsAfterDelete = getVectorCollections(engine)
+        assertThat(collectionsAfterDelete).extracting { it.name }.containsOnly(collectionName)
+    }
+
+    @Test
+    fun `collection -  add and update`() {
+        val node = createNodes(1, "/chains/vector_example_test_dynamic_collections.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
+        val collectionName = "customers"
+
+        addCollection(engine, collectionName, 128, VectorDBIndex.HNSW_COSINE, 10, 100)
+        buildBlock(DEFAULT_CHAIN_IID)
+
+        val collections = getVectorCollections(engine)
+        assertThat(collections).extracting { Triple(it.name, it.maxVectors, it.storeBatchSize) }
+                .containsOnly(Triple(collectionName, 10L, 100L))
+
+        changeCollection(engine, collectionName, queryMaxVectors = 50, storeBatchSize = 200)
+        buildBlock(DEFAULT_CHAIN_IID)
+        val collectionsAfterUpdate = getVectorCollections(engine)
+        assertThat(collectionsAfterUpdate).extracting { Triple(it.name, it.maxVectors, it.storeBatchSize) }
+                .containsOnly(Triple(collectionName, 50L, 200L))
+
+        changeCollection(engine, collectionName, queryMaxVectors = null, storeBatchSize = 123)
+        buildBlock(DEFAULT_CHAIN_IID)
+        val collectionsAfterPartialUpdate = getVectorCollections(engine)
+        assertThat(collectionsAfterPartialUpdate).extracting { Triple(it.name, it.maxVectors, it.storeBatchSize) }
+                .containsOnly(Triple(collectionName, 50L, 123L))
+    }
+
+    @Test
+    fun `collections - skip static collections not part of config`() {
+        val node = createNodes(1, "/chains/vector_example_test.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
+        val newCollection = "new_messages"
+
+        addMessage(engine, "alpha", "[1, 2, 3]")
+        buildBlock(DEFAULT_CHAIN_IID)
+
+        val blockchainGtvConfig = readBlockchainConfig("/chains/vector_example_test.xml")
+                .modify(listOf("vector_db_extension", "collections")) {
+                    gtv(mapOf(
+                            "new_messages" to gtv(
+                                    mapOf(
+                                            "dimensions" to gtv(128),
+                                            "query_max_vectors" to gtv(20),
+                                            "index" to gtv("hnsw_cosine"),
+                                    )
+                            )
+                    ))
+                }
+        node.addConfiguration(DEFAULT_CHAIN_IID, 2, blockchainGtvConfig)
+        buildBlockNoWait(listOf(node), DEFAULT_CHAIN_IID, 2)
+
+        Awaitility.await().atMost(Duration.TEN_SECONDS)
+                .untilAsserted {
+                    val newEngine = node.getBlockchainInstance().blockchainEngine
+                    val collections = getVectorCollections(newEngine)
+                    assertThat(collections).extracting { it.name }.containsOnly(newCollection)
+                }
+    }
+
+
+    @Test
+    fun `collections - switch from static to dynamic`() {
+        val node = createNodes(1, "/chains/vector_example_test.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
+
+        addMessage(engine, "alpha", "[1, 2, 3]")
+        buildBlock(DEFAULT_CHAIN_IID)
+
+        val blockchainGtvConfig = readBlockchainConfig("/chains/vector_example_test.xml")
+                .modify(listOf("vector_db_extension", "collections")) {
+                    gtv(mapOf())
+                }
+        node.addConfiguration(DEFAULT_CHAIN_IID, 2, blockchainGtvConfig)
+        buildBlockNoWait(listOf(node), DEFAULT_CHAIN_IID, 2)
+
+        Awaitility.await().atMost(Duration.TEN_SECONDS)
+                .untilAsserted {
+                    val newEngine = node.getBlockchainInstance().blockchainEngine
+                    val dynamicCollection = "customers"
+
+                    addCollection(newEngine, dynamicCollection, 128, VectorDBIndex.HNSW_COSINE, 10, 100)
+                    buildBlock(DEFAULT_CHAIN_IID)
+
+                    val collections = getVectorCollections(newEngine)
+                    assertThat(collections).extracting { it.name }.containsOnly(dynamicCollection)
+                }
+    }
+
+    @Test
+    fun `dynamic collection - restart node `() {
+        val node = createNodes(1, "/chains/vector_example_test_dynamic_collections.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
+        val collectionName = "customers"
+
+        addCollection(engine, collectionName, 128, VectorDBIndex.HNSW_COSINE, 10, 100)
+        buildBlock(DEFAULT_CHAIN_IID)
+
+        val collections = getVectorCollections(engine)
+        assertThat(collections).extracting { it.name }.containsOnly(collectionName)
+
+        node.stopBlockchain(DEFAULT_CHAIN_IID)
+        node.startBlockchain(DEFAULT_CHAIN_IID)
+
+        val newEngine = node.getBlockchainInstance().blockchainEngine
+        val collectionsAfterRestart = getVectorCollections(newEngine)
+        assertThat(collectionsAfterRestart).extracting { it.name }.containsOnly(collectionName)
     }
 }

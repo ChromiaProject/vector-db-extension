@@ -48,6 +48,18 @@ operation delete_messages(texts: list<text>) {
     delete message_entities;
 }
 
+operation add_collection(collection: text, dimensions: integer, index_type: text, query_max_vectors: integer, store_batch_size: integer) {
+    create_collection(collection, dimensions, index_type, query_max_vectors, store_batch_size);
+}
+
+operation remove_collection(collection: text) {
+    delete_collection(collection);
+}
+
+operation change_collection(collection: text, query_max_vectors: integer? = null, store_batch_size: integer? = null) {
+    update_collection(collection, query_max_vectors, store_batch_size);
+}
+
 /**
  * Query template function to map vector ids to corresponding texts
  *

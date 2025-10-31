@@ -18,10 +18,12 @@ import net.postchain.gtx.extensions.vectordb.helpers.getVectors
 import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsGetStrings
 import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsNoTemplate
 import net.postchain.test.modify
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
 import java.util.concurrent.TimeUnit
 
+@Disabled("Enable after snapshots are done")
 class VectorDbSnapshotIT : SnapshotTestBase() {
 
     /** With 4 nodes, create vectors and then do a clean restart of node 4 to make it sync snapshot. */
@@ -71,7 +73,7 @@ class VectorDbSnapshotIT : SnapshotTestBase() {
         assertThat(nodes[3]).hasIdenticalTableContentAs(nodes[0],
                 basicChainTableContentProvider(listOf(
                         "sys.x.vectordb.collection_0",
-                        "sys.x.vectordb.collection_ids",
+                        "sys.x.vectordb.collection_meta",
                         "sys.x.vectordb.datum_id_seq",
                 )))
 

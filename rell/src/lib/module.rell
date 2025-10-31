@@ -46,6 +46,39 @@ function delete_vector(collection: text, context: integer, id: integer) {
 }
 
 /**
+ * Create a collection in the database.
+ *
+ * @param collection The name of the collection.
+ * @param dimensions The number of dimensions for the vectors in this collection.
+ * @param index_type The type of index to use, e.g., "hnsw_cosine", "hnsw_l1", "hnsw_l2", hnsw_ip".
+ * @param query_max_vectors The maximum number of vectors to return in a query.
+ * @param store_batch_size The batch insert size to use when storing vectors.
+ */
+function create_collection(collection: text, dimensions: integer, index_type: text, query_max_vectors: integer, store_batch_size: integer) {
+    op_context.emit_event("create_collection", (collection = collection, dimensions = dimensions, index_type = index_type, query_max_vectors = query_max_vectors, store_batch_size = store_batch_size).to_gtv_pretty());
+}
+
+/**
+ * Delete the collection from database.
+ *
+ * @param collection The name of the collection.
+ */
+function delete_collection(collection: text) {
+    op_context.emit_event("delete_collection", (collection = collection).to_gtv_pretty());
+}
+
+/**
+ * Update a collection in the database.
+ *
+ * @param collection The name of the collection.
+ * @param query_max_vectors The maximum number of vectors to return in a query.
+ * @param store_batch_size The batch insert size to use
+ */
+function update_collection(collection: text, query_max_vectors: integer? = null, store_batch_size: integer? = null) {
+    op_context.emit_event("update_collection", (collection = collection, query_max_vectors = query_max_vectors, store_batch_size = store_batch_size).to_gtv_pretty());
+}
+
+/**
  * Delete a set of vectors from the database.
  *
  * @param collection The name of the collection defined in the blockchain configuration.

@@ -6,6 +6,7 @@ import net.postchain.common.exception.UserMistake
 import net.postchain.core.EContext
 import net.postchain.gtv.GtvFactory.gtv
 import net.postchain.gtx.extensions.vectordb.config.VectorDBIndex
+import net.postchain.gtx.extensions.vectordb.config.VectorCollectionOrigin
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -40,7 +41,7 @@ class VectorDbGTXModuleTest {
         context = VectorDbGTXModuleContext(dbaMock)
         context.module = VectorDbGTXModule()
         context.collectionsByName = ConcurrentHashMap(mapOf("collection1" to VectorCollection(
-                0, "collection1", 100, 10, 300, VectorDBIndex.HNSW_COSINE
+                0, "collection1", 100, 10, 300, VectorDBIndex.HNSW_COSINE, VectorCollectionOrigin.STATIC
         )))
         context.postchainContext = mock()
         context.vectorDbConfig = mock()

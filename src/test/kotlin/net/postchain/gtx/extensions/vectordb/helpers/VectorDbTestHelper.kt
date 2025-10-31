@@ -6,17 +6,21 @@ import net.postchain.core.BlockchainEngine
 import net.postchain.gtv.Gtv
 import net.postchain.gtv.GtvDictionary
 import net.postchain.gtv.GtvFactory.gtv
+import net.postchain.gtv.GtvNull
 import net.postchain.gtx.Gtx
 import net.postchain.gtx.GtxBody
 import net.postchain.gtx.GtxOp
 import net.postchain.gtx.extensions.vectordb.VECTOR_DB_QUERY_CLOSEST_OBJECTS
+import net.postchain.gtx.extensions.vectordb.VectorCollectionInfo
 import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseAccess
+import net.postchain.gtx.extensions.vectordb.config.VectorDBIndex
 
 fun getVectors(engine: BlockchainEngine, chainId: Long, collection: String): List<Vector> {
     val ctx = engine.blockBuilderStorage.openReadConnection(chainId)
     try {
         VectorDbDatabaseAccess().apply {
-            val tableId = getCollections(ctx)[collection]!!
+            val collection = getCollections(ctx)[collection]!!
+            val tableId = collection.id
             val tableName = getCollectionTableName(ctx, tableId)
             return ctx.conn.createStatement().use { stmt ->
                 stmt.executeQuery("SELECT ${VectorDbDatabaseAccess.COLLECTION_COLUMN_CONTEXT}, ${VectorDbDatabaseAccess.COLLECTION_COLUMN_ID}, ${VectorDbDatabaseAccess.COLLECTION_COLUMN_EMBEDDING} FROM $tableName").use { rs ->
@@ -98,6 +102,20 @@ fun <T> queryClosestObjects(query: (String, Gtv) -> T, queryName: String, collec
     return query(queryName, gtv(mapOf(*args.toTypedArray())))
 }
 
+fun getVectorCollections(engine: BlockchainEngine): List<VectorCollectionInfo> {
+    val gtv = engine.getBlockQueries().query("get_vector_collections", gtv(mapOf())).get()
+    return gtv.asArray().map {
+        val dict = it.asDict()
+        VectorCollectionInfo(
+                name = dict["name"]!!.asString(),
+                dimensions = dict["dimensions"]!!.asInteger(),
+                index = VectorDBIndex.valueOf(dict["index"]!!.asString().uppercase()),
+                maxVectors = dict["query_max_vectors"]!!.asInteger(),
+                storeBatchSize =  dict["store_batch_size"]!!.asInteger()
+        )
+    }
+}
+
 fun buildQueryTemplateOrNull(name: String?, args: Gtv? = null): GtvDictionary? {
     if (name != null) {
         val dict: MutableMap<String, Gtv> = mutableMapOf(
@@ -113,6 +131,33 @@ fun buildQueryTemplateOrNull(name: String?, args: Gtv? = null): GtvDictionary? {
 
 fun addMessage(engine: BlockchainEngine, message: String, vector: String) {
     val op = GtxOp("add_message", gtv(message), gtv(vector))
+    val tx = engine.getConfiguration().getTransactionFactory().decodeTransaction(
+            Gtx(GtxBody(engine.getConfiguration().blockchainRid, listOf(op), listOf()), listOf()).encode()
+    )
+    engine.getTransactionQueue().enqueue(tx)
+}
+
+fun addCollection(engine: BlockchainEngine, collection: String, dimensions: Long, indexType: VectorDBIndex, queryMaxVectors: Long, storeBatchSize: Long) {
+    val op = GtxOp("add_collection", gtv(collection), gtv(dimensions), gtv(indexType.name), gtv(queryMaxVectors), gtv(storeBatchSize))
+    val tx = engine.getConfiguration().getTransactionFactory().decodeTransaction(
+            Gtx(GtxBody(engine.getConfiguration().blockchainRid, listOf(op), listOf()), listOf()).encode()
+    )
+    engine.getTransactionQueue().enqueue(tx)
+}
+
+fun changeCollection(engine: BlockchainEngine, collection: String, queryMaxVectors: Long?, storeBatchSize: Long?) {
+    val gtvQueryMaxVectors = if(queryMaxVectors != null) gtv(queryMaxVectors) else GtvNull
+    val gtvStoreBatchSize = if(storeBatchSize != null) gtv(storeBatchSize) else GtvNull
+
+    val op = GtxOp("change_collection", gtv(collection), gtvQueryMaxVectors, gtvStoreBatchSize)
+    val tx = engine.getConfiguration().getTransactionFactory().decodeTransaction(
+            Gtx(GtxBody(engine.getConfiguration().blockchainRid, listOf(op), listOf()), listOf()).encode()
+    )
+    engine.getTransactionQueue().enqueue(tx)
+}
+
+fun removeCollection(engine: BlockchainEngine, collection: String) {
+    val op = GtxOp("remove_collection", gtv(collection))
     val tx = engine.getConfiguration().getTransactionFactory().decodeTransaction(
             Gtx(GtxBody(engine.getConfiguration().blockchainRid, listOf(op), listOf()), listOf()).encode()
     )
