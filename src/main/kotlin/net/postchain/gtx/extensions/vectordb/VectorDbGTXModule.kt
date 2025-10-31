@@ -21,12 +21,12 @@ import net.postchain.gtx.PostchainContextAware
 import net.postchain.gtx.QueryMetadata
 import net.postchain.gtx.ReturnMetadata
 import net.postchain.gtx.SimpleGTXModule
-import net.postchain.gtx.SnapshotAware
 import net.postchain.gtx.SnapshotContext
 import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseAccess.Vector
 import net.postchain.gtx.extensions.vectordb.VectorDbDatumMapper.Companion.fromMetaDataGtv
 import net.postchain.gtx.extensions.vectordb.VectorDbDatumMapper.Companion.fromVectorDatumGtv
 import net.postchain.gtx.extensions.vectordb.config.VectorDbConfig
+import net.postchain.gtx.extensions.vectordb.config.VectorCollectionOrigin
 import net.postchain.gtx.special.GTXSpecialTxExtension
 import java.math.BigDecimal
 import java.util.concurrent.ConcurrentHashMap
@@ -34,6 +34,7 @@ import java.util.concurrent.ConcurrentMap
 
 const val VECTOR_DB_QUERY_CLOSEST_OBJECTS = "query_closest_objects"
 const val VECTOR_DB_EXTENSION_CONFIG_NAME = "vector_db_extension"
+const val VECTOR_DB_GET_COLLECTIONS = "get_vector_collections"
 
 /** Datum ID 0 is reserved for metadata to sync collection IDs when snapshots are restored */
 const val VECTOR_DB_META_DATUM_ID = 0L
@@ -53,14 +54,32 @@ class VectorDbGTXModuleContext(
                 this::postchainContext.isInitialized &&
                 this::vectorDbConfig.isInitialized
     }
+
+    fun addCollection(collection: VectorCollection) {
+        collectionsByName[collection.name] = collection
+    }
+
+    fun deleteCollectionByName(name: String) {
+        collectionsByName.remove(name)
+    }
+
+    fun updateCollection(name: String, collection: VectorCollection) {
+        collectionsByName[name] = collection
+    }
+
+    fun dynamicCollectionsEnabled(): Boolean {
+        return collectionsByName.values.none { it.origin == VectorCollectionOrigin.STATIC }
+    }
 }
 
 open class VectorDbGTXModule(
         private val databaseOperations: VectorDbDatabaseAccess = VectorDbDatabaseAccess()
 ) : SimpleGTXModule<VectorDbGTXModuleContext>(
         VectorDbGTXModuleContext(databaseOperations), mapOf(), mapOf(
-        VECTOR_DB_QUERY_CLOSEST_OBJECTS to Companion::queryClosestObjects)
-), PostchainContextAware, MetadataProvider, SnapshotAware {
+                VECTOR_DB_QUERY_CLOSEST_OBJECTS to Companion::queryClosestObjects,
+                VECTOR_DB_GET_COLLECTIONS to Companion::getVectorCollections
+        )
+), PostchainContextAware, MetadataProvider/*, SnapshotAware */ {
 
     private var chainId: Long? = null
 
@@ -97,13 +116,26 @@ open class VectorDbGTXModule(
                         gtv(mapOf("closest_results" to vectorResult) + queryTemplateArgs))
             }
         }
+
+        fun getVectorCollections(moduleContext: VectorDbGTXModuleContext, ctx: EContext, args: Gtv): Gtv {
+            val vectorCollections = moduleContext.collectionsByName.values.map { collection ->
+                gtv(mapOf(
+                        "name" to gtv(collection.name),
+                        "dimensions" to gtv(collection.dimensions),
+                        "index" to gtv(collection.index.name.lowercase()),
+                        "query_max_vectors" to gtv(collection.maxVectors),
+                        "store_batch_size" to gtv(collection.storeBatchSize)
+                ))
+            }
+            return gtv(vectorCollections)
+        }
     }
 
     override fun initializeContext(configuration: BlockchainConfiguration, postchainContext: PostchainContext) {
         conf.postchainContext = postchainContext
         conf.module = (configuration as GTXModuleAware).module
         conf.vectorDbConfig = configuration.rawConfig[VECTOR_DB_EXTENSION_CONFIG_NAME]?.toObject<VectorDbConfig>()
-                ?: throw UserMistake("No vector db extension config present")
+                ?: VectorDbConfig.DEFAULT_CONFIG
 
         validateConfiguration(conf.vectorDbConfig)
 
@@ -123,7 +155,7 @@ open class VectorDbGTXModule(
                 .associateBy { it.name })
     }
 
-    override fun constructDatum(ctx: EContext, datumList: List<SnapshotDatum>) {
+    /*override*/ fun constructDatum(ctx: EContext, datumList: List<SnapshotDatum>) {
         if (datumList.isNotEmpty() && datumList[0].id == VECTOR_DB_META_DATUM_ID) {
             val snapshotMetaData = fromMetaDataGtv(datumList[0].data)
 
@@ -131,7 +163,7 @@ open class VectorDbGTXModule(
 
             databaseOperations.wipeVectorDb(ctx, conf.collectionsByName.map { it.value.id })
             databaseOperations.initializeCollectionsTable(ctx)
-            databaseOperations.storeCollections(ctx, snapshotMetaData.entries.associate { it.value to it.key })
+            databaseOperations.storeCollections(ctx, snapshotMetaData.values.toList())
 
             initializeDb(ctx, conf.vectorDbConfig, conf.postchainContext.appConfig.databaseSchema)
 
@@ -157,7 +189,7 @@ open class VectorDbGTXModule(
         }
     }
 
-    override fun finalizeImport(ctx: EContext) {
+    /*override*/ fun finalizeImport(ctx: EContext) {
 
         logger.debug { "Finalizing vector db snapshot import" }
 
@@ -179,7 +211,7 @@ open class VectorDbGTXModule(
     override fun initializeDB(ctx: EContext) {
     }
 
-    override fun initializeSnapshotContext(context: SnapshotContext) {
+    /*override*/ fun initializeSnapshotContext(context: SnapshotContext) {
         conf.snapshotContext = context
     }
 
@@ -204,9 +236,9 @@ open class VectorDbGTXModule(
         return listOf(VectorDbEventProcessor(databaseOperations, conf))
     }
 
-    override fun getPermanentDatumIdMax(ctx: EContext): Long? = null
+    /*override*/ fun getPermanentDatumIdMax(ctx: EContext): Long? = null
 
-    override fun getPermanentDatums(ctx: EContext, datumIdFrom: Long, datumHandler: (datum: SnapshotDatum?) -> Boolean) {
+    /*override*/ fun getPermanentDatums(ctx: EContext, datumIdFrom: Long, datumHandler: (datum: SnapshotDatum?) -> Boolean) {
         datumHandler(null)
     }
 }

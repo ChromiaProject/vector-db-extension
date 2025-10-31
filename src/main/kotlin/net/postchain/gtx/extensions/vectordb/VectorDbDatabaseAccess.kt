@@ -11,20 +11,27 @@ import net.postchain.gtv.GtvFactory.gtv
 import net.postchain.gtx.extensions.vectordb.config.VectorDBIndex
 import net.postchain.gtx.extensions.vectordb.config.VectorDbCollectionConfig
 import net.postchain.gtx.extensions.vectordb.config.VectorDbConfig
+import net.postchain.gtx.extensions.vectordb.config.VectorCollectionOrigin
 import java.math.BigDecimal
 import java.sql.Statement.EXECUTE_FAILED
+
 
 class VectorDbDatabaseAccess{
 
     companion object : KLogging() {
         private const val TABLE_PREFIX: String = "sys.x.vectordb."
 
-        const val TABLE_COLLECTION_IDS = "${TABLE_PREFIX}collection_ids"
+        const val TABLE_COLLECTION_META = "${TABLE_PREFIX}collection_meta"
         const val TABLE_DATUM_ID_SEQ = "${TABLE_PREFIX}datum_id_seq"
         const val TABLE_COLLECTION = "${TABLE_PREFIX}collection_"
 
         const val COLLECTION_IDS_COLUMN_ID = "id"
         const val COLLECTION_IDS_COLUMN_NAME = "name"
+        const val COLLECTION_IDS_COLUMN_DIMENSIONS = "dimensions"
+        const val COLLECTION_IDS_COLUMN_INDEX_TYPE = "index_type"
+        const val COLLECTION_IDS_COLUMN_QUERY_MAX_VECTORS = "query_max_vectors"
+        const val COLLECTION_IDS_COLUMN_STORE_BATCH_SIZE = "store_batch_size"
+        const val COLLECTION_IDS_COLUMN_ORIGIN = "origin"
 
         const val DATUM_ID_SEQ_COLUMN_ID = "id"
 
@@ -44,19 +51,30 @@ class VectorDbDatabaseAccess{
         initializePgVector(ctx, databaseSchema)
         initializeCollectionsTable(ctx)
         initializeDatumSeqTable(ctx)
-        val tableIds = getCollections(ctx).toMutableMap()
+        val collectionsMap = getCollections(ctx).toMutableMap()
+        validateNoMixedCollectionOrigins(config, collectionsMap)
 
         val updatedTables = config.collections.map { (name, tableConfig) ->
 
-            val tableId = tableIds.getOrPut(name) { getNextTableId(tableIds) }
-            createOrUpdateTable(ctx, tableConfig, tableId, databaseSchema)
-
-            VectorCollection(tableId, name, tableConfig)
+            val collection = collectionsMap.getOrPut(name) {
+                val id = getNextTableId(collectionsMap)
+                VectorCollection(id, name, tableConfig, VectorCollectionOrigin.STATIC)
+            }
+            createOrUpdateTable(ctx, tableConfig, collection.id, databaseSchema)
+            collection
         }
 
-        storeCollections(ctx, updatedTables.associate { it.id to it.name })
+        storeCollections(ctx, updatedTables)
 
-        return updatedTables
+        return getCollections(ctx).values.filter {
+            it.origin == VectorCollectionOrigin.DYNAMIC || config.collections.containsKey(it.name)
+        }
+    }
+
+    private fun validateNoMixedCollectionOrigins(config: VectorDbConfig, collectionsMap: Map<String, VectorCollection>) {
+        if (config.collections.isNotEmpty() && collectionsMap.values.any { it.origin == VectorCollectionOrigin.DYNAMIC }) {
+            throw UserMistake("Database initialized with static collections, but dynamic collections exist in DB")
+        }
     }
 
     fun wipeVectorDb(ctx: EContext, tableIds: List<Long>) {
@@ -89,7 +107,13 @@ class VectorDbDatabaseAccess{
             stmt.execute("""
                         CREATE TABLE IF NOT EXISTS $collectionsTableName (
                         $COLLECTION_IDS_COLUMN_ID bigint NOT NULL PRIMARY KEY,
-                        $COLLECTION_IDS_COLUMN_NAME text NOT NULL UNIQUE)
+                        $COLLECTION_IDS_COLUMN_NAME text NOT NULL UNIQUE,
+                        $COLLECTION_IDS_COLUMN_ORIGIN text NOT NULL,
+                        $COLLECTION_IDS_COLUMN_DIMENSIONS bigint NOT NULL,
+                        $COLLECTION_IDS_COLUMN_INDEX_TYPE text NOT NULL,
+                        $COLLECTION_IDS_COLUMN_QUERY_MAX_VECTORS bigint NOT NULL,
+                        $COLLECTION_IDS_COLUMN_STORE_BATCH_SIZE bigint NOT NULL
+                        )
                         """)
         }
     }
@@ -118,25 +142,69 @@ class VectorDbDatabaseAccess{
         }
     }
 
-    fun storeCollections(ctx: EContext, tableIdNameMap: Map<Long, String>) {
+    fun storeCollections(ctx: EContext, collections: List<VectorCollection>) {
         ctx.conn.prepareStatement("""
             INSERT INTO ${getCollectionsTableName(ctx)}
-            ($COLLECTION_IDS_COLUMN_ID, $COLLECTION_IDS_COLUMN_NAME) VALUES (?, ?)
+            ($COLLECTION_IDS_COLUMN_ID, $COLLECTION_IDS_COLUMN_NAME, $COLLECTION_IDS_COLUMN_ORIGIN, $COLLECTION_IDS_COLUMN_DIMENSIONS, $COLLECTION_IDS_COLUMN_INDEX_TYPE, $COLLECTION_IDS_COLUMN_QUERY_MAX_VECTORS, $COLLECTION_IDS_COLUMN_STORE_BATCH_SIZE) VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT ($COLLECTION_IDS_COLUMN_ID) DO NOTHING
             """
         ).use { stmt ->
-            tableIdNameMap.forEach { (id, name) ->
-                stmt.setLong(1, id)
-                stmt.setString(2, name)
+            collections.forEach { collection ->
+                stmt.setLong(1, collection.id)
+                stmt.setString(2, collection.name)
+                stmt.setString(3, collection.origin.name)
+                stmt.setLong(4, collection.dimensions)
+                stmt.setString(5, collection.index.name)
+                stmt.setLong(6, collection.maxVectors)
+                stmt.setLong(7, collection.storeBatchSize)
                 stmt.addBatch()
             }
             stmt.executeBatch()
         }
     }
 
-    private fun getNextTableId(tableIds: MutableMap<String, Long>): Long {
-        return tableIds.values.maxOrNull()?.let {
-            it + 1
+    fun createCollection(ctx: EContext, collectionName: String, config: VectorDbCollectionConfig, databaseSchema: String): VectorCollection {
+        val collectionsMap = getCollections(ctx).toMutableMap()
+        val collection = collectionsMap.getOrPut(collectionName) {
+            val id = getNextTableId(collectionsMap)
+            VectorCollection(id, collectionName, config, VectorCollectionOrigin.DYNAMIC)
+        }
+        // TODO: Check if collection already exists and throw error
+        createOrUpdateTable(ctx, config, collection.id, databaseSchema)
+
+        storeCollections(ctx, listOf(collection))
+        return collection
+    }
+
+    fun deleteCollection(ctxt: EContext, collection: VectorCollection) {
+        val tableName = getCollectionTableName(ctxt, collection.id)
+        ctxt.conn.createStatement().use { stmt ->
+            stmt.execute("DROP TABLE IF EXISTS $tableName CASCADE")
+        }
+        deleteCollectionIdEntry(ctxt, collection)
+    }
+
+    fun updateCollection(ctxt: TxEContext, collection: VectorCollection, queryMaxVectors: Long?, storeBatchSize: Long?): VectorCollection {
+        val tableName = getCollectionsTableName(ctxt)
+        val updatedQueryMaxVectors = queryMaxVectors ?: collection.maxVectors
+        val updatedStoreBatchSize = storeBatchSize ?: collection.storeBatchSize
+
+        ctxt.conn.createStatement().use { stmt ->
+            stmt.execute("UPDATE $tableName SET $COLLECTION_IDS_COLUMN_QUERY_MAX_VECTORS = $updatedQueryMaxVectors, $COLLECTION_IDS_COLUMN_STORE_BATCH_SIZE = $updatedStoreBatchSize WHERE $COLLECTION_IDS_COLUMN_ID = ${collection.id}")
+        }
+        return collection.copy(maxVectors = updatedQueryMaxVectors, storeBatchSize = updatedStoreBatchSize)
+    }
+
+    private fun deleteCollectionIdEntry(ctx: EContext, collection: VectorCollection) {
+        val tableName = getCollectionsTableName(ctx)
+        ctx.conn.createStatement().use { stmt ->
+            stmt.execute("DELETE FROM $tableName WHERE $COLLECTION_IDS_COLUMN_ID = ${collection.id}")
+        }
+    }
+
+    private fun getNextTableId(collectionsMap: MutableMap<String, VectorCollection>): Long {
+        return collectionsMap.values.maxByOrNull { it.id }?.let {
+            it.id + 1
         } ?: 0L
     }
 
@@ -206,6 +274,7 @@ class VectorDbDatabaseAccess{
     }
 
     fun storeVectors(ctx: EContext, tableId: Long, vectors: List<Vector>, batchSize: Long = 300) {
+        // TODO: When vectors size is different from dimension, throw user friendly (non-sql) error
         val tableName = getCollectionTableName(ctx, tableId)
         ctx.conn.prepareStatement("""
             INSERT INTO $tableName ($COLLECTION_COLUMN_DATUM_ID, $COLLECTION_COLUMN_CONTEXT, $COLLECTION_COLUMN_ID, $COLLECTION_COLUMN_EMBEDDING)
@@ -311,7 +380,7 @@ class VectorDbDatabaseAccess{
 
 
     fun getCollectionsTableName(ctx: EContext): String {
-        return tableName(ctx, TABLE_COLLECTION_IDS)
+        return tableName(ctx, TABLE_COLLECTION_META)
     }
 
     fun getDatumSeqTableName(ctx: EContext): String {
@@ -342,22 +411,27 @@ class VectorDbDatabaseAccess{
         }
     }
 
-    fun getCollections(ctx: EContext): Map<String, Long> {
+    fun getCollections(ctx: EContext): Map<String, VectorCollection> {
         val tableName = getCollectionsTableName(ctx)
-        val tableIds = mutableMapOf<String, Long>()
-        ctx.conn.createStatement().use { stmt -> stmt.executeQuery("SELECT $COLLECTION_IDS_COLUMN_ID, $COLLECTION_IDS_COLUMN_NAME FROM $tableName").use { rs ->
+        val collectionsMap = mutableMapOf<String, VectorCollection>()
+        ctx.conn.createStatement().use { stmt -> stmt.executeQuery("SELECT $COLLECTION_IDS_COLUMN_ID, $COLLECTION_IDS_COLUMN_NAME, $COLLECTION_IDS_COLUMN_ORIGIN, $COLLECTION_IDS_COLUMN_DIMENSIONS, $COLLECTION_IDS_COLUMN_INDEX_TYPE, $COLLECTION_IDS_COLUMN_QUERY_MAX_VECTORS, $COLLECTION_IDS_COLUMN_STORE_BATCH_SIZE FROM $tableName").use { rs ->
             while (rs.next()) {
                 val id = rs.getLong(1)
                 val name = rs.getString(2)
-                tableIds[name] = id
+                val origin = VectorCollectionOrigin.valueOf(rs.getString(3))
+                val dimensions = rs.getLong(4)
+                val indexType = VectorDBIndex.valueOf(rs.getString(5))
+                val queryMaxVectors = rs.getLong(6)
+                val storeBatchSize = rs.getLong(7)
+                collectionsMap[name] = VectorCollection(id, name, dimensions, queryMaxVectors, storeBatchSize, indexType, origin)
             }
         }}
-        return tableIds.toMap()
+        return collectionsMap
     }
 
     fun getDatumIdMax(ctx: EContext): Long? {
         return getCollections(ctx)
-                .map { getCollectionTableName(ctx, it.value) }
+                .map { getCollectionTableName(ctx, it.value.id) }
                 .mapNotNull {
                     ctx.conn.createStatement().use { stmt -> stmt.executeQuery("SELECT MAX($COLLECTION_COLUMN_DATUM_ID) FROM $it").use { rs ->
                         if (rs.next()) {

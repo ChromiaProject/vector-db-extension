@@ -10,4 +10,9 @@ data class VectorDbConfig(
          *  SET hnsw.ef_search = 200;
          *  SET hnsw.iterative_scan = strict_order; + more with iterative scan
          */
-)
+) {
+
+    companion object {
+        val DEFAULT_CONFIG = VectorDbConfig()
+    }
+}

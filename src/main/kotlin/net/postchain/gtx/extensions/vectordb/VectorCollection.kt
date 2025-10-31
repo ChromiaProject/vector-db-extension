@@ -2,6 +2,7 @@ package net.postchain.gtx.extensions.vectordb
 
 import net.postchain.gtx.extensions.vectordb.config.VectorDBIndex
 import net.postchain.gtx.extensions.vectordb.config.VectorDbCollectionConfig
+import net.postchain.gtx.extensions.vectordb.config.VectorCollectionOrigin
 
 data class VectorCollection(
         val id: Long,
@@ -10,8 +11,17 @@ data class VectorCollection(
         val maxVectors: Long,
         val storeBatchSize: Long,
         val index: VectorDBIndex,
+        val origin: VectorCollectionOrigin,
 ) {
-    constructor(id: Long, name: String, config: VectorDbCollectionConfig) : this(
-            id, name, config.dimensions, config.queryMaxVectors, config.storeBatchSize, config.indexType
+    constructor(id: Long, name: String, config: VectorDbCollectionConfig, origin: VectorCollectionOrigin) : this(
+            id, name, config.dimensions, config.queryMaxVectors, config.storeBatchSize, config.indexType, origin
     )
 }
+
+data class VectorCollectionInfo(
+        val name: String,
+        val dimensions: Long,
+        val maxVectors: Long,
+        val storeBatchSize: Long,
+        val index: VectorDBIndex
+)
