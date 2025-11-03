@@ -19,7 +19,7 @@ blockchains:
             index: hnsw_cosine
 
   vector_example_test:
-    module: vector_example
+    module: vector_example_test
     config:
       blockstrategy:
         maxblocktime: 2000

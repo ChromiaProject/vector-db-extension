@@ -7,14 +7,14 @@ import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule
 class VectorDbTestGTXModule : VectorDbGTXModule() {
 
     companion object {
-        var INIT_DB_EXCEPTION: Exception? = null
+        var INIT_EXCEPTION: Exception? = null
     }
 
     override fun initializeContext(configuration: BlockchainConfiguration, postchainContext: PostchainContext) {
         try {
             super.initializeContext(configuration, postchainContext)
         } catch (e: Exception) {
-            INIT_DB_EXCEPTION = e
+            INIT_EXCEPTION = e
             throw e
         }
     }

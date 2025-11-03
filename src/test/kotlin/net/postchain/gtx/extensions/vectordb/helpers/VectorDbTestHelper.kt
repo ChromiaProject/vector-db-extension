@@ -1,6 +1,8 @@
 package net.postchain.gtx.extensions.vectordb.helpers
 
 import net.postchain.client.core.PostchainClient
+import net.postchain.common.types.WrappedByteArray
+import net.postchain.common.wrap
 import net.postchain.concurrent.util.get
 import net.postchain.core.BlockchainEngine
 import net.postchain.gtv.Gtv
@@ -129,20 +131,22 @@ fun buildQueryTemplateOrNull(name: String?, args: Gtv? = null): GtvDictionary? {
     return null
 }
 
-fun addMessage(engine: BlockchainEngine, message: String, vector: String) {
+fun addMessage(engine: BlockchainEngine, message: String, vector: String): WrappedByteArray {
     val op = GtxOp("add_message", gtv(message), gtv(vector))
     val tx = engine.getConfiguration().getTransactionFactory().decodeTransaction(
             Gtx(GtxBody(engine.getConfiguration().blockchainRid, listOf(op), listOf()), listOf()).encode()
     )
     engine.getTransactionQueue().enqueue(tx)
+    return tx.getRID().wrap()
 }
 
-fun addCollection(engine: BlockchainEngine, collection: String, dimensions: Long, indexType: VectorDBIndex, queryMaxVectors: Long, storeBatchSize: Long) {
+fun addCollection(engine: BlockchainEngine, collection: String, dimensions: Long, indexType: VectorDBIndex, queryMaxVectors: Long, storeBatchSize: Long): WrappedByteArray {
     val op = GtxOp("add_collection", gtv(collection), gtv(dimensions), gtv(indexType.name), gtv(queryMaxVectors), gtv(storeBatchSize))
     val tx = engine.getConfiguration().getTransactionFactory().decodeTransaction(
             Gtx(GtxBody(engine.getConfiguration().blockchainRid, listOf(op), listOf()), listOf()).encode()
     )
     engine.getTransactionQueue().enqueue(tx)
+    return tx.getRID().wrap()
 }
 
 fun changeCollection(engine: BlockchainEngine, collection: String, queryMaxVectors: Long?, storeBatchSize: Long?) {

@@ -109,15 +109,15 @@ class VectorDbIT : IntegrationTestSetup() {
                 queryClosestObjectsGetTextAndDistance(engine, "messages", 0, "[1, 2, 3]", 1.0, 3, "get_messages_with_distance")
         ).isEqualTo(listOf(
                 mapOf("text" to "alpha", "distance" to "0"),
-                mapOf("text" to "eve", "distance"  to "0.015675861711910488"),
-                mapOf("text" to "beta", "distance"  to "0.056543646950273474")
+                mapOf("text" to "eve", "distance" to "0.015675861711910488"),
+                mapOf("text" to "beta", "distance" to "0.056543646950273474")
         ))
 
         assertThat(
                 queryClosestObjectsGetTextAndDistance(engine, "messages", 0, "[1, 2, 3]", 0.02, 3, "get_messages_with_distance")
         ).isEqualTo(listOf(
                 mapOf("text" to "alpha", "distance" to "0"),
-                mapOf("text" to "eve", "distance"  to "0.015675861711910488"),
+                mapOf("text" to "eve", "distance" to "0.015675861711910488"),
         ))
     }
 
@@ -283,7 +283,7 @@ class VectorDbIT : IntegrationTestSetup() {
 
         Awaitility.await().atMost(Duration.TEN_SECONDS)
                 .untilAsserted {
-                    assertThat(VectorDbTestGTXModule.INIT_DB_EXCEPTION).isNotNull().hasMessage("Changing embedded index is not supported")
+                    assertThat(VectorDbTestGTXModule.INIT_EXCEPTION).isNotNull().hasMessage("Changing embedded index is not supported")
                 }
     }
 
@@ -303,6 +303,23 @@ class VectorDbIT : IntegrationTestSetup() {
         buildBlock(DEFAULT_CHAIN_IID)
         val collectionsAfterDelete = getVectorCollections(engine)
         assertThat(collectionsAfterDelete).isEmpty()
+    }
+
+    @Test
+    fun `dynamic collection - duplicate not allowed`() {
+        val node = createNodes(1, "/chains/vector_example_test_dynamic_collections.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
+        val collectionName = "customers"
+
+        addCollection(engine, collectionName, 1, VectorDBIndex.HNSW_COSINE, 10, 100)
+        buildBlock(DEFAULT_CHAIN_IID)
+
+        val txRid = addCollection(engine, collectionName, 2, VectorDBIndex.HNSW_COSINE, 10, 100)
+        buildBlock(DEFAULT_CHAIN_IID)
+
+        val reason = engine.getTransactionQueue().getRejectionReason(txRid)
+        assertThat(reason?.first).isNotNull()
+                .hasMessage("Collection customers already exists")
     }
 
     @Test
@@ -379,32 +396,46 @@ class VectorDbIT : IntegrationTestSetup() {
                 }
     }
 
-
     @Test
-    fun `collections - switch from static to dynamic`() {
+    fun `collections - origin modes - static can't add dynamic`() {
         val node = createNodes(1, "/chains/vector_example_test.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
 
-        addMessage(engine, "alpha", "[1, 2, 3]")
+        buildBlock(DEFAULT_CHAIN_IID)
+
+        val newEngine = node.getBlockchainInstance().blockchainEngine
+        val txRid = addCollection(newEngine, "dynamic", 128, VectorDBIndex.HNSW_COSINE, 10, 100)
+        buildBlock(DEFAULT_CHAIN_IID)
+
+        assertThat(engine.getTransactionQueue().getRejectionReason(txRid)?.first)
+                .isNotNull()
+                .hasMessage("Dynamic collection support is disabled in the configuration")
+    }
+
+    @Test
+    fun `collections - origin modes - static can't started when dynamics exists`() {
+
+        val node = createNodes(1, "/chains/vector_example_test_dynamic_collections.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
+
+        buildBlock(DEFAULT_CHAIN_IID)
+        assertThat(getVectorCollections(engine)).hasSize(0)
+
+        addCollection(engine, "dynamic", 128, VectorDBIndex.HNSW_COSINE, 10, 100)
         buildBlock(DEFAULT_CHAIN_IID)
 
         val blockchainGtvConfig = readBlockchainConfig("/chains/vector_example_test.xml")
-                .modify(listOf("vector_db_extension", "collections")) {
-                    gtv(mapOf())
+                .modify(listOf("gtx", "modules")) {
+                    gtv(gtv("net.postchain.gtx.extensions.vectordb.helpers.VectorDbTestGTXModule"))
                 }
-        node.addConfiguration(DEFAULT_CHAIN_IID, 2, blockchainGtvConfig)
-        buildBlockNoWait(listOf(node), DEFAULT_CHAIN_IID, 2)
+        node.addConfiguration(DEFAULT_CHAIN_IID, 3, blockchainGtvConfig)
+        buildBlock(DEFAULT_CHAIN_IID)
 
         Awaitility.await().atMost(Duration.TEN_SECONDS)
                 .untilAsserted {
-                    val newEngine = node.getBlockchainInstance().blockchainEngine
-                    val dynamicCollection = "customers"
-
-                    addCollection(newEngine, dynamicCollection, 128, VectorDBIndex.HNSW_COSINE, 10, 100)
-                    buildBlock(DEFAULT_CHAIN_IID)
-
-                    val collections = getVectorCollections(newEngine)
-                    assertThat(collections).extracting { it.name }.containsOnly(dynamicCollection)
+                    assertThat(VectorDbTestGTXModule.INIT_EXCEPTION)
+                            .isNotNull()
+                            .hasMessage("Database initialized with static collections, but dynamic collections exist in DB")
                 }
     }
 
@@ -426,5 +457,19 @@ class VectorDbIT : IntegrationTestSetup() {
         val newEngine = node.getBlockchainInstance().blockchainEngine
         val collectionsAfterRestart = getVectorCollections(newEngine)
         assertThat(collectionsAfterRestart).extracting { it.name }.containsOnly(collectionName)
+    }
+
+    @Test
+    fun `add vector with incorrect dimensions`() {
+
+        val node = createNodes(1, "/chains/vector_example_test.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
+
+        val txRid = addMessage(engine, "hello", "[1, 2]")
+        buildBlock(DEFAULT_CHAIN_IID)
+
+        val reason = engine.getTransactionQueue().getRejectionReason(txRid)
+        assertThat(reason?.first).isNotNull()
+                .hasMessage("Vector 1 has 2 dimensions, but the collection requires 3 dimensions")
     }
 }
