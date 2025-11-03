@@ -39,6 +39,8 @@ class VectorDbGTXModuleTest {
     fun beforeEach() {
         dbaMock = mock()
         context = VectorDbGTXModuleContext(dbaMock)
+        context.collectionOriginMode = VectorCollectionOrigin.STATIC
+
         context.module = VectorDbGTXModule()
         context.collectionsByName = ConcurrentHashMap(mapOf("collection1" to VectorCollection(
                 0, "collection1", 100, 10, 300, VectorDBIndex.HNSW_COSINE, VectorCollectionOrigin.STATIC

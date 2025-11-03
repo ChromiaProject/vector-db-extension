@@ -23,9 +23,7 @@ class VectorDbEventProcessor(
         private val vectorContext: VectorDbGTXModuleContext
 ) : BaseBlockBuilderExtension, TxEventSink {
 
-    companion object : KLogging() {
-        private val WHITESPACE_REGEX = "\\s+".toRegex()
-    }
+    companion object : KLogging()
 
     private var metaDataEmitted = false
 
@@ -72,8 +70,15 @@ class VectorDbEventProcessor(
         } ?: throw UserMistake("No vectors argument supplied")
 
         var datumIdSeq = db.getDatumIdSequenceOffset(ctxt)
-        val dbVectors = vectors.map {
-            Vector(datumIdSeq++, context, it.second, it.first.replace(WHITESPACE_REGEX, ""))
+        val dbVectors = vectors.map { (vectorString, id) ->
+            val vectorString = vectorString.split(",", "[", "]")
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+            if (vectorString.size.toLong() != collection.dimensions) {
+                throw UserMistake("Vector ${id} has ${vectorString.size} dimensions, but the collection requires ${collection.dimensions} dimensions")
+            }
+            val compactVectorString = vectorString.joinToString(",", "[", "]")
+            Vector(datumIdSeq++, context, id, compactVectorString)
         }
         db.storeVectors(ctxt, collection.id, dbVectors, collection.storeBatchSize)
         db.setDatumIdSequenceOffset(ctxt, datumIdSeq)
@@ -106,6 +111,9 @@ class VectorDbEventProcessor(
         checkDynamicCollectionsEnabled()
 
         val collection = args["collection"]?.asString() ?: throw UserMistake("No collection argument supplied")
+        if (vectorContext.collectionsByName.containsKey(collection)) {
+            throw UserMistake("Collection $collection already exists")
+        }
         val dimensions = args["dimensions"]?.asInteger() ?: throw UserMistake("No dimensions argument supplied")
         val storeBatchSize = args["store_batch_size"]?.asInteger() ?: throw UserMistake("No store_batch_size argument supplied")
         val indexType = args["index_type"]?.asString() ?: throw UserMistake("No index_type argument supplied")

@@ -47,12 +47,14 @@ class VectorDbGTXModuleContext(
     lateinit var collectionsByName: ConcurrentMap<String, VectorCollection>
     lateinit var postchainContext: PostchainContext
     lateinit var vectorDbConfig: VectorDbConfig
+    lateinit var collectionOriginMode: VectorCollectionOrigin
 
     fun isInitialized(): Boolean {
         return this::module.isInitialized &&
                 this::collectionsByName.isInitialized &&
                 this::postchainContext.isInitialized &&
-                this::vectorDbConfig.isInitialized
+                this::vectorDbConfig.isInitialized &&
+                this::collectionOriginMode.isInitialized
     }
 
     fun addCollection(collection: VectorCollection) {
@@ -68,7 +70,7 @@ class VectorDbGTXModuleContext(
     }
 
     fun dynamicCollectionsEnabled(): Boolean {
-        return collectionsByName.values.none { it.origin == VectorCollectionOrigin.STATIC }
+        return collectionOriginMode == VectorCollectionOrigin.DYNAMIC
     }
 }
 
@@ -153,6 +155,12 @@ open class VectorDbGTXModule(
     private fun initializeDb(ctx: EContext, vectorDbConfig: VectorDbConfig, databaseSchema: String) {
         conf.collectionsByName = ConcurrentHashMap(databaseOperations.initialize(ctx, vectorDbConfig, databaseSchema)
                 .associateBy { it.name })
+
+        val collectionOrigins = databaseOperations.getCollectionOrigins(ctx)
+        if (collectionOrigins.size > 1) {
+            throw UserMistake("Database initialized with static collections, but dynamic collections exist in DB")
+        }
+        conf.collectionOriginMode = collectionOrigins.firstOrNull() ?: VectorCollectionOrigin.DYNAMIC
     }
 
     /*override*/ fun constructDatum(ctx: EContext, datumList: List<SnapshotDatum>) {

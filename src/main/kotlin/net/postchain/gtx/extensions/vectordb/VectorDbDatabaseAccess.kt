@@ -52,7 +52,6 @@ class VectorDbDatabaseAccess{
         initializeCollectionsTable(ctx)
         initializeDatumSeqTable(ctx)
         val collectionsMap = getCollections(ctx).toMutableMap()
-        validateNoMixedCollectionOrigins(config, collectionsMap)
 
         val updatedTables = config.collections.map { (name, tableConfig) ->
 
@@ -71,10 +70,8 @@ class VectorDbDatabaseAccess{
         }
     }
 
-    private fun validateNoMixedCollectionOrigins(config: VectorDbConfig, collectionsMap: Map<String, VectorCollection>) {
-        if (config.collections.isNotEmpty() && collectionsMap.values.any { it.origin == VectorCollectionOrigin.DYNAMIC }) {
-            throw UserMistake("Database initialized with static collections, but dynamic collections exist in DB")
-        }
+    fun getCollectionOrigins(ctx: EContext): Set<VectorCollectionOrigin> {
+        return getCollections(ctx).values.map { it.origin }.toSet()
     }
 
     fun wipeVectorDb(ctx: EContext, tableIds: List<Long>) {
@@ -169,7 +166,6 @@ class VectorDbDatabaseAccess{
             val id = getNextTableId(collectionsMap)
             VectorCollection(id, collectionName, config, VectorCollectionOrigin.DYNAMIC)
         }
-        // TODO: Check if collection already exists and throw error
         createOrUpdateTable(ctx, config, collection.id, databaseSchema)
 
         storeCollections(ctx, listOf(collection))
@@ -274,7 +270,6 @@ class VectorDbDatabaseAccess{
     }
 
     fun storeVectors(ctx: EContext, tableId: Long, vectors: List<Vector>, batchSize: Long = 300) {
-        // TODO: When vectors size is different from dimension, throw user friendly (non-sql) error
         val tableName = getCollectionTableName(ctx, tableId)
         ctx.conn.prepareStatement("""
             INSERT INTO $tableName ($COLLECTION_COLUMN_DATUM_ID, $COLLECTION_COLUMN_CONTEXT, $COLLECTION_COLUMN_ID, $COLLECTION_COLUMN_EMBEDDING)
