@@ -12,9 +12,10 @@ data class VectorCollection(
         val storeBatchSize: Long,
         val index: VectorDBIndex,
         val origin: VectorCollectionOrigin,
+        val exists: Boolean
 ) {
     constructor(id: Long, name: String, config: VectorDbCollectionConfig, origin: VectorCollectionOrigin) : this(
-            id, name, config.dimensions, config.queryMaxVectors, config.storeBatchSize, config.indexType, origin
+            id, name, config.dimensions, config.queryMaxVectors, config.storeBatchSize, config.indexType, origin, true
     )
 }
 

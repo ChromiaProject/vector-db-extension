@@ -14,6 +14,8 @@ import net.postchain.gtx.extensions.vectordb.config.VectorDbConfig
 import net.postchain.gtx.extensions.vectordb.config.VectorCollectionOrigin
 import java.math.BigDecimal
 import java.sql.Statement.EXECUTE_FAILED
+import java.util.LinkedList
+import kotlin.use
 
 
 class VectorDbDatabaseAccess{
@@ -22,63 +24,72 @@ class VectorDbDatabaseAccess{
         private const val TABLE_PREFIX: String = "sys.x.vectordb."
 
         const val TABLE_COLLECTION_META = "${TABLE_PREFIX}collection_meta"
-        const val TABLE_DATUM_ID_SEQ = "${TABLE_PREFIX}datum_id_seq"
         const val TABLE_COLLECTION = "${TABLE_PREFIX}collection_"
+        const val REUSABLE_DATUM_ID = "${TABLE_PREFIX}reusable_datum_id"
 
-        const val COLLECTION_IDS_COLUMN_ID = "id"
-        const val COLLECTION_IDS_COLUMN_NAME = "name"
-        const val COLLECTION_IDS_COLUMN_DIMENSIONS = "dimensions"
-        const val COLLECTION_IDS_COLUMN_INDEX_TYPE = "index_type"
-        const val COLLECTION_IDS_COLUMN_QUERY_MAX_VECTORS = "query_max_vectors"
-        const val COLLECTION_IDS_COLUMN_STORE_BATCH_SIZE = "store_batch_size"
-        const val COLLECTION_IDS_COLUMN_ORIGIN = "origin"
-
-        const val DATUM_ID_SEQ_COLUMN_ID = "id"
+        /** The ID of a collection, should never be re-used after collection is removed */
+        const val COLLECTION_META_COLUMN_ID = "id"
+        const val COLLECTION_META_COLUMN_NAME = "name"
+        const val COLLECTION_META_COLUMN_DIMENSIONS = "dimensions"
+        const val COLLECTION_META_COLUMN_INDEX_TYPE = "index_type"
+        const val COLLECTION_META_COLUMN_QUERY_MAX_VECTORS = "query_max_vectors"
+        const val COLLECTION_META_COLUMN_STORE_BATCH_SIZE = "store_batch_size"
+        const val COLLECTION_META_COLUMN_ORIGIN = "origin"
+        const val COLLECTION_META_COLUMN_EXISTS = "exists"
 
         const val COLLECTION_COLUMN_DATUM_ID = "datum_id"
         const val COLLECTION_COLUMN_CONTEXT = "context"
         const val COLLECTION_COLUMN_ID = "id"
         const val COLLECTION_COLUMN_EMBEDDING = "embedding"
+
+        const val REUSABLE_DATUM_ID_COLUMN_DATUM_ID = "datum_id"
     }
 
     private var pgVectorSchema: String? = null
     private val pgVectorDataTypePrefix by lazy { if (pgVectorSchema == null) "" else "${pgVectorSchema}." }
 
-    fun initialize(ctx: EContext, config: VectorDbConfig, databaseSchema: String): List<VectorCollection> {
+    fun initialize(ctx: EContext, databaseSchema: String) {
 
         logger.info { "Initializing vector db" }
 
+        dropDatumIdSeqTable(ctx)
         initializePgVector(ctx, databaseSchema)
         initializeCollectionsTable(ctx)
-        initializeDatumSeqTable(ctx)
+        initializeReusableDatumIdTable(ctx)
+    }
+
+    fun updateStaticCollections(ctx: EContext, config: VectorDbConfig) {
         val collectionsMap = getCollections(ctx).toMutableMap()
-
-        val updatedTables = config.collections.map { (name, tableConfig) ->
-
-            val collection = collectionsMap.getOrPut(name) {
-                val id = getNextTableId(collectionsMap)
-                VectorCollection(id, name, tableConfig, VectorCollectionOrigin.STATIC)
+        val updatedCollections = config.collections.map { (name, tableConfig) ->
+            val existingCollection = collectionsMap[name]
+            if (existingCollection != null) {
+                if (existingCollection.dimensions != tableConfig.dimensions) {
+                    throw UserMistake("Changing dimensions is not supported for collection $name")
+                }
+                if (existingCollection.index != tableConfig.indexType) {
+                    throw UserMistake("Changing embedded index is not supported for collection $name")
+                }
             }
-            createOrUpdateTable(ctx, tableConfig, collection.id, databaseSchema)
-            collection
-        }
 
-        storeCollections(ctx, updatedTables)
-
-        return getCollections(ctx).values.filter {
-            it.origin == VectorCollectionOrigin.DYNAMIC || config.collections.containsKey(it.name)
+            val id = existingCollection?.id ?: getNextTableId(ctx)
+            VectorCollection(id, name, tableConfig, VectorCollectionOrigin.STATIC)
         }
+        storeCollections(ctx, updatedCollections)
+    }
+
+    fun createOrUpdateCollectionTables(ctx: EContext, databaseSchema: String) {
+        getExistingCollections(ctx).values.forEach { collection -> createOrUpdateTable(ctx, collection, databaseSchema)}
     }
 
     fun getCollectionOrigins(ctx: EContext): Set<VectorCollectionOrigin> {
         return getCollections(ctx).values.map { it.origin }.toSet()
     }
 
-    fun wipeVectorDb(ctx: EContext, tableIds: List<Long>) {
+    fun wipeVectorDb(ctx: EContext) {
         listOf(
-                getCollectionsTableName(ctx),
-                getDatumSeqTableName(ctx)
-        ) + tableIds.map { getCollectionTableName(ctx, it) }
+                getCollectionMetaTableName(ctx),
+                getReusableDatumIdTableName(ctx)
+        ) + getCollections(ctx).map { getCollectionTableName(ctx, it.value.id) }
                 .forEach {
                     logger.debug { "Dropping table $it" }
                     ctx.conn.createStatement().use { stmt -> stmt.execute("DROP TABLE IF EXISTS $it CASCADE") }
@@ -99,28 +110,32 @@ class VectorDbDatabaseAccess{
     }
 
     fun initializeCollectionsTable(ctx: EContext) {
-        val collectionsTableName = getCollectionsTableName(ctx)
+        val collectionMetaTableName = getCollectionMetaTableName(ctx)
         ctx.conn.createStatement().use { stmt ->
             stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS $collectionsTableName (
-                        $COLLECTION_IDS_COLUMN_ID bigint NOT NULL PRIMARY KEY,
-                        $COLLECTION_IDS_COLUMN_NAME text NOT NULL UNIQUE,
-                        $COLLECTION_IDS_COLUMN_ORIGIN text NOT NULL,
-                        $COLLECTION_IDS_COLUMN_DIMENSIONS bigint NOT NULL,
-                        $COLLECTION_IDS_COLUMN_INDEX_TYPE text NOT NULL,
-                        $COLLECTION_IDS_COLUMN_QUERY_MAX_VECTORS bigint NOT NULL,
-                        $COLLECTION_IDS_COLUMN_STORE_BATCH_SIZE bigint NOT NULL
+                        CREATE TABLE IF NOT EXISTS $collectionMetaTableName (
+                        $COLLECTION_META_COLUMN_ID bigint NOT NULL PRIMARY KEY,
+                        $COLLECTION_META_COLUMN_NAME text NOT NULL UNIQUE,
+                        $COLLECTION_META_COLUMN_ORIGIN text NOT NULL,
+                        $COLLECTION_META_COLUMN_DIMENSIONS bigint NOT NULL,
+                        $COLLECTION_META_COLUMN_INDEX_TYPE text NOT NULL,
+                        $COLLECTION_META_COLUMN_QUERY_MAX_VECTORS bigint NOT NULL,
+                        $COLLECTION_META_COLUMN_STORE_BATCH_SIZE bigint NOT NULL
                         )
                         """)
+
+            stmt.execute("""
+                    ALTER TABLE $collectionMetaTableName 
+                    ADD COLUMN IF NOT EXISTS $COLLECTION_META_COLUMN_EXISTS boolean NOT NULL DEFAULT true
+                """)
         }
     }
 
-    fun initializeDatumSeqTable(ctx: EContext) {
-        val datumSeqTableName = getDatumSeqTableName(ctx)
+    fun initializeReusableDatumIdTable(ctx: EContext) {
+        val tableName = getReusableDatumIdTableName(ctx)
         ctx.conn.createStatement().use { stmt ->
-            stmt.execute("CREATE TABLE IF NOT EXISTS $datumSeqTableName ($DATUM_ID_SEQ_COLUMN_ID bigint NOT NULL)")
+            stmt.execute("CREATE TABLE IF NOT EXISTS $tableName ($REUSABLE_DATUM_ID_COLUMN_DATUM_ID bigint NOT NULL PRIMARY KEY)")
         }
-        setDatumIdSequenceOffset(ctx, getDatumIdSequenceOffset(ctx))
     }
 
     private fun getPgVectorExtensionSchema(ctx: EContext, databaseSchema: String): String? {
@@ -141,9 +156,15 @@ class VectorDbDatabaseAccess{
 
     fun storeCollections(ctx: EContext, collections: List<VectorCollection>) {
         ctx.conn.prepareStatement("""
-            INSERT INTO ${getCollectionsTableName(ctx)}
-            ($COLLECTION_IDS_COLUMN_ID, $COLLECTION_IDS_COLUMN_NAME, $COLLECTION_IDS_COLUMN_ORIGIN, $COLLECTION_IDS_COLUMN_DIMENSIONS, $COLLECTION_IDS_COLUMN_INDEX_TYPE, $COLLECTION_IDS_COLUMN_QUERY_MAX_VECTORS, $COLLECTION_IDS_COLUMN_STORE_BATCH_SIZE) VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT ($COLLECTION_IDS_COLUMN_ID) DO NOTHING
+            INSERT INTO ${getCollectionMetaTableName(ctx)}
+            ($COLLECTION_META_COLUMN_ID, $COLLECTION_META_COLUMN_NAME, $COLLECTION_META_COLUMN_ORIGIN,
+            $COLLECTION_META_COLUMN_DIMENSIONS, $COLLECTION_META_COLUMN_INDEX_TYPE,
+            $COLLECTION_META_COLUMN_QUERY_MAX_VECTORS, $COLLECTION_META_COLUMN_STORE_BATCH_SIZE,
+            $COLLECTION_META_COLUMN_EXISTS)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT ($COLLECTION_META_COLUMN_ID) DO UPDATE SET
+            $COLLECTION_META_COLUMN_QUERY_MAX_VECTORS = ?,
+            $COLLECTION_META_COLUMN_STORE_BATCH_SIZE = ?
             """
         ).use { stmt ->
             collections.forEach { collection ->
@@ -154,6 +175,9 @@ class VectorDbDatabaseAccess{
                 stmt.setString(5, collection.index.name)
                 stmt.setLong(6, collection.maxVectors)
                 stmt.setLong(7, collection.storeBatchSize)
+                stmt.setBoolean(8, collection.exists)
+                stmt.setLong(9, collection.maxVectors)
+                stmt.setLong(10, collection.storeBatchSize)
                 stmt.addBatch()
             }
             stmt.executeBatch()
@@ -161,52 +185,70 @@ class VectorDbDatabaseAccess{
     }
 
     fun createCollection(ctx: EContext, collectionName: String, config: VectorDbCollectionConfig, databaseSchema: String): VectorCollection {
-        val collectionsMap = getCollections(ctx).toMutableMap()
-        val collection = collectionsMap.getOrPut(collectionName) {
-            val id = getNextTableId(collectionsMap)
-            VectorCollection(id, collectionName, config, VectorCollectionOrigin.DYNAMIC)
-        }
-        createOrUpdateTable(ctx, config, collection.id, databaseSchema)
+        val id = getNextTableId(ctx)
+        val collection = VectorCollection(id, collectionName, config, VectorCollectionOrigin.DYNAMIC)
+        createOrUpdateTable(ctx, collection, databaseSchema)
 
         storeCollections(ctx, listOf(collection))
         return collection
     }
 
-    fun deleteCollection(ctxt: EContext, collection: VectorCollection) {
-        val tableName = getCollectionTableName(ctxt, collection.id)
-        ctxt.conn.createStatement().use { stmt ->
-            stmt.execute("DROP TABLE IF EXISTS $tableName CASCADE")
+    fun deleteCollection(ctx: EContext, collection: VectorCollection) {
+        val collectionTableName = getCollectionTableName(ctx, collection.id)
+
+        // Mark datum ids reusable
+        ctx.conn.createStatement().use { stmt ->
+            stmt.execute("""
+                INSERT INTO ${getReusableDatumIdTableName(ctx)} ($REUSABLE_DATUM_ID_COLUMN_DATUM_ID)
+                SELECT $COLLECTION_COLUMN_DATUM_ID
+                FROM $collectionTableName
+            """)
+
+            stmt.execute("UPDATE ${getCollectionMetaTableName(ctx)} SET $COLLECTION_META_COLUMN_EXISTS = false WHERE $COLLECTION_META_COLUMN_ID = ${collection.id}")
+
+            stmt.execute("DROP TABLE IF EXISTS $collectionTableName CASCADE")
         }
-        deleteCollectionIdEntry(ctxt, collection)
+        deleteCollectionIdEntry(ctx, collection)
     }
 
     fun updateCollection(ctxt: TxEContext, collection: VectorCollection, queryMaxVectors: Long?, storeBatchSize: Long?): VectorCollection {
-        val tableName = getCollectionsTableName(ctxt)
+        val tableName = getCollectionMetaTableName(ctxt)
         val updatedQueryMaxVectors = queryMaxVectors ?: collection.maxVectors
         val updatedStoreBatchSize = storeBatchSize ?: collection.storeBatchSize
 
         ctxt.conn.createStatement().use { stmt ->
-            stmt.execute("UPDATE $tableName SET $COLLECTION_IDS_COLUMN_QUERY_MAX_VECTORS = $updatedQueryMaxVectors, $COLLECTION_IDS_COLUMN_STORE_BATCH_SIZE = $updatedStoreBatchSize WHERE $COLLECTION_IDS_COLUMN_ID = ${collection.id}")
+            stmt.execute("UPDATE $tableName SET $COLLECTION_META_COLUMN_QUERY_MAX_VECTORS = $updatedQueryMaxVectors, $COLLECTION_META_COLUMN_STORE_BATCH_SIZE = $updatedStoreBatchSize WHERE $COLLECTION_META_COLUMN_ID = ${collection.id}")
         }
         return collection.copy(maxVectors = updatedQueryMaxVectors, storeBatchSize = updatedStoreBatchSize)
     }
 
     private fun deleteCollectionIdEntry(ctx: EContext, collection: VectorCollection) {
-        val tableName = getCollectionsTableName(ctx)
+        val tableName = getCollectionMetaTableName(ctx)
         ctx.conn.createStatement().use { stmt ->
-            stmt.execute("DELETE FROM $tableName WHERE $COLLECTION_IDS_COLUMN_ID = ${collection.id}")
+            stmt.execute("DELETE FROM $tableName WHERE $COLLECTION_META_COLUMN_ID = ${collection.id}")
         }
     }
 
-    private fun getNextTableId(collectionsMap: MutableMap<String, VectorCollection>): Long {
-        return collectionsMap.values.maxByOrNull { it.id }?.let {
-            it.id + 1
-        } ?: 0L
+    private fun getNextTableId(ctx: EContext): Long {
+        return ctx.conn.createStatement().use { stmt ->
+            stmt.executeQuery("SELECT MAX(id) AS max_value FROM ${getCollectionMetaTableName(ctx)}").use {
+                if (it.next()) {
+                    val maxValue = it.getLong("max_value")
+                    if (it.wasNull()) {
+                        0L
+                    } else {
+                        maxValue + 1
+                    }
+                } else {
+                    0L
+                }
+            }
+        }
     }
 
-    private fun createOrUpdateTable(ctx: EContext, config: VectorDbCollectionConfig, tableId: Long, databaseSchema: String) {
+    private fun createOrUpdateTable(ctx: EContext, collection: VectorCollection, databaseSchema: String) {
 
-        val tableName = getCollectionTableName(ctx, tableId)
+        val tableName = getCollectionTableName(ctx, collection.id)
 
         // Create the vector table
         ctx.conn.createStatement().use { stmt ->
@@ -215,7 +257,7 @@ class VectorDbDatabaseAccess{
                         $COLLECTION_COLUMN_DATUM_ID bigint NOT NULL PRIMARY KEY,
                         $COLLECTION_COLUMN_CONTEXT bigint NOT NULL,
                         $COLLECTION_COLUMN_ID bigint NOT NULL,
-                        $COLLECTION_COLUMN_EMBEDDING ${pgVectorDataTypePrefix}halfvec(${config.dimensions}) NOT NULL)
+                        $COLLECTION_COLUMN_EMBEDDING ${pgVectorDataTypePrefix}halfvec(${collection.dimensions}) NOT NULL)
                         """)
         }
 
@@ -229,7 +271,7 @@ class VectorDbDatabaseAccess{
         }
 
         // Create embedding index
-        val embeddedHnswIndexName = getTableIndexName(tableName, config.indexType.indexName)
+        val embeddedHnswIndexName = getTableIndexName(tableName, collection.index.indexName)
 
         // Make sure we don't add a new index type - if we want to support this we need to expand the query part
         // to provide the distance query operator for each index
@@ -240,13 +282,13 @@ class VectorDbDatabaseAccess{
             throw UserMistake("Changing embedded index is not supported")
         } else {
 
-            logger.info { "Creating embedding index of type ${config.indexType}" }
+            logger.info { "Creating embedding index of type ${collection.index}" }
 
             ctx.conn.createStatement().use { stmt ->
                 stmt.execute(
                         """
                     CREATE INDEX IF NOT EXISTS "$embeddedHnswIndexName"
-                    ON $tableName USING hnsw ($COLLECTION_COLUMN_EMBEDDING ${pgVectorDataTypePrefix}${config.indexType.indexEmbedding})
+                    ON $tableName USING hnsw ($COLLECTION_COLUMN_EMBEDDING ${pgVectorDataTypePrefix}${collection.index.indexEmbedding})
                     """
                 )
             }
@@ -296,12 +338,34 @@ class VectorDbDatabaseAccess{
                 }
             }
         }
+
+        // Delete if reused datum id(s)
+        ctx.conn.prepareStatement("""
+            DELETE FROM ${getReusableDatumIdTableName(ctx)}
+            WHERE $REUSABLE_DATUM_ID_COLUMN_DATUM_ID = ANY(?)
+        """).use { stmt ->
+            stmt.setArray(1, ctx.conn.createArrayOf("bigint", vectors.map { it.datumId }.toTypedArray()))
+            stmt.execute()
+        }
     }
 
-    fun deleteVectors(ctx: TxEContext, tableId: Long, context: Long, ids: List<Long>) {
-        val tableName = getCollectionTableName(ctx, tableId)
+    fun deleteVectors(ctx: EContext, tableId: Long, context: Long, ids: List<Long>) {
+
+        // Mark datum ids reusable
+        ctx.conn.prepareStatement("""
+            INSERT INTO ${getReusableDatumIdTableName(ctx)} ($REUSABLE_DATUM_ID_COLUMN_DATUM_ID)
+            SELECT $COLLECTION_COLUMN_DATUM_ID
+            FROM ${getCollectionTableName(ctx, tableId)}
+            WHERE $COLLECTION_COLUMN_CONTEXT = ? AND $COLLECTION_COLUMN_ID = ANY(?)
+        """).use { stmt ->
+            stmt.setLong(1, context)
+            stmt.setArray(2, ctx.conn.createArrayOf("bigint", ids.toTypedArray()))
+            stmt.execute()
+        }
+
+        // Remove vectors
         val rowsAffected = ctx.conn.prepareStatement(
-                "DELETE FROM $tableName WHERE $COLLECTION_COLUMN_CONTEXT = ? AND $COLLECTION_COLUMN_ID = ANY(?)"
+                "DELETE FROM ${getCollectionTableName(ctx, tableId)} WHERE $COLLECTION_COLUMN_CONTEXT = ? AND $COLLECTION_COLUMN_ID = ANY(?)"
         ).use { stmt ->
             stmt.setLong(1, context)
             stmt.setArray(2, ctx.conn.createArrayOf("bigint", ids.toTypedArray()))
@@ -373,43 +437,78 @@ class VectorDbDatabaseAccess{
         return datumIds
     }
 
-
-    fun getCollectionsTableName(ctx: EContext): String {
+    fun getCollectionMetaTableName(ctx: EContext): String {
         return tableName(ctx, TABLE_COLLECTION_META)
     }
 
-    fun getDatumSeqTableName(ctx: EContext): String {
-        return tableName(ctx, TABLE_DATUM_ID_SEQ)
+    fun getReusableDatumIdTableName(ctx: EContext): String {
+        return tableName(ctx, REUSABLE_DATUM_ID)
     }
 
-    fun getDatumIdSequenceOffset(ctx: EContext): Long {
-        val tableName = getDatumSeqTableName(ctx)
-        ctx.conn.createStatement().use { stmt -> stmt.executeQuery("SELECT $DATUM_ID_SEQ_COLUMN_ID FROM $tableName").use { rs ->
+    fun getCollectionTableName(ctx: EContext, id: Long): String {
+        return tableName(ctx, "${TABLE_COLLECTION}${id}")
+    }
+
+    fun addReusableDatumIds(ctxt: EContext, datumIds: Set<Long>) {
+        if (datumIds.isNotEmpty()) {
+            ctxt.conn.createStatement().use { stmt ->
+                stmt.execute("INSERT INTO ${getReusableDatumIdTableName(ctxt)} ($REUSABLE_DATUM_ID_COLUMN_DATUM_ID) VALUES ${datumIds.joinToString("),(", "(", ")")}")
+            }
+        }
+    }
+
+    fun getNextAvailableDatumIdFromSequence(ctx: EContext): Long {
+        val collectionMaxSql = getExistingCollections(ctx).values
+                .map { "SELECT MAX(datum_id) AS max_value FROM ${getCollectionTableName(ctx, it.id)}" } +
+                listOf("SELECT MAX(datum_id) AS max_value FROM ${getReusableDatumIdTableName(ctx)}")
+        val sql = """
+            SELECT MAX(max_value) FROM (
+                ${collectionMaxSql.joinToString(" UNION ALL ")}
+            ) AS combined_maxes;
+        """.trimIndent()
+
+        ctx.conn.createStatement().use { stmt -> stmt.executeQuery(sql).use { rs ->
             if (rs.next()) {
-                return rs.getLong(1)
+                val maxValue = rs.getLong(1)
+                if (!rs.wasNull()) {
+                    return maxValue + 1
+                }
             }
         }}
         return VECTOR_DB_META_DATUM_ID + 1
     }
 
-    fun setDatumIdSequenceOffset(ctx: EContext, id: Long) {
-        val tableName = getDatumSeqTableName(ctx)
-        val affected = ctx.conn.createStatement().use { stmt ->
-            stmt.executeUpdate("UPDATE $tableName SET $DATUM_ID_SEQ_COLUMN_ID = $id")
-        }
-        if (affected == 0) {
-            ctx.conn.createStatement().use { stmt ->
-                stmt.execute("INSERT INTO $tableName ($DATUM_ID_SEQ_COLUMN_ID) VALUES($id)")
+    fun getAvailableDatumIds(ctx: EContext, count: Int): LinkedList<Long> {
+        val availableIds = LinkedList<Long>()
+        ctx.conn.createStatement().use { stmt -> stmt.executeQuery("""
+            SELECT $REUSABLE_DATUM_ID_COLUMN_DATUM_ID FROM ${getReusableDatumIdTableName(ctx)}
+            ORDER BY $REUSABLE_DATUM_ID_COLUMN_DATUM_ID
+            LIMIT $count
+            """).use { rs ->
+            while (rs.next()) {
+                availableIds.add(rs.getLong(1))
             }
-        } else if (affected > 1) {
-            throw ProgrammerMistake("Incorrect datum id sequence state")
+        }}
+
+        if (availableIds.size < count) {
+            val seqOffset = getNextAvailableDatumIdFromSequence(ctx)
+            (seqOffset..<(seqOffset + count - availableIds.size)).forEach { availableIds.add(it) }
         }
+
+        return availableIds
+    }
+
+    fun getExistingCollections(ctx: EContext): Map<String, VectorCollection> {
+        return getCollections(ctx).filter { (_, collection) -> collection.exists }
     }
 
     fun getCollections(ctx: EContext): Map<String, VectorCollection> {
-        val tableName = getCollectionsTableName(ctx)
+        val tableName = getCollectionMetaTableName(ctx)
         val collectionsMap = mutableMapOf<String, VectorCollection>()
-        ctx.conn.createStatement().use { stmt -> stmt.executeQuery("SELECT $COLLECTION_IDS_COLUMN_ID, $COLLECTION_IDS_COLUMN_NAME, $COLLECTION_IDS_COLUMN_ORIGIN, $COLLECTION_IDS_COLUMN_DIMENSIONS, $COLLECTION_IDS_COLUMN_INDEX_TYPE, $COLLECTION_IDS_COLUMN_QUERY_MAX_VECTORS, $COLLECTION_IDS_COLUMN_STORE_BATCH_SIZE FROM $tableName").use { rs ->
+        ctx.conn.createStatement().use { stmt -> stmt.executeQuery("SELECT $COLLECTION_META_COLUMN_ID," +
+                "$COLLECTION_META_COLUMN_NAME, $COLLECTION_META_COLUMN_ORIGIN, $COLLECTION_META_COLUMN_DIMENSIONS, " +
+                "$COLLECTION_META_COLUMN_INDEX_TYPE, $COLLECTION_META_COLUMN_QUERY_MAX_VECTORS, " +
+                "$COLLECTION_META_COLUMN_STORE_BATCH_SIZE, $COLLECTION_META_COLUMN_EXISTS FROM $tableName").use { rs ->
             while (rs.next()) {
                 val id = rs.getLong(1)
                 val name = rs.getString(2)
@@ -418,29 +517,11 @@ class VectorDbDatabaseAccess{
                 val indexType = VectorDBIndex.valueOf(rs.getString(5))
                 val queryMaxVectors = rs.getLong(6)
                 val storeBatchSize = rs.getLong(7)
-                collectionsMap[name] = VectorCollection(id, name, dimensions, queryMaxVectors, storeBatchSize, indexType, origin)
+                val exists = rs.getBoolean(8)
+                collectionsMap[name] = VectorCollection(id, name, dimensions, queryMaxVectors, storeBatchSize, indexType, origin, exists)
             }
         }}
         return collectionsMap
-    }
-
-    fun getDatumIdMax(ctx: EContext): Long? {
-        return getCollections(ctx)
-                .map { getCollectionTableName(ctx, it.value.id) }
-                .mapNotNull {
-                    ctx.conn.createStatement().use { stmt -> stmt.executeQuery("SELECT MAX($COLLECTION_COLUMN_DATUM_ID) FROM $it").use { rs ->
-                        if (rs.next()) {
-                            rs.getLong(1)
-                        } else {
-                            null
-                        }
-                    }}
-                }
-                .maxOrNull()
-    }
-
-    fun getCollectionTableName(ctx: EContext, id: Long): String {
-        return tableName(ctx, "${TABLE_COLLECTION}${id}")
     }
 
     private fun pgVectorOperator(op: String): String {
@@ -452,6 +533,13 @@ class VectorDbDatabaseAccess{
     private fun tableName(chainId: Long, table: String): String = tableName("c${chainId}.$table")
 
     private fun tableName(table: String) = "\"$table\""
+
+    private fun dropDatumIdSeqTable(ctx: EContext) {
+        val datumSeqTableName = tableName(ctx, "${TABLE_PREFIX}datum_id_seq")
+        ctx.conn.createStatement().use { stmt ->
+            stmt.execute("DROP TABLE IF EXISTS $datumSeqTableName")
+        }
+    }
 
     data class Vector(val datumId: Long, val context: Long, val refId: Long, val vector: String)
 }

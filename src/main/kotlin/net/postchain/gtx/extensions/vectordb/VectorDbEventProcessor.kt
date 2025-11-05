@@ -1,6 +1,7 @@
 package net.postchain.gtx.extensions.vectordb
 
 import mu.KLogging
+import net.postchain.admin.cli.util.toHex
 import net.postchain.base.BaseBlockBuilderExtension
 import net.postchain.base.TxEventSink
 import net.postchain.base.data.BaseBlockBuilder
@@ -9,6 +10,8 @@ import net.postchain.common.exception.UserMistake
 import net.postchain.core.BlockEContext
 import net.postchain.core.TxEContext
 import net.postchain.gtv.Gtv
+import net.postchain.gtv.merkle.makeMerkleHashCalculator
+import net.postchain.gtv.merkleHash
 import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseAccess.Vector
 import net.postchain.gtx.extensions.vectordb.config.VectorDbCollectionConfig
 
@@ -20,12 +23,10 @@ const val EVENT_UPDATE_COLLECTION = "update_collection"
 
 class VectorDbEventProcessor(
         private val db: VectorDbDatabaseAccess,
-        private val vectorContext: VectorDbGTXModuleContext
+        private val vectorContext: VectorDbGTXModuleContext,
 ) : BaseBlockBuilderExtension, TxEventSink {
 
     companion object : KLogging()
-
-    private var metaDataEmitted = false
 
     override fun init(blockEContext: BlockEContext, baseBB: BaseBlockBuilder) {
         baseBB.installEventProcessor(EVENT_STORE_VECTORS_NAME, this)
@@ -35,15 +36,10 @@ class VectorDbEventProcessor(
         baseBB.installEventProcessor(EVENT_UPDATE_COLLECTION, this)
 
         vectorContext.snapshotContext?.let {
-            if (!metaDataEmitted) {
+            if (vectorContext.emitCollections) {
 
-                val collections = db.getCollections(blockEContext)
-
-                logger.debug { "Emitting metadata: $collections" }
-
-                val metaDataGtv = VectorDbDatumMapper.toMetaDataGtv(collections)
-                vectorContext.snapshotContext?.emitDatum(blockEContext, VECTOR_DB_META_DATUM_ID, metaDataGtv, false)
-                metaDataEmitted = true
+                emitCollections(blockEContext)
+                vectorContext.emitCollections = false
             }
         }
     }
@@ -69,23 +65,22 @@ class VectorDbEventProcessor(
             vector to id
         } ?: throw UserMistake("No vectors argument supplied")
 
-        var datumIdSeq = db.getDatumIdSequenceOffset(ctxt)
+        val datumIds = db.getAvailableDatumIds(ctxt, vectors.size)
         val dbVectors = vectors.map { (vectorString, id) ->
             val vectorString = vectorString.split(",", "[", "]")
                     .map { it.trim() }
                     .filter { it.isNotEmpty() }
             if (vectorString.size.toLong() != collection.dimensions) {
-                throw UserMistake("Vector ${id} has ${vectorString.size} dimensions, but the collection requires ${collection.dimensions} dimensions")
+                throw UserMistake("Vector $id has ${vectorString.size} dimensions, but the collection requires ${collection.dimensions} dimensions")
             }
             val compactVectorString = vectorString.joinToString(",", "[", "]")
-            Vector(datumIdSeq++, context, id, compactVectorString)
+            Vector(datumIds.pop(), context, id, compactVectorString)
         }
         db.storeVectors(ctxt, collection.id, dbVectors, collection.storeBatchSize)
-        db.setDatumIdSequenceOffset(ctxt, datumIdSeq)
         
         dbVectors.forEach {
             vectorContext.snapshotContext?.let { snapshotContext ->
-                logger.debug { "Emitting stored datum id ${it.datumId} in collection ${collection.id}" }
+                logger.debug { "Emitting stored datum id ${it.datumId} in collection ${collection.id}: ${VectorDbDatumMapper.toVectorDatumGtv(collection.id, context, it.refId, it.vector).merkleHash(makeMerkleHashCalculator(2)).toHex()}: ${it.vector}" }
                 snapshotContext.emitDatum(ctxt, it.datumId,
                         VectorDbDatumMapper.toVectorDatumGtv(collection.id, context, it.refId, it.vector), false)
             }
@@ -130,6 +125,8 @@ class VectorDbEventProcessor(
         ctxt.addAfterAppendHook {
             vectorContext.addCollection(createdCollection)
         }
+
+        emitCollections(ctxt)
     }
 
     private fun deleteCollectionEvent(ctxt: TxEContext, args: Map<String, Gtv>) {
@@ -140,6 +137,8 @@ class VectorDbEventProcessor(
         ctxt.addAfterAppendHook {
             vectorContext.deleteCollectionByName(collection.name)
         }
+
+        emitCollections(ctxt)
     }
 
     private fun updateCollectionEvent(ctxt: TxEContext, args: Map<String, Gtv>) {
@@ -156,6 +155,20 @@ class VectorDbEventProcessor(
         val updatedCollection = db.updateCollection(ctxt, collection, queryMaxVectors, storeBatchSize)
         ctxt.addAfterAppendHook {
             vectorContext.updateCollection(collection.name, updatedCollection)
+        }
+
+        emitCollections(ctxt)
+    }
+
+    private fun emitCollections(ctx: BlockEContext) {
+        vectorContext.snapshotContext?.apply {
+            val collections = db.getCollections(ctx)
+
+            logger.debug { "Emitting collection metadata: $collections" }
+
+            val metaDataGtv = VectorDbDatumMapper.toMetaDataGtv(collections)
+
+            emitDatum(ctx, VECTOR_DB_META_DATUM_ID, metaDataGtv, false)
         }
     }
 
@@ -178,4 +191,3 @@ class VectorDbEventProcessor(
 
     override fun finalize(): Map<String, Gtv> = emptyMap()
 }
-

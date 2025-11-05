@@ -28,15 +28,18 @@ class VectorDbDatumMapper {
 
         fun toMetaDataGtv(collections: Map<String, VectorCollection>): GtvDictionary {
             return gtv(
-                    "collections" to gtv(collections.entries.map { gtv(
-                            "id" to gtv(it.value.id),
-                            "name" to gtv(it.key),
-                            "dimensions" to gtv(it.value.dimensions),
-                            "origin" to gtv(it.value.origin.name),
-                            "index_type" to gtv(it.value.index.name),
-                            "query_max_vectors" to gtv(it.value.maxVectors),
-                            "store_batch_size" to gtv(it.value.storeBatchSize),
-                    ) })
+                    "collections" to gtv(collections.values.sortedBy { it.id }.map {
+                        gtv(
+                                "id" to gtv(it.id),
+                                "name" to gtv(it.name),
+                                "dimensions" to gtv(it.dimensions),
+                                "origin" to gtv(it.origin.name),
+                                "index_type" to gtv(it.index.name),
+                                "query_max_vectors" to gtv(it.maxVectors),
+                                "store_batch_size" to gtv(it.storeBatchSize),
+                                "exists" to gtv(it.exists),
+                        )
+                    })
             )
         }
 
@@ -52,6 +55,7 @@ class VectorDbDatumMapper {
                         index = VectorDBIndex.valueOf(it["index_type"]!!.asString().uppercase()),
                         maxVectors = it["query_max_vectors"]!!.asInteger(),
                         storeBatchSize = it["store_batch_size"]!!.asInteger(),
+                        exists = it["exists"]!!.asBoolean(),
                 )
             }
             return collections

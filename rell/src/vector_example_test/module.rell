@@ -10,3 +10,25 @@ operation add_messages_in_context(context: integer, messages: list<message_data>
     }
     store_vectors(COLLECTION, context, vector_ids);
 }
+
+operation add_message_in_collection(collection: text, text, vector: text) {
+    require(empty(message @? { text }), "Message is already created");
+    val message_entity = create message (text);
+    store_vector(collection, CONTEXT_MESSAGE, vector, message_entity.rowid.to_integer());
+}
+
+operation add_messages_in_collection(collection: text, messages: list<message_data>) {
+    val vector_ids = list<vector_db_data>();
+    for (message in messages) {
+        require(empty((m: message) @? { message.text }), "Message %s is already created".format(message.text));
+        val message_entity = create message (message.text);
+        vector_ids.add(vector_db_data(message.vector, message_entity.rowid.to_integer()));
+    }
+    store_vectors(collection, CONTEXT_MESSAGE, vector_ids);
+}
+
+operation delete_messages_in_collection(collection: text, texts: list<text>) {
+    val message_entities = message @* { .text in texts };
+    delete_vectors(collection, CONTEXT_MESSAGE, message_entities @ {} (@set .rowid.to_integer()));
+    delete message_entities;
+}

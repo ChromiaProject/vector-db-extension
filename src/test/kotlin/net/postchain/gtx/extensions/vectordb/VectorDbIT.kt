@@ -20,9 +20,12 @@ import net.postchain.gtx.extensions.vectordb.helpers.VectorDbTestGTXModule
 import net.postchain.gtx.extensions.vectordb.helpers.addCollection
 import net.postchain.gtx.extensions.vectordb.helpers.addMessage
 import net.postchain.gtx.extensions.vectordb.helpers.addMessages
+import net.postchain.gtx.extensions.vectordb.helpers.addMessagesInCollection
 import net.postchain.gtx.extensions.vectordb.helpers.buildQueryTemplateOrNull
 import net.postchain.gtx.extensions.vectordb.helpers.changeCollection
 import net.postchain.gtx.extensions.vectordb.helpers.deleteMessage
+import net.postchain.gtx.extensions.vectordb.helpers.deleteMessages
+import net.postchain.gtx.extensions.vectordb.helpers.deleteMessagesInCollection
 import net.postchain.gtx.extensions.vectordb.helpers.getVectorCollections
 import net.postchain.gtx.extensions.vectordb.helpers.getVectors
 import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjects
@@ -66,7 +69,7 @@ class VectorDbIT : IntegrationTestSetup() {
         buildBlock(DEFAULT_CHAIN_IID)
         assertThat(getVectors(engine, DEFAULT_CHAIN_IID, "messages")).hasSize(4)
 
-        deleteMessage(engine, listOf("abc", "def", "ghi"))
+        deleteMessages(engine, listOf("abc", "def", "ghi"))
         deleteMessage(engine, "hello")
         buildBlock(DEFAULT_CHAIN_IID)
         assertThat(getVectors(engine, DEFAULT_CHAIN_IID, "messages")).hasSize(0)
@@ -283,7 +286,7 @@ class VectorDbIT : IntegrationTestSetup() {
 
         Awaitility.await().atMost(Duration.TEN_SECONDS)
                 .untilAsserted {
-                    assertThat(VectorDbTestGTXModule.INIT_EXCEPTION).isNotNull().hasMessage("Changing embedded index is not supported")
+                    assertThat(VectorDbTestGTXModule.INIT_EXCEPTION).isNotNull().hasMessage("Changing embedded index is not supported for collection messages")
                 }
     }
 
@@ -471,5 +474,37 @@ class VectorDbIT : IntegrationTestSetup() {
         val reason = engine.getTransactionQueue().getRejectionReason(txRid)
         assertThat(reason?.first).isNotNull()
                 .hasMessage("Vector 1 has 2 dimensions, but the collection requires 3 dimensions")
+    }
+
+    @Test
+    fun `add and delete messages in dynamic collections`() {
+        val node = createNodes(1, "/chains/vector_example_test_dynamic_collections.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
+        var seq = 0L
+
+        addCollection(engine, "collection_1", 3, VectorDBIndex.HNSW_COSINE, 10, 100)
+        addCollection(engine, "collection_2", 3, VectorDBIndex.HNSW_COSINE, 10, 100)
+        addCollection(engine, "collection_3", 3, VectorDBIndex.HNSW_COSINE, 10, 100)
+        buildBlock(DEFAULT_CHAIN_IID)
+
+        addMessage(engine, "collection_1", "hello_${seq++}", "[1, 2, 3]")
+        addMessage(engine, "collection_2", "hello_${seq++}", "[1, 2, 3]")
+        addMessage(engine, "collection_3", "hello_${seq++}", "[1, 2, 3]")
+        buildBlock(DEFAULT_CHAIN_IID)
+
+        addMessagesInCollection(engine, "collection_1", listOf("hello_${seq++}" to "[1, 2, 3]", "hello_${seq++}" to "[1, 2, 3]", "hello_${seq++}" to "[1, 2, 3]"))
+        addMessagesInCollection(engine, "collection_2", listOf("hello_${seq++}" to "[1, 2, 3]", "hello_${seq++}" to "[1, 2, 3]", "hello_${seq++}" to "[1, 2, 3]"))
+        buildBlock(DEFAULT_CHAIN_IID)
+
+        assertThat(queryClosestObjectsNoTemplate(engine, "collection_1", 0, "[1, 2, 3]", 10.0, 10).map { it.second })
+                .isEqualTo(listOf(1L, 4L, 5L, 6L))
+        assertThat(queryClosestObjectsNoTemplate(engine, "collection_2", 0, "[1, 2, 3]", 10.0, 10).map { it.second })
+                .isEqualTo(listOf(2L, 7L, 8L, 9L))
+
+        deleteMessagesInCollection(engine, "collection_1", listOf("hello_0", "hello_4"))
+        buildBlock(DEFAULT_CHAIN_IID)
+
+        assertThat(queryClosestObjectsNoTemplate(engine, "collection_1", 0, "[1, 2, 3]", 10.0, 10).map { it.second })
+                .isEqualTo(listOf(4L, 6L))
     }
 }
