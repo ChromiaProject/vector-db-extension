@@ -13,7 +13,6 @@ import net.postchain.gtv.GtvFactory.gtv
 import net.postchain.gtv.GtvType
 import net.postchain.gtv.mapper.toObject
 import net.postchain.gtx.ArgumentMetadata
-import net.postchain.gtx.GTXModule
 import net.postchain.gtx.GTXModuleAware
 import net.postchain.gtx.GTXModuleMetadata
 import net.postchain.gtx.MetadataProvider
@@ -21,58 +20,23 @@ import net.postchain.gtx.PostchainContextAware
 import net.postchain.gtx.QueryMetadata
 import net.postchain.gtx.ReturnMetadata
 import net.postchain.gtx.SimpleGTXModule
+import net.postchain.gtx.SnapshotAware
 import net.postchain.gtx.SnapshotContext
 import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseAccess.Vector
 import net.postchain.gtx.extensions.vectordb.VectorDbDatumMapper.Companion.fromMetaDataGtv
 import net.postchain.gtx.extensions.vectordb.VectorDbDatumMapper.Companion.fromVectorDatumGtv
-import net.postchain.gtx.extensions.vectordb.config.VectorDbConfig
 import net.postchain.gtx.extensions.vectordb.config.VectorCollectionOrigin
+import net.postchain.gtx.extensions.vectordb.config.VectorDbConfig
 import net.postchain.gtx.special.GTXSpecialTxExtension
 import java.math.BigDecimal
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentMap
 
 const val VECTOR_DB_QUERY_CLOSEST_OBJECTS = "query_closest_objects"
-const val VECTOR_DB_EXTENSION_CONFIG_NAME = "vector_db_extension"
 const val VECTOR_DB_GET_COLLECTIONS = "get_vector_collections"
+const val VECTOR_DB_EXTENSION_CONFIG_NAME = "vector_db_extension"
 
 /** Datum ID 0 is reserved for metadata to sync collection IDs when snapshots are restored */
 const val VECTOR_DB_META_DATUM_ID = 0L
-
-class VectorDbGTXModuleContext(
-        val databaseOperations: VectorDbDatabaseAccess,
-) {
-    var snapshotContext: SnapshotContext? = null
-    lateinit var module: GTXModule
-    lateinit var collectionsByName: ConcurrentMap<String, VectorCollection>
-    lateinit var postchainContext: PostchainContext
-    lateinit var vectorDbConfig: VectorDbConfig
-    lateinit var collectionOriginMode: VectorCollectionOrigin
-
-    fun isInitialized(): Boolean {
-        return this::module.isInitialized &&
-                this::collectionsByName.isInitialized &&
-                this::postchainContext.isInitialized &&
-                this::vectorDbConfig.isInitialized &&
-                this::collectionOriginMode.isInitialized
-    }
-
-    fun addCollection(collection: VectorCollection) {
-        collectionsByName[collection.name] = collection
-    }
-
-    fun deleteCollectionByName(name: String) {
-        collectionsByName.remove(name)
-    }
-
-    fun updateCollection(name: String, collection: VectorCollection) {
-        collectionsByName[name] = collection
-    }
-
-    fun dynamicCollectionsEnabled(): Boolean {
-        return collectionOriginMode == VectorCollectionOrigin.DYNAMIC
-    }
-}
 
 open class VectorDbGTXModule(
         private val databaseOperations: VectorDbDatabaseAccess = VectorDbDatabaseAccess()
@@ -81,7 +45,7 @@ open class VectorDbGTXModule(
                 VECTOR_DB_QUERY_CLOSEST_OBJECTS to Companion::queryClosestObjects,
                 VECTOR_DB_GET_COLLECTIONS to Companion::getVectorCollections
         )
-), PostchainContextAware, MetadataProvider/*, SnapshotAware */ {
+), PostchainContextAware, MetadataProvider, SnapshotAware {
 
     private var chainId: Long? = null
 
@@ -153,35 +117,53 @@ open class VectorDbGTXModule(
     }
 
     private fun initializeDb(ctx: EContext, vectorDbConfig: VectorDbConfig, databaseSchema: String) {
-        conf.collectionsByName = ConcurrentHashMap(databaseOperations.initialize(ctx, vectorDbConfig, databaseSchema)
-                .associateBy { it.name })
+        databaseOperations.initialize(ctx, databaseSchema)
+
+        // Should we move the static update of collections to the init in the block builder extension to
+        // make it part of a block? We still need to sync assigned ids in db with config however
+        val currentCollections = databaseOperations.getCollections(ctx)
+        databaseOperations.updateStaticCollections(ctx, vectorDbConfig)
+        databaseOperations.createOrUpdateCollectionTables(ctx, databaseSchema)
+        conf.emitCollections = currentCollections != databaseOperations.getExistingCollections(ctx)
 
         val collectionOrigins = databaseOperations.getCollectionOrigins(ctx)
         if (collectionOrigins.size > 1) {
             throw UserMistake("Database initialized with static collections, but dynamic collections exist in DB")
         }
         conf.collectionOriginMode = collectionOrigins.firstOrNull() ?: VectorCollectionOrigin.DYNAMIC
+        conf.collectionsByName = ConcurrentHashMap(databaseOperations.getExistingCollections(ctx).filterValues {
+            it.origin == VectorCollectionOrigin.DYNAMIC || vectorDbConfig.collections.containsKey(it.name)
+        })
     }
 
-    /*override*/ fun constructDatum(ctx: EContext, datumList: List<SnapshotDatum>) {
+    override fun constructDatum(ctx: EContext, datumList: List<SnapshotDatum>) {
         if (datumList.isNotEmpty() && datumList[0].id == VECTOR_DB_META_DATUM_ID) {
             val snapshotMetaData = fromMetaDataGtv(datumList[0].data)
 
             logger.debug { "Resets vector db with collections: $snapshotMetaData" }
 
-            databaseOperations.wipeVectorDb(ctx, conf.collectionsByName.map { it.value.id })
-            databaseOperations.initializeCollectionsTable(ctx)
+            databaseOperations.wipeVectorDb(ctx)
             databaseOperations.storeCollections(ctx, snapshotMetaData.values.toList())
 
             initializeDb(ctx, conf.vectorDbConfig, conf.postchainContext.appConfig.databaseSchema)
+            conf.emitCollections = false
 
             constructDatum(ctx, datumList.subList(1, datumList.size))
         } else {
 
+            val existingCollectionIds = conf.collectionsByName.values.map { it.id }.toSet()
+            val reusableDatumIds = mutableSetOf<Long>()
             val vectorsPerCollection = mutableMapOf<Long, MutableList<Vector>>()
             datumList.forEach {
                 val collectionVector = fromVectorDatumGtv(it.data)
-                if (collectionVector.refId != null && collectionVector.vector != null) {
+
+                if (!existingCollectionIds.contains(collectionVector.collectionId)) {
+                    logger.trace { "Ignored datum ${it.id} for non existing collection ${collectionVector.collectionId}" }
+                    reusableDatumIds.add(it.id)
+                } else if (collectionVector.refId == null || collectionVector.vector == null) {
+                    logger.trace { "Ignored removed datum ${it.id}" }
+                    reusableDatumIds.add(it.id)
+                } else {
                     vectorsPerCollection.getOrPut(collectionVector.collectionId) { mutableListOf() }
                             .add(Vector(it.id, collectionVector.context, collectionVector.refId, collectionVector.vector))
                 }
@@ -194,15 +176,7 @@ open class VectorDbGTXModule(
                 }
                 databaseOperations.storeVectors(ctx, cid, vectors, collection.storeBatchSize)
             }
-        }
-    }
-
-    /*override*/ fun finalizeImport(ctx: EContext) {
-
-        logger.debug { "Finalizing vector db snapshot import" }
-
-        databaseOperations.getDatumIdMax(ctx)?.let {
-            databaseOperations.setDatumIdSequenceOffset(ctx, it + 1)
+            databaseOperations.addReusableDatumIds(ctx, reusableDatumIds)
         }
     }
 
@@ -216,26 +190,36 @@ open class VectorDbGTXModule(
         }
     }
 
+    override fun getInitialDatums(ctx: EContext): List<SnapshotDatum> {
+        return listOf(SnapshotDatum(VECTOR_DB_META_DATUM_ID,
+                VectorDbDatumMapper.toMetaDataGtv(emptyMap()), false))
+    }
+
     override fun initializeDB(ctx: EContext) {
     }
 
-    /*override*/ fun initializeSnapshotContext(context: SnapshotContext) {
+    override fun initializeSnapshotContext(context: SnapshotContext) {
         conf.snapshotContext = context
     }
 
     override fun getMetadata() = GTXModuleMetadata(
             operations = mapOf(),
-            queries = mapOf(VECTOR_DB_QUERY_CLOSEST_OBJECTS to QueryMetadata(
-                    args = listOf(
-                            ArgumentMetadata(name = "collection", gtvTypes = setOf(GtvType.STRING)),
-                            ArgumentMetadata(name = "context", gtvTypes = setOf(GtvType.INTEGER), required = false),
-                            ArgumentMetadata(name = "q_vector", gtvTypes = setOf(GtvType.STRING)),
-                            ArgumentMetadata(name = "max_distance", gtvTypes = setOf(GtvType.STRING), extendedType = "decimal"),
-                            ArgumentMetadata(name = "query_max_vectors", gtvTypes = setOf(GtvType.INTEGER), required = false),
-                            ArgumentMetadata(name = "query_template", gtvTypes = setOf(GtvType.DICT),
-                                    extendedType = "(name:text,args:map<text,gtv>)", required = false),
-                    ),
-                    returnType = ReturnMetadata(gtvTypes = setOf(GtvType.NULL, GtvType.BYTEARRAY, GtvType.STRING, GtvType.INTEGER, GtvType.DICT, GtvType.ARRAY, GtvType.BIGINTEGER))))
+            queries = mapOf(
+                    VECTOR_DB_QUERY_CLOSEST_OBJECTS to QueryMetadata(
+                            args = listOf(
+                                    ArgumentMetadata(name = "collection", gtvTypes = setOf(GtvType.STRING)),
+                                    ArgumentMetadata(name = "context", gtvTypes = setOf(GtvType.INTEGER), required = false),
+                                    ArgumentMetadata(name = "q_vector", gtvTypes = setOf(GtvType.STRING)),
+                                    ArgumentMetadata(name = "max_distance", gtvTypes = setOf(GtvType.STRING), extendedType = "decimal"),
+                                    ArgumentMetadata(name = "query_max_vectors", gtvTypes = setOf(GtvType.INTEGER), required = false),
+                                    ArgumentMetadata(name = "query_template", gtvTypes = setOf(GtvType.DICT),
+                                            extendedType = "(name:text,args:map<text,gtv>)", required = false),
+                            ),
+                            returnType = ReturnMetadata(gtvTypes = setOf(GtvType.NULL, GtvType.BYTEARRAY, GtvType.STRING, GtvType.INTEGER, GtvType.DICT, GtvType.ARRAY, GtvType.BIGINTEGER))),
+                    VECTOR_DB_GET_COLLECTIONS to QueryMetadata(
+                            args = emptyList(),
+                            returnType = ReturnMetadata(gtvTypes = setOf(GtvType.ARRAY)))
+            )
     )
 
     override fun getSpecialTxExtensions() = emptyList<GTXSpecialTxExtension>()
@@ -244,9 +228,9 @@ open class VectorDbGTXModule(
         return listOf(VectorDbEventProcessor(databaseOperations, conf))
     }
 
-    /*override*/ fun getPermanentDatumIdMax(ctx: EContext): Long? = null
+    override fun getPermanentDatumIdMax(ctx: EContext): Long? = null
 
-    /*override*/ fun getPermanentDatums(ctx: EContext, datumIdFrom: Long, datumHandler: (datum: SnapshotDatum?) -> Boolean) {
+    override fun getPermanentDatums(ctx: EContext, datumIdFrom: Long, datumHandler: (datum: SnapshotDatum?) -> Boolean) {
         datumHandler(null)
     }
 }

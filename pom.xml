@@ -25,7 +25,7 @@
         <kotlin.compiler.jvmTarget>21</kotlin.compiler.jvmTarget>
         <kotlin.code.style>obsolete</kotlin.code.style> <!-- Kotlin obsolete IntelliJ IDEA codestyle -->
 
-        <postchain.version>3.45.4</postchain.version>
+        <postchain.version>3.46.0</postchain.version>
         <postchain-chromia.version>3.34.2</postchain-chromia.version>
 
         <!-- Tests -->
@@ -222,8 +222,8 @@
                             <POSTGRES_PASSWORD>postchain</POSTGRES_PASSWORD>
                             <POSTGRES_INITDB_ARGS>--lc-collate=C.UTF-8 --lc-ctype=C.UTF-8 --encoding=UTF-8</POSTGRES_INITDB_ARGS>
                         </environment>
-                        <creationTime>${git.commit.time}</creationTime>
-                        <filesModificationTime>${git.commit.time}</filesModificationTime>
+                        <creationTime>${git.commit.time}</creationTime> <!-- populated by git-commit-id-plugin -->
+                        <filesModificationTime>${git.commit.time}</filesModificationTime> <!-- populated by git-commit-id-plugin -->
                     </container>
                     <containerizingMode>packaged</containerizingMode>
                 </configuration>
@@ -296,6 +296,19 @@
                             <target>${project.build.directory}/test-classes/chains/</target>
                         </configuration>
                     </execution>
+                    <!-- Vector only test dApp -->
+                    <execution>
+                        <id>vector-only-compile</id>
+                        <phase>generate-test-resources</phase>
+                        <goals>
+                            <goal>rell-compile</goal>
+                        </goals>
+                        <configuration>
+                            <configPath>${project.basedir}/rell/chromia.yml</configPath>
+                            <source>${project.basedir}/rell/src</source>
+                            <target>${project.build.directory}/test-classes/chains/</target>
+                        </configuration>
+                    </execution>
                     <execution>
                         <id>vector-example-gen-client</id>
                         <phase>generate-test-sources</phase>
@@ -332,6 +345,20 @@
                                 <source>${project.build.directory}/generated-test-sources</source>
                             </sources>
                         </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>pl.project13.maven</groupId>
+                <artifactId>git-commit-id-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>get-the-git-infos</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>revision</goal>
+                        </goals>
                     </execution>
                 </executions>
             </plugin>

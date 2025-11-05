@@ -1,0 +1,27 @@
+/**
+ * The purpose of this module is to use in a test dApp without any entities to make it easier to test snapshots etc.
+ */
+
+module;
+
+import lib;
+
+operation add_collection(collection: text, dimensions: integer, index_type: text, query_max_vectors: integer, store_batch_size: integer) {
+    lib.create_collection(collection, dimensions, index_type, query_max_vectors, store_batch_size);
+}
+
+operation delete_collection(collection: text) {
+    lib.delete_collection(collection);
+}
+
+operation add_vectors(collection: text, context: integer, vectors: list<lib.vector_db_data>) {
+    lib.store_vectors(collection, context, vectors);
+}
+
+operation update_collection(collection: text, query_max_vectors: integer? = null, store_batch_size: integer? = null) {
+    lib.update_collection(collection, query_max_vectors, store_batch_size);
+}
+
+operation delete_vectors(collection: text, context: integer, ids: set<integer>) {
+    lib.delete_vectors(collection, context, ids);
+}
