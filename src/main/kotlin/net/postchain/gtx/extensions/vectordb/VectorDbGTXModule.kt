@@ -180,10 +180,6 @@ open class VectorDbGTXModule(
         }
     }
 
-    override fun finalizeImport(ctx: EContext) {
-        logger.debug { "Finalizing vector db snapshot import" }
-    }
-
     private fun validateConfiguration(vectorDbConfig: VectorDbConfig) {
         vectorDbConfig.collections.forEach { (name, table) ->
             try {
