@@ -8,7 +8,7 @@ data class VectorCollection(
         val id: Long,
         val name: String,
         val dimensions: Long,
-        val maxVectors: Long,
+        val queryMaxVectors: Long,
         val storeBatchSize: Long,
         val index: VectorDBIndex,
         val origin: VectorCollectionOrigin,

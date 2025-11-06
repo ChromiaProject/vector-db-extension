@@ -171,7 +171,7 @@ class VectorDbSnapshotIT : SnapshotTestBase() {
 
         withReadConnection(nodes[0].postchainContext.sharedStorage, DEFAULT_CHAIN_IID) { ctx ->
             // Collection 3 & 4 should have received new ids
-            assertThat(dba.getCollections(ctx).map { it.value.id }.toSet()).isEqualTo(setOf(0L, 2L, 3L, 4L))
+            assertThat(dba.getCollections(ctx).map { it.id }.toSet()).isEqualTo(setOf(0L, 2L, 3L, 4L))
         }
 
         // Add 5 new messages

@@ -21,7 +21,7 @@ fun getVectors(engine: BlockchainEngine, chainId: Long, collection: String): Lis
     val ctx = engine.blockBuilderStorage.openReadConnection(chainId)
     try {
         VectorDbDatabaseAccess().apply {
-            val collection = getCollections(ctx)[collection]!!
+            val collection = getExistingCollectionByName(ctx, collection)!!
             val tableId = collection.id
             val tableName = getCollectionTableName(ctx, tableId)
             return ctx.conn.createStatement().use { stmt ->

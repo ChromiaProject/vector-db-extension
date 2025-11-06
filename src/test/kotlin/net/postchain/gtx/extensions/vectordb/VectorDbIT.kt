@@ -16,7 +16,7 @@ import net.postchain.gtx.Gtx
 import net.postchain.gtx.GtxBody
 import net.postchain.gtx.GtxOp
 import net.postchain.gtx.extensions.vectordb.config.VectorDBIndex
-import net.postchain.gtx.extensions.vectordb.helpers.VectorDbTestGTXModule
+import net.postchain.gtx.extensions.vectordb.helpers.VectorDbTestExceptionCaptorEventProcessor
 import net.postchain.gtx.extensions.vectordb.helpers.addCollection
 import net.postchain.gtx.extensions.vectordb.helpers.addMessage
 import net.postchain.gtx.extensions.vectordb.helpers.addMessages
@@ -34,6 +34,7 @@ import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsGetStrin
 import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsGetTextAndDistance
 import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsNoTemplate
 import net.postchain.gtx.extensions.vectordb.helpers.removeCollection
+import net.postchain.images.directory1.awaitUntilAsserted
 import net.postchain.test.modify
 import org.awaitility.Awaitility
 import org.awaitility.Duration
@@ -213,6 +214,8 @@ class VectorDbIT : IntegrationTestSetup() {
         val node = createNodes(1, "/chains/vector_example_test.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
 
+        buildBlock(DEFAULT_CHAIN_IID)
+
         // Context 1
         val op1 = GtxOp("add_messages_in_context", gtv(1), gtv(
                 listOf(gtv(gtv("hello 1"), gtv("[1, 2, 3]")))))
@@ -268,25 +271,20 @@ class VectorDbIT : IntegrationTestSetup() {
     @Test
     fun `reject config with new distance type`() {
         val node = createNodes(1, "/chains/vector_example_test.xml")[0]
-        val engine = node.getBlockchainInstance().blockchainEngine
-
-        addMessage(engine, "alpha", "[1, 2, 3]")
-        buildBlock(DEFAULT_CHAIN_IID)
 
         val blockchainGtvConfig = readBlockchainConfig("/chains/vector_example_test.xml")
                 .modify(listOf("gtx", "modules")) {
-                    gtv(gtv("net.postchain.gtx.extensions.vectordb.helpers.VectorDbTestGTXModule"))
+                    gtv(gtv("net.postchain.gtx.extensions.vectordb.helpers.VectorDbTestExceptionCaptorGTXModule"))
                 }
                 .modify(listOf("vector_db_extension", "collections", "messages", "index")) {
                     gtv(VectorDBIndex.HNSW_L2.name)
                 }
         node.addConfiguration(DEFAULT_CHAIN_IID, 2, blockchainGtvConfig)
 
-        buildBlockNoWait(listOf(node), DEFAULT_CHAIN_IID, 2)
-
         Awaitility.await().atMost(Duration.TEN_SECONDS)
                 .untilAsserted {
-                    assertThat(VectorDbTestGTXModule.INIT_EXCEPTION).isNotNull().hasMessage("Changing embedded index is not supported for collection messages")
+                    buildBlockNoWait(listOf(node), DEFAULT_CHAIN_IID, 2)
+                    assertThat(VectorDbTestExceptionCaptorEventProcessor.INIT_EXCEPTION).isNotNull().hasMessage("Changing embedded index is not supported for collection messages")
                 }
     }
 
@@ -299,8 +297,10 @@ class VectorDbIT : IntegrationTestSetup() {
         addCollection(engine, collectionName, 128, VectorDBIndex.HNSW_COSINE, 10, 100)
         buildBlock(DEFAULT_CHAIN_IID)
 
-        val collections = getVectorCollections(engine)
-        assertThat(collections).extracting { it.name }.containsOnly(collectionName)
+        awaitUntilAsserted {
+            val collections = getVectorCollections(engine)
+            assertThat(collections).extracting { it.name }.containsOnly(collectionName)
+        }
 
         removeCollection(engine, collectionName)
         buildBlock(DEFAULT_CHAIN_IID)
@@ -330,6 +330,7 @@ class VectorDbIT : IntegrationTestSetup() {
         val node = createNodes(1, "/chains/vector_example_test.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
         val collectionName = "messages"
+        buildBlock(DEFAULT_CHAIN_IID)
 
         val collections = getVectorCollections(engine)
         assertThat(collections).extracting { it.name }.containsOnly(collectionName)
@@ -389,10 +390,11 @@ class VectorDbIT : IntegrationTestSetup() {
                     ))
                 }
         node.addConfiguration(DEFAULT_CHAIN_IID, 2, blockchainGtvConfig)
-        buildBlockNoWait(listOf(node), DEFAULT_CHAIN_IID, 2)
+//        buildBlock(DEFAULT_CHAIN_IID)
 
         Awaitility.await().atMost(Duration.TEN_SECONDS)
                 .untilAsserted {
+                    buildBlockNoWait(listOf(node), DEFAULT_CHAIN_IID, 2)
                     val newEngine = node.getBlockchainInstance().blockchainEngine
                     val collections = getVectorCollections(newEngine)
                     assertThat(collections).extracting { it.name }.containsOnly(newCollection)
@@ -429,14 +431,14 @@ class VectorDbIT : IntegrationTestSetup() {
 
         val blockchainGtvConfig = readBlockchainConfig("/chains/vector_example_test.xml")
                 .modify(listOf("gtx", "modules")) {
-                    gtv(gtv("net.postchain.gtx.extensions.vectordb.helpers.VectorDbTestGTXModule"))
+                    gtv(gtv("net.postchain.gtx.extensions.vectordb.helpers.VectorDbTestExceptionCaptorGTXModule"))
                 }
         node.addConfiguration(DEFAULT_CHAIN_IID, 3, blockchainGtvConfig)
-        buildBlock(DEFAULT_CHAIN_IID)
 
         Awaitility.await().atMost(Duration.TEN_SECONDS)
                 .untilAsserted {
-                    assertThat(VectorDbTestGTXModule.INIT_EXCEPTION)
+                    buildBlockNoWait(listOf(node), DEFAULT_CHAIN_IID, 3)
+                    assertThat(VectorDbTestExceptionCaptorEventProcessor.INIT_EXCEPTION)
                             .isNotNull()
                             .hasMessage("Database initialized with static collections, but dynamic collections exist in DB")
                 }

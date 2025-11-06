@@ -1,6 +1,5 @@
 package net.postchain.gtx.extensions.vectordb
 
-import net.postchain.PostchainContext
 import net.postchain.gtx.GTXModule
 import net.postchain.gtx.SnapshotContext
 import net.postchain.gtx.extensions.vectordb.config.VectorCollectionOrigin
@@ -13,16 +12,12 @@ class VectorDbGTXModuleContext(
     var snapshotContext: SnapshotContext? = null
     lateinit var module: GTXModule
     lateinit var collectionsByName: ConcurrentMap<String, VectorCollection>
-    lateinit var postchainContext: PostchainContext
     lateinit var vectorDbConfig: VectorDbConfig
     lateinit var collectionOriginMode: VectorCollectionOrigin
-    var emitCollections = false
-
 
     fun isInitialized(): Boolean {
         return this::module.isInitialized &&
                 this::collectionsByName.isInitialized &&
-                this::postchainContext.isInitialized &&
                 this::vectorDbConfig.isInitialized &&
                 this::collectionOriginMode.isInitialized
     }

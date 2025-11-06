@@ -39,15 +39,13 @@ const val VECTOR_DB_EXTENSION_CONFIG_NAME = "vector_db_extension"
 const val VECTOR_DB_META_DATUM_ID = 0L
 
 open class VectorDbGTXModule(
-        private val databaseOperations: VectorDbDatabaseAccess = VectorDbDatabaseAccess()
+        private val db: VectorDbDatabaseAccess = VectorDbDatabaseAccess()
 ) : SimpleGTXModule<VectorDbGTXModuleContext>(
-        VectorDbGTXModuleContext(databaseOperations), mapOf(), mapOf(
+        VectorDbGTXModuleContext(db), mapOf(), mapOf(
                 VECTOR_DB_QUERY_CLOSEST_OBJECTS to Companion::queryClosestObjects,
                 VECTOR_DB_GET_COLLECTIONS to Companion::getVectorCollections
         )
 ), PostchainContextAware, MetadataProvider, SnapshotAware {
-
-    private var chainId: Long? = null
 
     companion object : KLogging() {
         fun queryClosestObjects(moduleContext: VectorDbGTXModuleContext, ctx: EContext, args: Gtv): Gtv {
@@ -62,11 +60,11 @@ open class VectorDbGTXModule(
             val maxDistance = BigDecimal(args["max_distance"]?.asString()
                     ?: throw UserMistake("No max_distance argument supplied"))
             val maxVectors = args["query_max_vectors"]?.asInteger()?.let {
-                if (it > collection.maxVectors) {
-                    throw UserMistake("query_max_vectors ($it) exceeds the maximum of ${collection.maxVectors}")
+                if (it > collection.queryMaxVectors) {
+                    throw UserMistake("query_max_vectors ($it) exceeds the maximum of ${collection.queryMaxVectors}")
                 }
                 it
-            } ?: collection.maxVectors
+            } ?: collection.queryMaxVectors
             val queryTemplate = args["query_template"]?.asDict()
 
             val vectorResult = moduleContext.databaseOperations.queryClosestObjects(ctx, collection.id, context,
@@ -89,16 +87,30 @@ open class VectorDbGTXModule(
                         "name" to gtv(collection.name),
                         "dimensions" to gtv(collection.dimensions),
                         "index" to gtv(collection.index.name.lowercase()),
-                        "query_max_vectors" to gtv(collection.maxVectors),
+                        "query_max_vectors" to gtv(collection.queryMaxVectors),
                         "store_batch_size" to gtv(collection.storeBatchSize)
                 ))
             }
             return gtv(vectorCollections)
         }
+
+        fun getAndEnsureOneOriginMode(db: VectorDbDatabaseAccess, ctx: EContext): VectorCollectionOrigin {
+            val collectionOrigins = db.getCollectionOrigins(ctx)
+            if (collectionOrigins.size > 1) {
+                throw UserMistake("Database initialized with static collections, but dynamic collections exist in DB")
+            }
+            return collectionOrigins.firstOrNull() ?: VectorCollectionOrigin.DYNAMIC
+        }
+
+        fun getActiveCollections(db: VectorDbDatabaseAccess, ctx: EContext, vectorDbConfig: VectorDbConfig): ConcurrentHashMap<String, VectorCollection> {
+            val collectionsByName = ConcurrentHashMap(db.getExistingCollections(ctx).filterValues {
+                it.origin == VectorCollectionOrigin.DYNAMIC || vectorDbConfig.collections.containsKey(it.name)
+            })
+            return collectionsByName
+        }
     }
 
     override fun initializeContext(configuration: BlockchainConfiguration, postchainContext: PostchainContext) {
-        conf.postchainContext = postchainContext
         conf.module = (configuration as GTXModuleAware).module
         conf.vectorDbConfig = configuration.rawConfig[VECTOR_DB_EXTENSION_CONFIG_NAME]?.toObject<VectorDbConfig>()
                 ?: VectorDbConfig.DEFAULT_CONFIG
@@ -107,33 +119,21 @@ open class VectorDbGTXModule(
 
         logger.info { "VectorDB config: ${configuration.rawConfig[VECTOR_DB_EXTENSION_CONFIG_NAME]?.asDict()}" }
 
-        chainId = configuration.chainID
         val ctx = postchainContext.blockBuilderStorage.openWriteConnection(configuration.chainID)
         try {
-            initializeDb(ctx, conf.vectorDbConfig, conf.postchainContext.appConfig.databaseSchema)
+            ensureDbStructureAndLoadExistingCollections(ctx)
         } finally {
             postchainContext.blockBuilderStorage.closeWriteConnection(ctx, true)
         }
     }
 
-    private fun initializeDb(ctx: EContext, vectorDbConfig: VectorDbConfig, databaseSchema: String) {
-        databaseOperations.initialize(ctx, databaseSchema)
+    /** Creates vectors tables if needed and loads existing collections */
+    private fun ensureDbStructureAndLoadExistingCollections(ctx: EContext) {
+        db.initialize(ctx)
+        db.createOrUpdateCollectionTables(ctx)
 
-        // Should we move the static update of collections to the init in the block builder extension to
-        // make it part of a block? We still need to sync assigned ids in db with config however
-        val currentCollections = databaseOperations.getCollections(ctx)
-        databaseOperations.updateStaticCollections(ctx, vectorDbConfig)
-        databaseOperations.createOrUpdateCollectionTables(ctx, databaseSchema)
-        conf.emitCollections = currentCollections != databaseOperations.getExistingCollections(ctx)
-
-        val collectionOrigins = databaseOperations.getCollectionOrigins(ctx)
-        if (collectionOrigins.size > 1) {
-            throw UserMistake("Database initialized with static collections, but dynamic collections exist in DB")
-        }
-        conf.collectionOriginMode = collectionOrigins.firstOrNull() ?: VectorCollectionOrigin.DYNAMIC
-        conf.collectionsByName = ConcurrentHashMap(databaseOperations.getExistingCollections(ctx).filterValues {
-            it.origin == VectorCollectionOrigin.DYNAMIC || vectorDbConfig.collections.containsKey(it.name)
-        })
+        conf.collectionOriginMode = getAndEnsureOneOriginMode(db, ctx)
+        conf.collectionsByName = ConcurrentHashMap(getActiveCollections(db, ctx, conf.vectorDbConfig))
     }
 
     override fun constructDatum(ctx: EContext, datumList: List<SnapshotDatum>) {
@@ -142,11 +142,10 @@ open class VectorDbGTXModule(
 
             logger.debug { "Resets vector db with collections: $snapshotMetaData" }
 
-            databaseOperations.wipeVectorDb(ctx)
-            databaseOperations.storeCollections(ctx, snapshotMetaData.values.toList())
+            db.wipeVectorDb(ctx)
+            db.storeCollections(ctx, snapshotMetaData.values.toList())
 
-            initializeDb(ctx, conf.vectorDbConfig, conf.postchainContext.appConfig.databaseSchema)
-            conf.emitCollections = false
+            ensureDbStructureAndLoadExistingCollections(ctx)
 
             constructDatum(ctx, datumList.subList(1, datumList.size))
         } else {
@@ -174,9 +173,9 @@ open class VectorDbGTXModule(
                 if (collection == null) {
                     throw ProgrammerMistake("Received snapshot datum for collection $cid which is not registered in the module")
                 }
-                databaseOperations.storeVectors(ctx, cid, vectors, collection.storeBatchSize)
+                db.storeVectors(ctx, cid, vectors, collection.storeBatchSize)
             }
-            databaseOperations.addReusableDatumIds(ctx, reusableDatumIds)
+            db.addReusableDatumIds(ctx, reusableDatumIds)
         }
     }
 
@@ -192,7 +191,7 @@ open class VectorDbGTXModule(
 
     override fun getInitialDatums(ctx: EContext): List<SnapshotDatum> {
         return listOf(SnapshotDatum(VECTOR_DB_META_DATUM_ID,
-                VectorDbDatumMapper.toMetaDataGtv(emptyMap()), false))
+                VectorDbDatumMapper.toMetaDataGtv(emptyList()), false))
     }
 
     override fun initializeDB(ctx: EContext) {
@@ -225,7 +224,7 @@ open class VectorDbGTXModule(
     override fun getSpecialTxExtensions() = emptyList<GTXSpecialTxExtension>()
 
     override fun makeBlockBuilderExtensions(): List<BaseBlockBuilderExtension> {
-        return listOf(VectorDbEventProcessor(databaseOperations, conf))
+        return listOf(VectorDbEventProcessor(db, conf))
     }
 
     override fun getPermanentDatumIdMax(ctx: EContext): Long? = null
