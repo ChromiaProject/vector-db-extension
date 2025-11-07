@@ -42,8 +42,6 @@ open class VectorDbEventProcessor(
 
         if (firstBlockStaticCollectionCheck) {
             val staticCollectionsUpdated = db.updateStaticCollections(blockEContext, conf.vectorDbConfig)
-            db.createOrUpdateCollectionTables(blockEContext)
-
             conf.collectionOriginMode = getAndEnsureOneOriginMode(db, blockEContext)
             blockEContext.addAfterCommitHook {
                 conf.collectionsByName = ConcurrentHashMap(getActiveCollections(db, blockEContext, conf.vectorDbConfig))

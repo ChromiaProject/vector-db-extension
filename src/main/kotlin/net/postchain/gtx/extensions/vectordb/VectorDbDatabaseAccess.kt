@@ -60,8 +60,15 @@ class VectorDbDatabaseAccess{
     }
 
     fun updateStaticCollections(ctx: EContext, config: VectorDbConfig): Boolean {
+        val updatedCollections = getAndVerifyUpdatedStaticCollections(ctx, config)
+        storeCollections(ctx, updatedCollections)
+        createOrUpdateCollectionTables(ctx)
+        return updatedCollections.isNotEmpty()
+    }
+
+    fun getAndVerifyUpdatedStaticCollections(ctx: EContext, config: VectorDbConfig): List<VectorCollection> {
         val collectionsMap = getExistingCollections(ctx)
-        val updatedCollections = config.collections
+        return config.collections
                 .toList().sortedBy { it.first }
                 .map { (name, tableConfig) ->
                     val existingCollection = collectionsMap[name]
@@ -77,8 +84,6 @@ class VectorDbDatabaseAccess{
                     val id = existingCollection?.id ?: getNextTableId(ctx)
                     VectorCollection(id, name, tableConfig, VectorCollectionOrigin.STATIC)
                 }
-        storeCollections(ctx, updatedCollections)
-        return updatedCollections.isNotEmpty()
     }
 
     fun createOrUpdateCollectionTables(ctx: EContext) {

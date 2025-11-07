@@ -17,6 +17,7 @@ import net.postchain.gtx.GtxBody
 import net.postchain.gtx.GtxOp
 import net.postchain.gtx.extensions.vectordb.config.VectorDBIndex
 import net.postchain.gtx.extensions.vectordb.helpers.VectorDbTestExceptionCaptorEventProcessor
+import net.postchain.gtx.extensions.vectordb.helpers.VectorDbTestExceptionCaptorGTXModule
 import net.postchain.gtx.extensions.vectordb.helpers.addCollection
 import net.postchain.gtx.extensions.vectordb.helpers.addMessage
 import net.postchain.gtx.extensions.vectordb.helpers.addMessages
@@ -39,6 +40,7 @@ import net.postchain.test.modify
 import org.awaitility.Awaitility
 import org.awaitility.Duration
 import org.junit.jupiter.api.Test
+import java.lang.Exception
 
 class VectorDbIT : IntegrationTestSetup() {
 
@@ -283,8 +285,10 @@ class VectorDbIT : IntegrationTestSetup() {
 
         Awaitility.await().atMost(Duration.TEN_SECONDS)
                 .untilAsserted {
-                    buildBlockNoWait(listOf(node), DEFAULT_CHAIN_IID, 2)
-                    assertThat(VectorDbTestExceptionCaptorEventProcessor.INIT_EXCEPTION).isNotNull().hasMessage("Changing embedded index is not supported for collection messages")
+                    try {
+                        buildBlockNoWait(nodes, DEFAULT_CHAIN_IID, 2)
+                    } catch (_: Exception) { }
+                    assertThat(VectorDbTestExceptionCaptorGTXModule.INIT_EXCEPTION).isNotNull().hasMessage("Changing embedded index is not supported for collection messages")
                 }
     }
 

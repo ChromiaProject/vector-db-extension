@@ -110,7 +110,7 @@ open class VectorDbGTXModule(
         }
     }
 
-    override fun initializeContext(configuration: BlockchainConfiguration, postchainContext: PostchainContext) {
+    override fun initializeContext(configuration: BlockchainConfiguration, postchainContext: PostchainContext, ctx: EContext) {
         conf.module = (configuration as GTXModuleAware).module
         conf.vectorDbConfig = configuration.rawConfig[VECTOR_DB_EXTENSION_CONFIG_NAME]?.toObject<VectorDbConfig>()
                 ?: VectorDbConfig.DEFAULT_CONFIG
@@ -119,19 +119,17 @@ open class VectorDbGTXModule(
 
         logger.info { "VectorDB config: ${configuration.rawConfig[VECTOR_DB_EXTENSION_CONFIG_NAME]?.asDict()}" }
 
-        val ctx = postchainContext.blockBuilderStorage.openWriteConnection(configuration.chainID)
-        try {
-            ensureDbStructureAndLoadExistingCollections(ctx)
-        } finally {
-            postchainContext.blockBuilderStorage.closeWriteConnection(ctx, true)
-        }
+        db.getAndVerifyUpdatedStaticCollections(ctx, conf.vectorDbConfig)
+        ensureDbStructureAndLoadExistingCollections(ctx)
     }
 
-    /** Creates vectors tables if needed and loads existing collections */
-    private fun ensureDbStructureAndLoadExistingCollections(ctx: EContext) {
+    override fun initializeDB(ctx: EContext) {
         db.initialize(ctx)
         db.createOrUpdateCollectionTables(ctx)
+    }
 
+    /** Ensures strictly only one collection origin is in use, and loads active collections */
+    private fun ensureDbStructureAndLoadExistingCollections(ctx: EContext) {
         conf.collectionOriginMode = getAndEnsureOneOriginMode(db, ctx)
         conf.collectionsByName = ConcurrentHashMap(getActiveCollections(db, ctx, conf.vectorDbConfig))
     }
@@ -143,7 +141,9 @@ open class VectorDbGTXModule(
             logger.debug { "Resets vector db with collections: $snapshotMetaData" }
 
             db.wipeVectorDb(ctx)
+            db.initialize(ctx)
             db.storeCollections(ctx, snapshotMetaData.values.toList())
+            db.createOrUpdateCollectionTables(ctx)
 
             ensureDbStructureAndLoadExistingCollections(ctx)
 
@@ -192,9 +192,6 @@ open class VectorDbGTXModule(
     override fun getInitialDatums(ctx: EContext): List<SnapshotDatum> {
         return listOf(SnapshotDatum(VECTOR_DB_META_DATUM_ID,
                 VectorDbDatumMapper.toMetaDataGtv(emptyList()), false))
-    }
-
-    override fun initializeDB(ctx: EContext) {
     }
 
     override fun initializeSnapshotContext(context: SnapshotContext) {

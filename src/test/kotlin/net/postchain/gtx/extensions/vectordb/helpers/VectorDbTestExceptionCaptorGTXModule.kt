@@ -6,6 +6,7 @@ import net.postchain.base.TxEventSink
 import net.postchain.base.data.BaseBlockBuilder
 import net.postchain.core.BlockEContext
 import net.postchain.core.BlockchainConfiguration
+import net.postchain.core.EContext
 import net.postchain.gtx.extensions.vectordb.VectorDbEventProcessor
 import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule
 
@@ -15,9 +16,9 @@ class VectorDbTestExceptionCaptorGTXModule : VectorDbGTXModule() {
         var INIT_EXCEPTION: Exception? = null
     }
 
-    override fun initializeContext(configuration: BlockchainConfiguration, postchainContext: PostchainContext) {
+    override fun initializeContext(configuration: BlockchainConfiguration, postchainContext: PostchainContext, ctx: EContext) {
         try {
-            super.initializeContext(configuration, postchainContext)
+            super.initializeContext(configuration, postchainContext, ctx)
         } catch (e: Exception) {
             INIT_EXCEPTION = e
             throw e

@@ -25,7 +25,7 @@
         <kotlin.compiler.jvmTarget>21</kotlin.compiler.jvmTarget>
         <kotlin.code.style>obsolete</kotlin.code.style> <!-- Kotlin obsolete IntelliJ IDEA codestyle -->
 
-        <postchain.version>3.46.0</postchain.version>
+        <postchain.version>3.46.2</postchain.version>
         <postchain-chromia.version>3.34.2</postchain-chromia.version>
 
         <!-- Tests -->
