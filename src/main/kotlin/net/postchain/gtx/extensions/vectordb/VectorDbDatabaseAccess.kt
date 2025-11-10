@@ -59,13 +59,6 @@ class VectorDbDatabaseAccess{
         initializeReusableDatumIdTable(ctx)
     }
 
-    fun updateStaticCollections(ctx: EContext, config: VectorDbConfig): Boolean {
-        val updatedCollections = getAndVerifyUpdatedStaticCollections(ctx, config)
-        storeCollections(ctx, updatedCollections)
-        createOrUpdateCollectionTables(ctx)
-        return updatedCollections.isNotEmpty()
-    }
-
     fun getAndVerifyUpdatedStaticCollections(ctx: EContext, config: VectorDbConfig): List<VectorCollection> {
         val collectionsMap = getExistingCollections(ctx)
         return config.collections
@@ -174,8 +167,8 @@ class VectorDbDatabaseAccess{
             $COLLECTION_META_COLUMN_EXISTS)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT ($COLLECTION_META_COLUMN_ID) DO UPDATE SET
-            $COLLECTION_META_COLUMN_QUERY_MAX_VECTORS = ?,
-            $COLLECTION_META_COLUMN_STORE_BATCH_SIZE = ?
+            $COLLECTION_META_COLUMN_QUERY_MAX_VECTORS = EXCLUDED.$COLLECTION_META_COLUMN_QUERY_MAX_VECTORS,
+            $COLLECTION_META_COLUMN_STORE_BATCH_SIZE = EXCLUDED.$COLLECTION_META_COLUMN_STORE_BATCH_SIZE
             """
         ).use { stmt ->
             collections.forEach { collection ->
@@ -187,8 +180,6 @@ class VectorDbDatabaseAccess{
                 stmt.setLong(6, collection.queryMaxVectors)
                 stmt.setLong(7, collection.storeBatchSize)
                 stmt.setBoolean(8, collection.exists)
-                stmt.setLong(9, collection.queryMaxVectors)
-                stmt.setLong(10, collection.storeBatchSize)
                 stmt.addBatch()
             }
             stmt.executeBatch()

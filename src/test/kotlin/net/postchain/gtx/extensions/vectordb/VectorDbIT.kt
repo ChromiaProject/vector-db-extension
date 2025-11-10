@@ -442,7 +442,7 @@ class VectorDbIT : IntegrationTestSetup() {
         Awaitility.await().atMost(Duration.TEN_SECONDS)
                 .untilAsserted {
                     buildBlockNoWait(listOf(node), DEFAULT_CHAIN_IID, 3)
-                    assertThat(VectorDbTestExceptionCaptorEventProcessor.INIT_EXCEPTION)
+                    assertThat(VectorDbTestExceptionCaptorGTXModule.INIT_EXCEPTION)
                             .isNotNull()
                             .hasMessage("Database initialized with static collections, but dynamic collections exist in DB")
                 }

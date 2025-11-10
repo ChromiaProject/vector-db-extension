@@ -29,8 +29,6 @@ open class VectorDbEventProcessor(
         private val conf: VectorDbGTXModuleContext,
 ) : BaseBlockBuilderExtension, TxEventSink {
 
-    private var firstBlockStaticCollectionCheck = true
-
     companion object : KLogging()
 
     override fun init(blockEContext: BlockEContext, baseBB: BaseBlockBuilder) {
@@ -40,20 +38,14 @@ open class VectorDbEventProcessor(
         baseBB.installEventProcessor(EVENT_DELETE_COLLECTION, this)
         baseBB.installEventProcessor(EVENT_UPDATE_COLLECTION, this)
 
-        if (firstBlockStaticCollectionCheck) {
-            val staticCollectionsUpdated = db.updateStaticCollections(blockEContext, conf.vectorDbConfig)
-            conf.collectionOriginMode = getAndEnsureOneOriginMode(db, blockEContext)
+        if (conf.refreshCollections) {
+            val updatedCollections = getActiveCollections(db, blockEContext, conf.vectorDbConfig)
             blockEContext.addAfterCommitHook {
-                conf.collectionsByName = ConcurrentHashMap(getActiveCollections(db, blockEContext, conf.vectorDbConfig))
+                conf.collectionsByName = ConcurrentHashMap(updatedCollections)
+                conf.refreshCollections = false
             }
 
-            conf.snapshotContext?.let {
-                if (staticCollectionsUpdated) {
-                    emitCollections(blockEContext)
-                }
-            }
-
-            firstBlockStaticCollectionCheck = false
+            emitCollections(blockEContext)
         }
     }
 

@@ -26,7 +26,7 @@
         <kotlin.code.style>obsolete</kotlin.code.style> <!-- Kotlin obsolete IntelliJ IDEA codestyle -->
 
         <postchain.version>3.46.2</postchain.version>
-        <postchain-chromia.version>3.34.2</postchain-chromia.version>
+        <postchain-chromia.version>3.34.14</postchain-chromia.version>
 
         <!-- Tests -->
         <directory.chain.version>1.91.0</directory.chain.version>
@@ -258,6 +258,7 @@
                         <POSTCHAIN_TEST_DOCKER_IMAGE_POSTCHAIN_SERVER>registry.gitlab.com/chromaway/postchain-chromia/chromaway/chromia-server:latest-snapshot</POSTCHAIN_TEST_DOCKER_IMAGE_POSTCHAIN_SERVER>
                     </environmentVariables>
                     <includes>
+                        <include>**/*IT.*</include>
                         <include>**/*SlowIntegrationTest.*</include>
                     </includes>
                 </configuration>

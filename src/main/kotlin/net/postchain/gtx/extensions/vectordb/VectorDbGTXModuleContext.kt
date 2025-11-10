@@ -9,11 +9,13 @@ import java.util.concurrent.ConcurrentMap
 class VectorDbGTXModuleContext(
         val databaseOperations: VectorDbDatabaseAccess,
 ) {
+    var refreshCollections: Boolean = false
     var snapshotContext: SnapshotContext? = null
     lateinit var module: GTXModule
-    lateinit var collectionsByName: ConcurrentMap<String, VectorCollection>
     lateinit var vectorDbConfig: VectorDbConfig
     lateinit var collectionOriginMode: VectorCollectionOrigin
+    @Volatile
+    lateinit var collectionsByName: ConcurrentMap<String, VectorCollection>
 
     fun isInitialized(): Boolean {
         return this::module.isInitialized &&

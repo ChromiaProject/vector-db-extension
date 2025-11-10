@@ -2,7 +2,6 @@ package net.postchain.gtx.extensions.vectordb
 
 import assertk.assertThat
 import assertk.assertions.isEqualTo
-import assertk.assertions.isNotNull
 import net.postchain.chain0.common.init.initOperation
 import net.postchain.chain0.common.operations.registerNodeWithUnitsOperation
 import net.postchain.chain0.common.queries.getBlockchainInfo
@@ -27,6 +26,7 @@ import net.postchain.images.directory1.Directory1TestBase.Companion.provider2Key
 import net.postchain.images.directory1.Directory1TestBase.Companion.provider3KeyPair
 import net.postchain.images.directory1.awaitUntilAsserted
 import net.postchain.test.modify
+import org.awaitility.Duration
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.MethodOrderer
 import org.junit.jupiter.api.Order
@@ -53,13 +53,11 @@ class VectorDbSlowIntegrationTest : ManagedModeBase("vectordb") {
 
     private val dappName = "vector_example"
     private lateinit var vectorClient: PostchainClient
+    val dappConfig = this::class.java.getResource("/chains/vector_example.xml")!!.readText()
 
     @Test
     @Order(10)
     fun `setup the network`() {
-
-        // Fail fast on missing dapp config
-        assertThat(this::class.java.getResource("/chains/vector_example_test.xml")).isNotNull()
 
         testLogger.info("Setup the network")
 
@@ -110,7 +108,7 @@ class VectorDbSlowIntegrationTest : ManagedModeBase("vectordb") {
     @Order(20)
     fun `deploy vector dapp`() {
 
-        deployDapp(dappName, "container1", this::class.java.getResource("/chains/vector_example.xml")!!.readText(),
+        deployDapp(dappName, "container1", dappConfig,
                 assertSigners = nodes())
 
         node1.c0.getBlockchainInfo(dapps[dappName]!!.data)!!.apply {
@@ -123,19 +121,18 @@ class VectorDbSlowIntegrationTest : ManagedModeBase("vectordb") {
     @Test
     @Order(30)
     fun `add messages`() {
-
         vectorClient.transactionBuilder().addMessagesOperation(listOf(
                 MessageData("hello", "[0.1, 0.2, 0.3]"),
                 MessageData("world", "[0.4, 0.5, 0.6]")
         ))
                 .postTransactionUntilConfirmed("Add vectors")
-                .awaitConfirmation(node1.c0)
+                .awaitConfirmation(vectorClient, retries = 100, pollInterval = java.time.Duration.ofSeconds(2))
     }
 
     @Test
     @Order(40)
     fun `query - without query template`() {
-        awaitUntilAsserted {
+        awaitUntilAsserted(atMost = Duration.ONE_MINUTE) {
             assertThat(
                     vectorClient.queryClosestObjectsGetIdAndDistance("messages", 0, "[0.1, 0.2, 0.3]", 1.0, 1)
             ).isEqualTo(listOf(
@@ -146,6 +143,7 @@ class VectorDbSlowIntegrationTest : ManagedModeBase("vectordb") {
             ))
         }
     }
+
     @Test
     @Order(41)
     fun `query - with template`() {
@@ -161,7 +159,7 @@ class VectorDbSlowIntegrationTest : ManagedModeBase("vectordb") {
         // Delete message
         vectorClient.transactionBuilder().deleteMessageOperation("hello")
                 .postTransactionUntilConfirmed("Delete vectors")
-                .awaitConfirmation(node1.c0)
+                .awaitConfirmation(vectorClient)
 
         // Hello is no longer returned
         awaitUntilAsserted {

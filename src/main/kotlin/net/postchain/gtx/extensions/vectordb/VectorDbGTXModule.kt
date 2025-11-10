@@ -94,8 +94,11 @@ open class VectorDbGTXModule(
             return gtv(vectorCollections)
         }
 
-        fun getAndEnsureOneOriginMode(db: VectorDbDatabaseAccess, ctx: EContext): VectorCollectionOrigin {
-            val collectionOrigins = db.getCollectionOrigins(ctx)
+        fun getAndEnsureOneOriginMode(db: VectorDbDatabaseAccess, ctx: EContext, pendingStaticCollections: Boolean): VectorCollectionOrigin {
+            val collectionOrigins = db.getCollectionOrigins(ctx).toMutableSet()
+            if (pendingStaticCollections) {
+                collectionOrigins.add(VectorCollectionOrigin.STATIC)
+            }
             if (collectionOrigins.size > 1) {
                 throw UserMistake("Database initialized with static collections, but dynamic collections exist in DB")
             }
@@ -119,19 +122,23 @@ open class VectorDbGTXModule(
 
         logger.info { "VectorDB config: ${configuration.rawConfig[VECTOR_DB_EXTENSION_CONFIG_NAME]?.asDict()}" }
 
-        db.getAndVerifyUpdatedStaticCollections(ctx, conf.vectorDbConfig)
-        ensureDbStructureAndLoadExistingCollections(ctx)
+        // Load existing active collections before processing any static update
+        conf.collectionsByName = ConcurrentHashMap(getActiveCollections(db, ctx, conf.vectorDbConfig))
+
+        // Validate any pending static collection updates
+        val updatedCollections = db.getAndVerifyUpdatedStaticCollections(ctx, conf.vectorDbConfig)
+        val pendingStaticCollections = updatedCollections.isNotEmpty()
+        conf.collectionOriginMode = getAndEnsureOneOriginMode(db, ctx, pendingStaticCollections)
+
+        /** Update static collections, refresh in memory map after block built in [VectorDbEventProcessor.init] */
+        conf.refreshCollections = pendingStaticCollections
+        db.storeCollections(ctx, updatedCollections)
+        db.createOrUpdateCollectionTables(ctx)
     }
 
     override fun initializeDB(ctx: EContext) {
         db.initialize(ctx)
         db.createOrUpdateCollectionTables(ctx)
-    }
-
-    /** Ensures strictly only one collection origin is in use, and loads active collections */
-    private fun ensureDbStructureAndLoadExistingCollections(ctx: EContext) {
-        conf.collectionOriginMode = getAndEnsureOneOriginMode(db, ctx)
-        conf.collectionsByName = ConcurrentHashMap(getActiveCollections(db, ctx, conf.vectorDbConfig))
     }
 
     override fun constructDatum(ctx: EContext, datumList: List<SnapshotDatum>) {
@@ -145,7 +152,8 @@ open class VectorDbGTXModule(
             db.storeCollections(ctx, snapshotMetaData.values.toList())
             db.createOrUpdateCollectionTables(ctx)
 
-            ensureDbStructureAndLoadExistingCollections(ctx)
+            conf.collectionOriginMode = getAndEnsureOneOriginMode(db, ctx, false)
+            conf.collectionsByName = ConcurrentHashMap(getActiveCollections(db, ctx, conf.vectorDbConfig))
 
             constructDatum(ctx, datumList.subList(1, datumList.size))
         } else {
