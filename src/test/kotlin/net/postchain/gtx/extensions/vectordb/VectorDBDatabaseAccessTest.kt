@@ -30,14 +30,14 @@ class VectorDBDatabaseAccessTest : IntegrationTestSetup() {
     fun `test datum id sequence and reuse`() {
         withWriteConnection(node.getBlockchainInstance(DEFAULT_CHAIN_IID).blockchainEngine.blockBuilderStorage, DEFAULT_CHAIN_IID) { ctx ->
 
-            dba.initializePgVector(ctx, node.appConfig.databaseSchema)
+            dba.initializePgVector(ctx)
 
             listOf("collection1", "collection2", "collection3").forEach {
                 dba.createCollection(ctx, it, VectorDbCollectionConfig(3,
-                        10, 30, "hnsw_cosine"), node.appConfig.databaseSchema)
+                        10, 30, "hnsw_cosine"))
             }
 
-            val collections = dba.getCollections(ctx).values.toList()
+            val collections = dba.getCollections(ctx)
             assertThat(collections).hasSize(3)
             assertThat(dba.getNextAvailableDatumIdFromSequence(ctx)).isEqualTo(1)
 

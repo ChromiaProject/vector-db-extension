@@ -13,6 +13,7 @@ import net.postchain.gtx.extensions.vectordb.config.VectorDbCollectionConfig
 import net.postchain.gtx.extensions.vectordb.config.VectorDbConfig
 import net.postchain.gtx.extensions.vectordb.config.VectorCollectionOrigin
 import java.math.BigDecimal
+import java.sql.ResultSet
 import java.sql.Statement.EXECUTE_FAILED
 import java.util.LinkedList
 import kotlin.use
@@ -48,65 +49,69 @@ class VectorDbDatabaseAccess{
     private var pgVectorSchema: String? = null
     private val pgVectorDataTypePrefix by lazy { if (pgVectorSchema == null) "" else "${pgVectorSchema}." }
 
-    fun initialize(ctx: EContext, databaseSchema: String) {
+    fun initialize(ctx: EContext) {
 
         logger.info { "Initializing vector db" }
 
         dropDatumIdSeqTable(ctx)
-        initializePgVector(ctx, databaseSchema)
+        initializePgVector(ctx)
         initializeCollectionsTable(ctx)
         initializeReusableDatumIdTable(ctx)
     }
 
-    fun updateStaticCollections(ctx: EContext, config: VectorDbConfig) {
-        val collectionsMap = getCollections(ctx).toMutableMap()
-        val updatedCollections = config.collections.map { (name, tableConfig) ->
-            val existingCollection = collectionsMap[name]
-            if (existingCollection != null) {
-                if (existingCollection.dimensions != tableConfig.dimensions) {
-                    throw UserMistake("Changing dimensions is not supported for collection $name")
-                }
-                if (existingCollection.index != tableConfig.indexType) {
-                    throw UserMistake("Changing embedded index is not supported for collection $name")
-                }
-            }
+    fun getAndVerifyUpdatedStaticCollections(ctx: EContext, config: VectorDbConfig): List<VectorCollection> {
+        val collectionsMap = getExistingCollections(ctx)
+        return config.collections
+                .toList().sortedBy { it.first }
+                .map { (name, tableConfig) ->
+                    val existingCollection = collectionsMap[name]
+                    if (existingCollection != null) {
+                        if (existingCollection.dimensions != tableConfig.dimensions) {
+                            throw UserMistake("Changing dimensions is not supported for collection $name")
+                        }
+                        if (existingCollection.index != tableConfig.indexType) {
+                            throw UserMistake("Changing embedded index is not supported for collection $name")
+                        }
+                    }
 
-            val id = existingCollection?.id ?: getNextTableId(ctx)
-            VectorCollection(id, name, tableConfig, VectorCollectionOrigin.STATIC)
-        }
-        storeCollections(ctx, updatedCollections)
+                    val id = existingCollection?.id ?: getNextTableId(ctx)
+                    VectorCollection(id, name, tableConfig, VectorCollectionOrigin.STATIC)
+                }
     }
 
-    fun createOrUpdateCollectionTables(ctx: EContext, databaseSchema: String) {
-        getExistingCollections(ctx).values.forEach { collection -> createOrUpdateTable(ctx, collection, databaseSchema)}
+    fun createOrUpdateCollectionTables(ctx: EContext) {
+        getExistingCollections(ctx).values.forEach { collection ->
+            createOrUpdateTable(ctx, collection)}
     }
 
     fun getCollectionOrigins(ctx: EContext): Set<VectorCollectionOrigin> {
-        return getCollections(ctx).values.map { it.origin }.toSet()
+        return getCollections(ctx).map { it.origin }.toSet()
     }
 
     fun wipeVectorDb(ctx: EContext) {
         listOf(
                 getCollectionMetaTableName(ctx),
                 getReusableDatumIdTableName(ctx)
-        ) + getCollections(ctx).map { getCollectionTableName(ctx, it.value.id) }
+        ) + getCollections(ctx).map { getCollectionTableName(ctx, it.id) }
                 .forEach {
                     logger.debug { "Dropping table $it" }
                     ctx.conn.createStatement().use { stmt -> stmt.execute("DROP TABLE IF EXISTS $it CASCADE") }
                 }
     }
 
-    fun initializePgVector(ctx: EContext, databaseSchema: String) {
+    fun initializePgVector(ctx: EContext) {
 
         // Create PG vector extension in this schema
         ctx.conn.createStatement().use { stmt ->
             stmt.execute("CREATE EXTENSION IF NOT EXISTS vector")
         }
 
-        pgVectorSchema = getPgVectorExtensionSchema(ctx, databaseSchema)
-        if (pgVectorSchema != null) {
-            logger.info { "Found extension in schema $pgVectorSchema" }
+        pgVectorSchema = getPgVectorExtensionSchema(ctx)
+        if (pgVectorSchema == null) {
+            throw ProgrammerMistake("Failed to initialize PG vector extension")
         }
+
+        logger.info { "Found extension in schema $pgVectorSchema" }
     }
 
     fun initializeCollectionsTable(ctx: EContext) {
@@ -138,7 +143,7 @@ class VectorDbDatabaseAccess{
         }
     }
 
-    private fun getPgVectorExtensionSchema(ctx: EContext, databaseSchema: String): String? {
+    private fun getPgVectorExtensionSchema(ctx: EContext): String? {
         return ctx.conn.createStatement().use { stmt ->
             stmt.executeQuery("""
                         SELECT n.nspname as schema_name
@@ -147,8 +152,7 @@ class VectorDbDatabaseAccess{
                         WHERE e.extname = 'vector';
                     """).use { rs ->
                 if (rs.next()) {
-                    val schema = rs.getString("schema_name")
-                    if (schema != databaseSchema) schema else null
+                    rs.getString("schema_name")
                 } else null
             }
         }
@@ -163,8 +167,8 @@ class VectorDbDatabaseAccess{
             $COLLECTION_META_COLUMN_EXISTS)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT ($COLLECTION_META_COLUMN_ID) DO UPDATE SET
-            $COLLECTION_META_COLUMN_QUERY_MAX_VECTORS = ?,
-            $COLLECTION_META_COLUMN_STORE_BATCH_SIZE = ?
+            $COLLECTION_META_COLUMN_QUERY_MAX_VECTORS = EXCLUDED.$COLLECTION_META_COLUMN_QUERY_MAX_VECTORS,
+            $COLLECTION_META_COLUMN_STORE_BATCH_SIZE = EXCLUDED.$COLLECTION_META_COLUMN_STORE_BATCH_SIZE
             """
         ).use { stmt ->
             collections.forEach { collection ->
@@ -173,21 +177,19 @@ class VectorDbDatabaseAccess{
                 stmt.setString(3, collection.origin.name)
                 stmt.setLong(4, collection.dimensions)
                 stmt.setString(5, collection.index.name)
-                stmt.setLong(6, collection.maxVectors)
+                stmt.setLong(6, collection.queryMaxVectors)
                 stmt.setLong(7, collection.storeBatchSize)
                 stmt.setBoolean(8, collection.exists)
-                stmt.setLong(9, collection.maxVectors)
-                stmt.setLong(10, collection.storeBatchSize)
                 stmt.addBatch()
             }
             stmt.executeBatch()
         }
     }
 
-    fun createCollection(ctx: EContext, collectionName: String, config: VectorDbCollectionConfig, databaseSchema: String): VectorCollection {
+    fun createCollection(ctx: EContext, collectionName: String, config: VectorDbCollectionConfig): VectorCollection {
         val id = getNextTableId(ctx)
         val collection = VectorCollection(id, collectionName, config, VectorCollectionOrigin.DYNAMIC)
-        createOrUpdateTable(ctx, collection, databaseSchema)
+        createOrUpdateTable(ctx, collection)
 
         storeCollections(ctx, listOf(collection))
         return collection
@@ -213,13 +215,13 @@ class VectorDbDatabaseAccess{
 
     fun updateCollection(ctxt: TxEContext, collection: VectorCollection, queryMaxVectors: Long?, storeBatchSize: Long?): VectorCollection {
         val tableName = getCollectionMetaTableName(ctxt)
-        val updatedQueryMaxVectors = queryMaxVectors ?: collection.maxVectors
+        val updatedQueryMaxVectors = queryMaxVectors ?: collection.queryMaxVectors
         val updatedStoreBatchSize = storeBatchSize ?: collection.storeBatchSize
 
         ctxt.conn.createStatement().use { stmt ->
             stmt.execute("UPDATE $tableName SET $COLLECTION_META_COLUMN_QUERY_MAX_VECTORS = $updatedQueryMaxVectors, $COLLECTION_META_COLUMN_STORE_BATCH_SIZE = $updatedStoreBatchSize WHERE $COLLECTION_META_COLUMN_ID = ${collection.id}")
         }
-        return collection.copy(maxVectors = updatedQueryMaxVectors, storeBatchSize = updatedStoreBatchSize)
+        return collection.copy(queryMaxVectors = updatedQueryMaxVectors, storeBatchSize = updatedStoreBatchSize)
     }
 
     private fun deleteCollectionIdEntry(ctx: EContext, collection: VectorCollection) {
@@ -246,7 +248,7 @@ class VectorDbDatabaseAccess{
         }
     }
 
-    private fun createOrUpdateTable(ctx: EContext, collection: VectorCollection, databaseSchema: String) {
+    private fun createOrUpdateTable(ctx: EContext, collection: VectorCollection) {
 
         val tableName = getCollectionTableName(ctx, collection.id)
 
@@ -273,42 +275,19 @@ class VectorDbDatabaseAccess{
         // Create embedding index
         val embeddedHnswIndexName = getTableIndexName(tableName, collection.index.indexName)
 
-        // Make sure we don't add a new index type - if we want to support this we need to expand the query part
-        // to provide the distance query operator for each index
-        val embeddingIndexList = VectorDBIndex.entries.map { getTableIndexName(tableName, it.indexName) }
-        val tableEmbeddingIndexes = getTableIndexes(ctx, databaseSchema, tableName)
-                .filter { embeddingIndexList.contains(it) }
-        if (tableEmbeddingIndexes.any { it != embeddedHnswIndexName }) {
-            throw UserMistake("Changing embedded index is not supported")
-        } else {
-
-            logger.info { "Creating embedding index of type ${collection.index}" }
-
-            ctx.conn.createStatement().use { stmt ->
-                stmt.execute(
-                        """
-                    CREATE INDEX IF NOT EXISTS "$embeddedHnswIndexName"
-                    ON $tableName USING hnsw ($COLLECTION_COLUMN_EMBEDDING ${pgVectorDataTypePrefix}${collection.index.indexEmbedding})
+        ctx.conn.createStatement().use { stmt ->
+            stmt.execute(
                     """
-                )
-            }
+                CREATE INDEX IF NOT EXISTS "$embeddedHnswIndexName"
+                ON $tableName USING hnsw ($COLLECTION_COLUMN_EMBEDDING ${pgVectorDataTypePrefix}${collection.index.indexEmbedding})
+                """
+            )
         }
     }
 
     private fun getTableIndexName(tableName: String, suffix: String): String {
         val cleanTableName = tableName.replace("\"", "")
         return "${cleanTableName}_$suffix"
-    }
-
-    private fun getTableIndexes(ctx: EContext, databaseSchema: String, tableName: String): Set<String> {
-        val results = mutableSetOf<String>()
-        val resultSet = ctx.conn.metaData.getIndexInfo(null, databaseSchema, tableName.replace("\"", ""), false, false)
-        while (resultSet.next()) {
-            val indexName = resultSet.getString("INDEX_NAME")
-            results.add(indexName)
-        }
-
-        return results
     }
 
     fun storeVectors(ctx: EContext, tableId: Long, vectors: List<Vector>, batchSize: Long = 300) {
@@ -499,29 +478,51 @@ class VectorDbDatabaseAccess{
     }
 
     fun getExistingCollections(ctx: EContext): Map<String, VectorCollection> {
-        return getCollections(ctx).filter { (_, collection) -> collection.exists }
+        return getCollections(ctx, existing = true).associateBy { it.name }
     }
 
-    fun getCollections(ctx: EContext): Map<String, VectorCollection> {
+    fun getCollections(ctx: EContext, name: String? = null, existing: Boolean? = null): MutableList<VectorCollection> {
         val tableName = getCollectionMetaTableName(ctx)
-        val collectionsMap = mutableMapOf<String, VectorCollection>()
-        ctx.conn.createStatement().use { stmt -> stmt.executeQuery("SELECT $COLLECTION_META_COLUMN_ID," +
-                "$COLLECTION_META_COLUMN_NAME, $COLLECTION_META_COLUMN_ORIGIN, $COLLECTION_META_COLUMN_DIMENSIONS, " +
-                "$COLLECTION_META_COLUMN_INDEX_TYPE, $COLLECTION_META_COLUMN_QUERY_MAX_VECTORS, " +
-                "$COLLECTION_META_COLUMN_STORE_BATCH_SIZE, $COLLECTION_META_COLUMN_EXISTS FROM $tableName").use { rs ->
-            while (rs.next()) {
-                val id = rs.getLong(1)
-                val name = rs.getString(2)
-                val origin = VectorCollectionOrigin.valueOf(rs.getString(3))
-                val dimensions = rs.getLong(4)
-                val indexType = VectorDBIndex.valueOf(rs.getString(5))
-                val queryMaxVectors = rs.getLong(6)
-                val storeBatchSize = rs.getLong(7)
-                val exists = rs.getBoolean(8)
-                collectionsMap[name] = VectorCollection(id, name, dimensions, queryMaxVectors, storeBatchSize, indexType, origin, exists)
+        val collections = mutableListOf<VectorCollection>()
+        ctx.conn.createStatement().use { stmt ->
+            stmt.executeQuery("""
+            SELECT $COLLECTION_META_COLUMN_ID,
+                $COLLECTION_META_COLUMN_NAME, $COLLECTION_META_COLUMN_ORIGIN, $COLLECTION_META_COLUMN_DIMENSIONS,
+                $COLLECTION_META_COLUMN_INDEX_TYPE, $COLLECTION_META_COLUMN_QUERY_MAX_VECTORS,
+                $COLLECTION_META_COLUMN_STORE_BATCH_SIZE, $COLLECTION_META_COLUMN_EXISTS FROM $tableName
+                """).use { rs ->
+                while (rs.next()) {
+                    val collection = parseCollectionMetaRow(rs)
+                    if (
+                            (name == null || collection.name == name) &&
+                            (existing == null || collection.exists == existing)) {
+                        collections.add(collection)
+                    }
+                }
             }
-        }}
-        return collectionsMap
+        }
+        return collections
+    }
+
+    fun getExistingCollectionByName(ctx: EContext, collectionName: String): VectorCollection? {
+        val collections = getCollections(ctx, collectionName, existing = true)
+        return when {
+            collections.isEmpty() -> null
+            collections.size == 1 -> collections[0]
+            else -> throw ProgrammerMistake("Multiple collections with name '$collectionName' exist")
+        }
+    }
+
+    private fun parseCollectionMetaRow(rs: ResultSet): VectorCollection {
+        val id = rs.getLong(1)
+        val name = rs.getString(2)
+        val origin = VectorCollectionOrigin.valueOf(rs.getString(3))
+        val dimensions = rs.getLong(4)
+        val indexType = VectorDBIndex.valueOf(rs.getString(5))
+        val queryMaxVectors = rs.getLong(6)
+        val storeBatchSize = rs.getLong(7)
+        val exists = rs.getBoolean(8)
+        return VectorCollection(id, name, dimensions, queryMaxVectors, storeBatchSize, indexType, origin, exists)
     }
 
     private fun pgVectorOperator(op: String): String {

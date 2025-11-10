@@ -13,7 +13,10 @@ import net.postchain.gtv.Gtv
 import net.postchain.gtv.merkle.makeMerkleHashCalculator
 import net.postchain.gtv.merkleHash
 import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseAccess.Vector
+import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.getActiveCollections
+import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.getAndEnsureOneOriginMode
 import net.postchain.gtx.extensions.vectordb.config.VectorDbCollectionConfig
+import java.util.concurrent.ConcurrentHashMap
 
 const val EVENT_STORE_VECTORS_NAME = "store_vectors"
 const val EVENT_DELETE_VECTORS_NAME = "delete_vectors"
@@ -21,9 +24,9 @@ const val EVENT_CREATE_COLLECTION = "create_collection"
 const val EVENT_DELETE_COLLECTION = "delete_collection"
 const val EVENT_UPDATE_COLLECTION = "update_collection"
 
-class VectorDbEventProcessor(
+open class VectorDbEventProcessor(
         private val db: VectorDbDatabaseAccess,
-        private val vectorContext: VectorDbGTXModuleContext,
+        private val conf: VectorDbGTXModuleContext,
 ) : BaseBlockBuilderExtension, TxEventSink {
 
     companion object : KLogging()
@@ -35,12 +38,14 @@ class VectorDbEventProcessor(
         baseBB.installEventProcessor(EVENT_DELETE_COLLECTION, this)
         baseBB.installEventProcessor(EVENT_UPDATE_COLLECTION, this)
 
-        vectorContext.snapshotContext?.let {
-            if (vectorContext.emitCollections) {
-
-                emitCollections(blockEContext)
-                vectorContext.emitCollections = false
+        if (conf.refreshCollections) {
+            val updatedCollections = getActiveCollections(db, blockEContext, conf.vectorDbConfig)
+            blockEContext.addAfterCommitHook {
+                conf.collectionsByName = ConcurrentHashMap(updatedCollections)
+                conf.refreshCollections = false
             }
+
+            emitCollections(blockEContext)
         }
     }
 
@@ -58,7 +63,7 @@ class VectorDbEventProcessor(
     }
 
     private fun storeVectorsEvent(ctxt: TxEContext, args: Map<String, Gtv>) {
-        val (collection, context) = parseCollectionAndContextArgs(args)
+        val (collection, context) = parseCollectionAndContextArgs(ctxt, args)
         val vectors = args["vectors"]?.asArray()?.map {
             val vector = it["vector"]?.asString() ?: throw UserMistake("No vector argument supplied")
             val id = it["id"]?.asInteger() ?: throw UserMistake("No id argument supplied")
@@ -79,7 +84,7 @@ class VectorDbEventProcessor(
         db.storeVectors(ctxt, collection.id, dbVectors, collection.storeBatchSize)
         
         dbVectors.forEach {
-            vectorContext.snapshotContext?.let { snapshotContext ->
+            conf.snapshotContext?.let { snapshotContext ->
                 logger.debug { "Emitting stored datum id ${it.datumId} in collection ${collection.id}: ${VectorDbDatumMapper.toVectorDatumGtv(collection.id, context, it.refId, it.vector).merkleHash(makeMerkleHashCalculator(2)).toHex()}: ${it.vector}" }
                 snapshotContext.emitDatum(ctxt, it.datumId,
                         VectorDbDatumMapper.toVectorDatumGtv(collection.id, context, it.refId, it.vector), false)
@@ -88,14 +93,14 @@ class VectorDbEventProcessor(
     }
 
     private fun deleteVectorsEvent(ctxt: TxEContext, args: Map<String, Gtv>) {
-        val (collection, context) = parseCollectionAndContextArgs(args)
+        val (collection, context) = parseCollectionAndContextArgs(ctxt, args)
         val ids = args["ids"]?.asArray() ?: throw UserMistake("No ids argument supplied")
 
         db.getDatumIdFromContextIds(ctxt, collection.id, context, ids.map { it.asInteger() }.toSet() )
                 .forEach {
                     logger.debug { "Emitting deleted datum $it in collection ${collection.id}" }
 
-                    vectorContext.snapshotContext?.emitDatum(ctxt, it, VectorDbDatumMapper.toVectorDatumGtv(
+                    conf.snapshotContext?.emitDatum(ctxt, it, VectorDbDatumMapper.toVectorDatumGtv(
                             collection.id, context, null, null), false)
                 }
 
@@ -106,7 +111,7 @@ class VectorDbEventProcessor(
         checkDynamicCollectionsEnabled()
 
         val collection = args["collection"]?.asString() ?: throw UserMistake("No collection argument supplied")
-        if (vectorContext.collectionsByName.containsKey(collection)) {
+        if (db.getExistingCollectionByName(ctxt, collection) != null) {
             throw UserMistake("Collection $collection already exists")
         }
         val dimensions = args["dimensions"]?.asInteger() ?: throw UserMistake("No dimensions argument supplied")
@@ -121,9 +126,9 @@ class VectorDbEventProcessor(
                 indexString = indexType
         ).apply { validate() }
 
-        val createdCollection = db.createCollection(ctxt, collection, tableConfig, vectorContext.postchainContext.appConfig.databaseSchema)
+        val createdCollection = db.createCollection(ctxt, collection, tableConfig)
         ctxt.addAfterAppendHook {
-            vectorContext.addCollection(createdCollection)
+            conf.addCollection(createdCollection)
         }
 
         emitCollections(ctxt)
@@ -132,10 +137,10 @@ class VectorDbEventProcessor(
     private fun deleteCollectionEvent(ctxt: TxEContext, args: Map<String, Gtv>) {
         checkDynamicCollectionsEnabled()
 
-        val collection = parseCollectionArg(args)
+        val collection = parseCollectionArg(ctxt, args)
         db.deleteCollection(ctxt, collection)
         ctxt.addAfterAppendHook {
-            vectorContext.deleteCollectionByName(collection.name)
+            conf.deleteCollectionByName(collection.name)
         }
 
         emitCollections(ctxt)
@@ -144,7 +149,7 @@ class VectorDbEventProcessor(
     private fun updateCollectionEvent(ctxt: TxEContext, args: Map<String, Gtv>) {
         checkDynamicCollectionsEnabled()
 
-        val collection = parseCollectionArg(args)
+        val collection = parseCollectionArg(ctxt, args)
         val storeBatchSize = args["store_batch_size"]?.let {
             if (it.isNull()) null else it.asInteger()
         }
@@ -154,14 +159,14 @@ class VectorDbEventProcessor(
 
         val updatedCollection = db.updateCollection(ctxt, collection, queryMaxVectors, storeBatchSize)
         ctxt.addAfterAppendHook {
-            vectorContext.updateCollection(collection.name, updatedCollection)
+            conf.updateCollection(collection.name, updatedCollection)
         }
 
         emitCollections(ctxt)
     }
 
     private fun emitCollections(ctx: BlockEContext) {
-        vectorContext.snapshotContext?.apply {
+        conf.snapshotContext?.apply {
             val collections = db.getCollections(ctx)
 
             logger.debug { "Emitting collection metadata: $collections" }
@@ -172,22 +177,23 @@ class VectorDbEventProcessor(
         }
     }
 
-    private fun parseCollectionAndContextArgs(args: Map<String, Gtv>): Pair<VectorCollection, Long> {
-        val collection = parseCollectionArg(args)
+    private fun parseCollectionAndContextArgs(ctxt: TxEContext, args: Map<String, Gtv>): Pair<VectorCollection, Long> {
+        val collection = parseCollectionArg(ctxt, args)
         val context = args["context"]?.asInteger() ?: throw UserMistake("No context argument supplied")
         return Pair(collection, context)
     }
 
-    private fun parseCollectionArg(args: Map<String, Gtv>): VectorCollection {
-        val collectionArg = args["collection"]?.asString() ?: throw UserMistake("No collection argument supplied")
-        return vectorContext.collectionsByName.getOrElse(collectionArg) { throw UserMistake("Collection $collectionArg not found") }
+    private fun parseCollectionArg(ctxt: TxEContext, args: Map<String, Gtv>): VectorCollection {
+        val collectionName = args["collection"]?.asString() ?: throw UserMistake("No collection argument supplied")
+        return db.getExistingCollectionByName(ctxt, collectionName) ?: throw UserMistake("Collection $collectionName not found")
     }
 
     private fun checkDynamicCollectionsEnabled() {
-        if(!vectorContext.dynamicCollectionsEnabled()) {
+        if(!conf.dynamicCollectionsEnabled()) {
             throw UserMistake("Dynamic collection support is disabled in the configuration")
         }
     }
 
+    @Suppress("removal")
     override fun finalize(): Map<String, Gtv> = emptyMap()
 }

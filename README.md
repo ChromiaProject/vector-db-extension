@@ -20,8 +20,13 @@ Replace the `<digest>` with the latest `2.x.x` image version found [here](https:
 
 ### Blockchain configuration
 
-Update your blockchain config to include the following:
+You can manage vector collections in two ways:
+- **Static**: Collections are defined in the blockchain configuration. Update the configuration to add new collections or disable existing ones (not delete).
+- **Dynamic**: Collections are created, updated, and deleted by the dApp through the library functions. This gives you full control and also supports removing a collection completely.
 
+You should decide which mode you prefer, since you won't be able to switch modes or use both later.
+ 
+Update your blockchain config to include the module and collections configuration (omit if you prefer using dynamic mode):
 ```yaml
 blockchains:
   my_chain:
@@ -30,6 +35,7 @@ blockchains:
       gtx:
         modules:
           - "net.postchain.gtx.extensions.vectordb.VectorDbGTXModule"
+      # Static collections defined below, omit if using dynamic mode
       vector_db_extension:
         collections:
           messages:
@@ -58,7 +64,7 @@ There is a optional but recommended library available to store vectors:
 
 Set `<version>` to latest `2.x.x` version found on [releases](https://gitlab.com/chromaway/core/vector-db-extension/-/tags), run `chr install` and then update the `rid` to what they output says it is (`Was: ...`).
 
-Once installed you can add and remove vectors by calling the `store_vectors` or `delete_vectors` functions.
+Once installed you can manage dynamic vector collections and vectors for each collection.
 
 ### Insert vectors
 
