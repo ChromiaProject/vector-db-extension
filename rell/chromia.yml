@@ -90,3 +90,7 @@ blockchains:
           - "net.postchain.rell.module.RellPostchainModuleFactory"
           - "net.postchain.gtx.StandardOpsGTXModule"
           - "net.postchain.gtx.extensions.vectordb.VectorDbGTXModule"
+
+  vector_db:
+    type: library
+    module: lib.vector_db

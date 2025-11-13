@@ -42,6 +42,20 @@ stages:
   - dependency-check
   - release
 
+build:
+  extends:
+    - .setup_with_postgres
+  stage: build
+  interruptible: true
+  except:
+    refs:
+      - tags
+  script:
+    - mvn
+      $MAVEN_CLI_OPTS
+      --activate-profiles docker-push,ci
+      verify
+
 deploy-snapshot:
   extends: .setup
   stage: deploy
@@ -74,19 +88,19 @@ deploy:
       --activate-profiles docker-push,ci
       clean source:jar deploy
 
-build:
-  extends:
-    - .setup_with_postgres
-  stage: build
-  interruptible: true
-  except:
-    refs:
-      - tags
+deploy_library_chain:
+  image: registry.gitlab.com/chromaway/core-tools/chromia-cli/chr:0.27.10
+  stage: deploy
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^[0-9]+\.[0-9]+\.[0-9]+$/
+  variables:
+    POSTCHAIN_CLIENT_PUBKEY: "${LIBRARY_CHAIN_PUBLIC_KEY}"
+    POSTCHAIN_CLIENT_PRIVKEY: ${LIBRARY_CHAIN_PRIVATE_KEY}
   script:
-    - mvn
-      $MAVEN_CLI_OPTS
-      --activate-profiles docker-push,ci
-      verify
+    - apk add curl jq libxml2-utils
+    - cd rell
+    - chr build
+    - ../ci/library_chain/deploy.sh vector_db
 
 gitlab-release:
   extends: .gitlab-release-with-notes
