@@ -1,6 +1,6 @@
 module;
 
-import lib.*;
+import lib.vector_db.*;
 
 entity message { text; }
 
