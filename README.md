@@ -51,20 +51,17 @@ And make sure you deploy your chain to a container with the extension supported.
 
 ### Rell library
 
-There is a optional but recommended library available to store vectors:
+There is an optional but recommended library available to manage vectors:
 
 ```yaml
-  vector_db:
-    registry: https://gitlab.com/chromaway/core/vector-db-extension.git
-    path: rell/src/lib/
-    tagOrBranch: <version>
-    rid: x"<rid>" # Update to match version
-    insecure: false
+libs:
+  com.chromia.vector_db:
+    version: 2.2.0 # Set to version you want to use
 ```
 
-Set `<version>` to latest `2.x.x` version found on [releases](https://gitlab.com/chromaway/core/vector-db-extension/-/tags), run `chr install` and then update the `rid` to what they output says it is (`Was: ...`).
+Available versions can be found by running `chr library versions com.chromia.vector_db`.
 
-Once installed you can manage dynamic vector collections and vectors for each collection.
+Run `chr install` to install the library. Once installed you can manage dynamic vector collections and vectors for each collection.
 
 ### Insert vectors
 
