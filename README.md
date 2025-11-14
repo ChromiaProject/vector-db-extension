@@ -59,7 +59,7 @@ libs:
     version: 2.2.0 # Set to version you want to use
 ```
 
-Available versions can be found on the [releases](https://gitlab.com/chromaway/core/vector-db-extension/-/releases) page.
+Available versions can be found by running `chr library versions com.chromia.vector_db`.
 
 Run `chr install` to install the library. Once installed you can manage dynamic vector collections and vectors for each collection.
 
