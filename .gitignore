@@ -17,3 +17,6 @@ logs
 
 build
 .flattened-pom.xml
+
+# Rell libraries
+rell/src/lib/hybridcompute

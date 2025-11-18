@@ -19,7 +19,7 @@ blockchains:
             index: hnsw_cosine
 
   vector_example_test:
-    module: vector_example_test
+    module: integration_test.vector_example_test
     config:
       blockstrategy:
         maxblocktime: 2000
@@ -40,7 +40,7 @@ blockchains:
             query_max_vectors: 10
             index: hnsw_cosine
   vector_example_test_dynamic_collections:
-    module: vector_example_test
+    module: integration_test.vector_example_test
     config:
       blockstrategy:
         maxblocktime: 2000
@@ -55,7 +55,7 @@ blockchains:
           - "net.postchain.gtx.StandardOpsGTXModule"
           - "net.postchain.gtx.extensions.vectordb.VectorDbGTXModule"
   vector_example_test_hnsw_l2:
-    module: vector_example_test
+    module: integration_test.vector_example_test
     config:
       blockstrategy:
         maxblocktime: 2000
@@ -76,7 +76,7 @@ blockchains:
             query_max_vectors: 10
             index: hnsw_l2
   vector_only_test:
-    module: vector_only_test
+    module: integration_test.vector_only_test
     config:
       blockstrategy:
         maxblocktime: 2000
@@ -90,7 +90,45 @@ blockchains:
           - "net.postchain.rell.module.RellPostchainModuleFactory"
           - "net.postchain.gtx.StandardOpsGTXModule"
           - "net.postchain.gtx.extensions.vectordb.VectorDbGTXModule"
+  vector_example_compute_test:
+    module: integration_test.query_compute
+    config:
+      blockstrategy:
+        maxblocktime: 2000
+        name: "net.postchain.devtools.OnDemandBlockBuildingStrategy"
+      features:
+        merkle_hash_version: 2
+      signers:
+        - x"03a301697bdfcd704313ba48e51d567543f2a182031efd6915ddc07bbcc4e16070"
+        - x"031B84C5567B126440995D3ED5AABA0565D71E1834604819FF9C17F5E9D5DD078F"
+        - x"03B2EF623E7EC933C478135D1763853CBB91FC31BA909AEC1411CA253FDCC1AC94"
+      gtx:
+        modules:
+          - "net.postchain.rell.module.RellPostchainModuleFactory"
+          - "net.postchain.gtx.StandardOpsGTXModule"
+          - "net.postchain.gtx.extensions.vectordb.VectorDbGTXModule"
+          - "net.postchain.hybridcompute.HybridComputeGTXModule"
+      sync_ext:
+        - "net.postchain.hybridcompute.HybridComputeSynchronizationInfrastructureExtension"
+      hybridcompute:
+        engine: "net.postchain.gtx.extensions.vectordb.VectorDBQueryComputeEngine"
+      vector_db_extension:
+        collections:
+          messages:
+            dimensions: 3
 
   vector_db:
     type: library
     module: lib.vector_db
+
+  vector_db_query_compute:
+    type: library
+    module: lib.vector_db_query_compute
+
+libs:
+  hybridcompute:
+    registry: https://gitlab.com/chromaway/postchain-chromia
+    path: chromia-infrastructure/rell/src/lib/hybridcompute
+    tagOrBranch: 3.34.14
+    rid: x"7F4921AB6D1D7FB4CE1B415A011CB8327C39D9F6BFDA95FCDCF31954BECCA4EB"
+    insecure: false

@@ -5,6 +5,8 @@ import net.postchain.common.types.WrappedByteArray
 import net.postchain.common.wrap
 import net.postchain.concurrent.util.get
 import net.postchain.core.BlockchainEngine
+import net.postchain.core.Transaction
+import net.postchain.devtools.PostchainTestNode
 import net.postchain.gtv.Gtv
 import net.postchain.gtv.GtvDictionary
 import net.postchain.gtv.GtvFactory.gtv
@@ -222,3 +224,14 @@ fun deleteMessagesInCollection(engine: BlockchainEngine, collection: String, mes
 }
 
 data class Vector(val context: Long, val id: Long, val embedding: String)
+
+fun PostchainTestNode.buildTransaction(op: GtxOp): Transaction {
+    return buildTransaction(listOf(op))
+}
+
+fun PostchainTestNode.buildTransaction(ops: List<GtxOp>): Transaction {
+    val engine = getBlockchainInstance().blockchainEngine
+    return engine.getConfiguration().getTransactionFactory().decodeTransaction(
+            Gtx(GtxBody(engine.getConfiguration().blockchainRid, ops, listOf()), listOf()).encode()
+    )
+}

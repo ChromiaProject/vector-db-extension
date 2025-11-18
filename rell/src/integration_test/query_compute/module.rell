@@ -1,0 +1,31 @@
+module;
+
+import lib.vector_db_query_compute.*;
+
+import vector_example.*;
+
+operation submit_query_request(
+    id: text,
+    q_vector: text,
+    max_distance: decimal,
+    max_vectors: integer? = null,
+    template_name: text? = null,
+    template_args: gtv? = null
+) {
+    submit_vector_db_query_request(id, COLLECTION, q_vector, max_distance, max_vectors, null, template_name, template_args);
+}
+
+entity query_result {
+    id: text;
+    result: byte_array;
+}
+
+@extend(hc.on_compute_result)
+function (id: text, result: hc.compute_result) {
+    log("Query computation for query ID %s completed. %s".format(id, result));
+
+    create query_result(id, result.to_bytes());
+}
+
+query get_query_result(id: text): hc.compute_result? =
+    query_result @? { id } ( hc.compute_result.from_gtv(gtv.from_bytes(.result)) );

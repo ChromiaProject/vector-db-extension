@@ -105,6 +105,12 @@
         </dependency>
 
         <dependency>
+            <groupId>net.postchain</groupId>
+            <artifactId>chromia-infrastructure</artifactId>
+            <version>${postchain-chromia.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>io.github.microutils</groupId>
             <artifactId>kotlin-logging-jvm</artifactId>
         </dependency>
@@ -284,12 +290,11 @@
                 <groupId>net.postchain.rell</groupId>
                 <artifactId>rell-maven-plugin</artifactId>
                 <executions>
-                    <!-- Vector example dApp -->
                     <execution>
-                        <id>vector-example-compile</id>
-                        <phase>generate-test-resources</phase>
+                        <id>vector-example-install</id>
+                        <phase>generate-test-sources</phase>
                         <goals>
-                            <goal>rell-compile</goal>
+                            <goal>rell-install</goal>
                         </goals>
                         <configuration>
                             <configPath>${project.basedir}/rell/chromia.yml</configPath>
@@ -297,9 +302,8 @@
                             <target>${project.build.directory}/test-classes/chains/</target>
                         </configuration>
                     </execution>
-                    <!-- Vector only test dApp -->
                     <execution>
-                        <id>vector-only-compile</id>
+                        <id>vector-example-compile</id>
                         <phase>generate-test-resources</phase>
                         <goals>
                             <goal>rell-compile</goal>
@@ -323,7 +327,8 @@
                             <force>true</force>
                             <mainModules>
                                 <mainModule>vector_example</mainModule>
-                                <mainModule>vector_example_test</mainModule>
+                                <mainModule>integration_test.vector_example_test</mainModule>
+                                <mainModule>integration_test.query_compute</mainModule>
                             </mainModules>
                         </configuration>
                     </execution>

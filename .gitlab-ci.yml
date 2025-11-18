@@ -101,6 +101,7 @@ deploy_library_chain:
     - cd rell
     - chr build
     - ../ci/library_chain/deploy.sh vector_db
+    - ../ci/library_chain/deploy.sh vector_db_query_compute "2.3.0" "Library for the Vector DB extension that computes queries asynchronously. EXPERIMENTAL FEATURE, DO NOT USE IN PRODUCTION."
 
 gitlab-release:
   extends: .gitlab-release-with-notes
