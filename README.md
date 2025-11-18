@@ -36,9 +36,11 @@ blockchains:
       gtx:
         modules:
           - "net.postchain.gtx.extensions.vectordb.VectorDbGTXModule"
-          - "net.postchain.hybridcompute.HybridComputeGTXModule"
+          - "net.postchain.hybridcompute.HybridComputeGTXModule"  # Only required if using query compute
       sync_ext:
-        - "net.postchain.hybridcompute.HybridComputeSynchronizationInfrastructureExtension"
+        - "net.postchain.hybridcompute.HybridComputeSynchronizationInfrastructureExtension"  # Only required if using query compute
+      hybridcompute:
+        engine: "net.postchain.gtx.extensions.vectordb.VectorDBQueryComputeEngine" # Only required if using query compute
       # Static collections defined below, omit if using dynamic mode
       vector_db_extension:
         collections:
@@ -92,11 +94,9 @@ operation submit_query_request(
     id: text,
     q_vector: text,
     max_distance: decimal,
-    max_vectors: integer? = null,
-    template_name: text? = null,
-    template_args: gtv? = null
+    max_vectors: integer? = null
 ) {
-    submit_vector_db_query_request(id, "my-collection", q_vector, max_distance, max_vectors, null, template_name, template_args);
+    submit_vector_db_query_request(id, "my-collection", q_vector, max_distance, max_vectors, null);
 }
 
 @extend(hc.on_compute_result)

@@ -13,6 +13,8 @@ import net.postchain.gtv.GtvFactory.gtv
 import net.postchain.gtx.CompositeGTXModule
 import net.postchain.gtx.GTXModuleAware
 import net.postchain.gtx.PostchainContextAware
+import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.VECTOR_DB_QUERY_ARG_QUERY_TEMPLATE
+import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.VECTOR_DB_QUERY_CLOSEST_OBJECTS
 import net.postchain.hybridcompute.HybridComputeEngine
 
 class VectorDBQueryComputeEngine : HybridComputeEngine, PostchainContextAware {
@@ -43,6 +45,10 @@ class VectorDBQueryComputeEngine : HybridComputeEngine, PostchainContextAware {
     }
 
     override fun compute(input: Gtv): Pair<Gtv, Long> {
+        if (input[VECTOR_DB_QUERY_ARG_QUERY_TEMPLATE] != null) {
+            throw UserMistake("Query template is not allowed in query compute")
+        }
+
         val result = blockQueries.query(VECTOR_DB_QUERY_CLOSEST_OBJECTS, input).get()
 
         return gtv(mapOf(

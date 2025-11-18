@@ -13,8 +13,8 @@ import net.postchain.gtv.Gtv
 import net.postchain.gtv.merkle.makeMerkleHashCalculator
 import net.postchain.gtv.merkleHash
 import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseAccess.Vector
+import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.VECTOR_DB_META_DATUM_ID
 import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.getActiveCollections
-import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.getAndEnsureOneOriginMode
 import net.postchain.gtx.extensions.vectordb.config.VectorDbCollectionConfig
 import java.util.concurrent.ConcurrentHashMap
 

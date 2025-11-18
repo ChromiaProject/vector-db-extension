@@ -15,11 +15,13 @@ import net.postchain.gtx.GtxOp
 import net.postchain.gtx.extensions.vectordb.helpers.buildTransaction
 import net.postchain.images.directory1.awaitUntilAsserted
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Timeout
 
+@Timeout(120)
 class VectorDbQueryComputeIT : IntegrationTestSetup() {
 
     @Test
-    fun `compute one query without template`() {
+    fun `compute multiple queries`() {
         val node = createNodes(3, "/chains/vector_example_compute_test.xml")[0]
 
         buildBlock(DEFAULT_CHAIN_IID, node.buildTransaction(listOf(
@@ -33,24 +35,18 @@ class VectorDbQueryComputeIT : IntegrationTestSetup() {
                         gtv("[0.1, 0.2, 0.3]"),
                         gtv("1.0"),
                         gtv(10),
-                        GtvNull,
-                        GtvNull
                 ),
                 GtxOp("submit_query_request",
                         gtv("id-2"),
                         gtv("[0.12, 0.22, 0.32]"),
                         gtv("0.0"),
                         gtv(10),
-                        GtvNull,
-                        GtvNull
                 ),
                 GtxOp("submit_query_request",
                         gtv("id-3"),
                         gtv("[0.1, 0.2, 0.3]"),
                         gtv("1.0"),
                         gtv(1),
-                        GtvNull,
-                        GtvNull
                 ),
         )))
 
@@ -94,36 +90,6 @@ class VectorDbQueryComputeIT : IntegrationTestSetup() {
     }
 
     @Test
-    fun `compute multiple queries with template`() {
-        val node = createNodes(3, "/chains/vector_example_compute_test.xml")[0]
-
-        buildBlock(DEFAULT_CHAIN_IID, node.buildTransaction(listOf(
-                GtxOp("add_message", gtv("message 1"), gtv("[0.11, 0.21, 0.31]")),
-                GtxOp("add_message", gtv("message 2"), gtv("[0.12, 0.22, 0.32]")),
-                GtxOp("add_message", gtv("message 3"), gtv("[0.13, 0.23, 0.33]")),
-        )))
-        buildBlock(DEFAULT_CHAIN_IID, node.buildTransaction(listOf(
-                GtxOp("submit_query_request",
-                        gtv("id-1"),
-                        gtv("[0.1, 0.2, 0.3]"),
-                        gtv("1.0"),
-                        gtv(10),
-                        gtv("get_messages"),
-                        GtvNull
-                )
-        )))
-
-        awaitUntilAsserted {
-            buildBlock(DEFAULT_CHAIN_IID)
-
-            getAndAssertSuccessfulComputation(node, "id-1") { result ->
-                assertThat(result.asArray().map { it.asString() })
-                        .isEqualTo(listOf("message 1", "message 2", "message 3"))
-            }
-        }
-    }
-
-    @Test
     fun `compute error`() {
         val node = createNodes(3, "/chains/vector_example_compute_test.xml")[0]
 
@@ -133,8 +99,6 @@ class VectorDbQueryComputeIT : IntegrationTestSetup() {
                         gtv("[a, b, c]"),
                         gtv("1.0"),
                         GtvNull,
-                        GtvNull,
-                        GtvNull
                 )
         )))
 

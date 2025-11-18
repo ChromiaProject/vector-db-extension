@@ -8,11 +8,9 @@ operation submit_query_request(
     id: text,
     q_vector: text,
     max_distance: decimal,
-    max_vectors: integer? = null,
-    template_name: text? = null,
-    template_args: gtv? = null
+    max_vectors: integer? = null
 ) {
-    submit_vector_db_query_request(id, COLLECTION, q_vector, max_distance, max_vectors, null, template_name, template_args);
+    submit_vector_db_query_request(id, COLLECTION, q_vector, max_distance, max_vectors, null);
 }
 
 entity query_result {

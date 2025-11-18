@@ -14,9 +14,9 @@ import net.postchain.gtv.GtvNull
 import net.postchain.gtx.Gtx
 import net.postchain.gtx.GtxBody
 import net.postchain.gtx.GtxOp
-import net.postchain.gtx.extensions.vectordb.VECTOR_DB_QUERY_CLOSEST_OBJECTS
 import net.postchain.gtx.extensions.vectordb.VectorCollectionInfo
 import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseAccess
+import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.VECTOR_DB_QUERY_CLOSEST_OBJECTS
 import net.postchain.gtx.extensions.vectordb.config.VectorDBIndex
 
 fun getVectors(engine: BlockchainEngine, chainId: Long, collection: String): List<Vector> {

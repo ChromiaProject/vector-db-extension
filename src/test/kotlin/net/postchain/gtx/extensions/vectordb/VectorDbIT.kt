@@ -15,8 +15,8 @@ import net.postchain.gtv.GtvFactory.gtv
 import net.postchain.gtx.Gtx
 import net.postchain.gtx.GtxBody
 import net.postchain.gtx.GtxOp
+import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.VECTOR_DB_QUERY_CLOSEST_OBJECTS
 import net.postchain.gtx.extensions.vectordb.config.VectorDBIndex
-import net.postchain.gtx.extensions.vectordb.helpers.VectorDbTestExceptionCaptorEventProcessor
 import net.postchain.gtx.extensions.vectordb.helpers.VectorDbTestExceptionCaptorGTXModule
 import net.postchain.gtx.extensions.vectordb.helpers.addCollection
 import net.postchain.gtx.extensions.vectordb.helpers.addMessage
@@ -40,7 +40,6 @@ import net.postchain.test.modify
 import org.awaitility.Awaitility
 import org.awaitility.Duration
 import org.junit.jupiter.api.Test
-import java.lang.Exception
 
 class VectorDbIT : IntegrationTestSetup() {
 

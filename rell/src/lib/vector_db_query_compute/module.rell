@@ -11,9 +11,6 @@ import hc: lib.hybridcompute.*;
  * @param max_distance The maximum distance for vectors to include in the closest search.
  * @param max_vectors The limit of hits to return.
  * @param context The context of the vector, or null to disable this filter.
- * @param template_name The template query name for mapping search results to any other GGTV data to be returned, or null
- *                      to return vector IDs and distances.
- * @param template_args Optional arguments to pass to the template query.
  */
 function submit_vector_db_query_request(
     id: text,
@@ -21,9 +18,7 @@ function submit_vector_db_query_request(
     q_vector: text,
     max_distance: decimal,
     max_vectors: integer? = null,
-    context: integer? = null,
-    template_name: text? = null,
-    template_args: gtv? = null
+    context: integer? = null
 ) {
     val input: map<text, gtv> = [
         "collection": collection.to_gtv(),
@@ -36,15 +31,6 @@ function submit_vector_db_query_request(
     }
     if (context != null) {
         input["context"] = context.to_gtv();
-    }
-    if (template_name != null) {
-        val template = [
-            "name": template_name.to_gtv()
-        ];
-        if (template_args != null) {
-            template["args"] = template_args.to_gtv();
-        }
-        input["query_template"] = template.to_gtv();
     }
 
     hc.submit_compute_request(id, "vector-db-query", input.to_gtv());
