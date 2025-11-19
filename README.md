@@ -80,9 +80,9 @@ To compute vector queries you need to add the following libraries:
 ```yaml
 libs:
   com.chromia.vector_db_query_compute:
-    version: 2.2.0 # Set to the version you want to use
+    version: 2.3.0 # Set to the version you want to use
   com.chromia.hybridcompute: # vector_db_query_compute depends on this library
-    version: 3.32.13
+    version: 3.35.1
 ```
 
 Available versions can be found by running `chr library versions com.chromia.vector_db_query_compute`.

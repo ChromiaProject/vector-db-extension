@@ -9,7 +9,6 @@ import net.postchain.core.BlockchainConfiguration
 import net.postchain.core.EContext
 import net.postchain.core.block.BlockQueries
 import net.postchain.gtv.Gtv
-import net.postchain.gtv.GtvFactory.gtv
 import net.postchain.gtx.CompositeGTXModule
 import net.postchain.gtx.GTXModuleAware
 import net.postchain.gtx.PostchainContextAware
@@ -50,26 +49,17 @@ class VectorDBQueryComputeEngine : HybridComputeEngine, PostchainContextAware {
         }
 
         val result = blockQueries.query(VECTOR_DB_QUERY_CLOSEST_OBJECTS, input).get()
-
-        return gtv(mapOf(
-                "input" to input,
-                "result" to result
-        )) to 0
+        return result to 0
     }
 
-    override fun validate(output: Gtv) {
-        val input = output["input"] ?: throw UserMistake("No input found in validation data")
-        val result = output["result"] ?: throw UserMistake("No result found in validation data")
-
-        // TODO verify that input is unchanged - the compute node can set this to anything
-
+    override fun validate(input: Gtv, output: Gtv) {
         val localResult = blockQueries.query(VECTOR_DB_QUERY_CLOSEST_OBJECTS, input).get()
 
         // TODO validate result
-        if (localResult == result) {
+        if (localResult == output) {
             logger.info { "Validation of vector db query succeeded" }
         } else {
-            logger.warn { "Validation of vector db query failed, but is ignored. Expected: $result, got: $localResult" }
+            logger.warn { "Validation of vector db query failed, but is ignored. Expected: $output, got: $localResult" }
         }
     }
 

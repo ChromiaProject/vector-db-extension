@@ -127,7 +127,7 @@ class VectorDbQueryComputeIT : IntegrationTestSetup() {
                     .isNotNull()
                     .isNotEqualTo(GtvNull)
             assertThat(result!!["error"]).isEqualTo(GtvNull)
-            val gtvResult = result["result"]?.asDict()["result"]
+            val gtvResult = result["result"]
             assertThat(gtvResult).isNotNull()
             asserts(gtvResult!!)
         }
