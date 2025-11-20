@@ -5,6 +5,8 @@ import net.postchain.common.types.WrappedByteArray
 import net.postchain.common.wrap
 import net.postchain.concurrent.util.get
 import net.postchain.core.BlockchainEngine
+import net.postchain.core.Transaction
+import net.postchain.devtools.PostchainTestNode
 import net.postchain.gtv.Gtv
 import net.postchain.gtv.GtvDictionary
 import net.postchain.gtv.GtvFactory.gtv
@@ -12,9 +14,9 @@ import net.postchain.gtv.GtvNull
 import net.postchain.gtx.Gtx
 import net.postchain.gtx.GtxBody
 import net.postchain.gtx.GtxOp
-import net.postchain.gtx.extensions.vectordb.VECTOR_DB_QUERY_CLOSEST_OBJECTS
 import net.postchain.gtx.extensions.vectordb.VectorCollectionInfo
 import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseAccess
+import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.VECTOR_DB_QUERY_CLOSEST_OBJECTS
 import net.postchain.gtx.extensions.vectordb.config.VectorDBIndex
 
 fun getVectors(engine: BlockchainEngine, chainId: Long, collection: String): List<Vector> {
@@ -222,3 +224,14 @@ fun deleteMessagesInCollection(engine: BlockchainEngine, collection: String, mes
 }
 
 data class Vector(val context: Long, val id: Long, val embedding: String)
+
+fun PostchainTestNode.buildTransaction(op: GtxOp): Transaction {
+    return buildTransaction(listOf(op))
+}
+
+fun PostchainTestNode.buildTransaction(ops: List<GtxOp>): Transaction {
+    val engine = getBlockchainInstance().blockchainEngine
+    return engine.getConfiguration().getTransactionFactory().decodeTransaction(
+            Gtx(GtxBody(engine.getConfiguration().blockchainRid, ops, listOf()), listOf()).encode()
+    )
+}

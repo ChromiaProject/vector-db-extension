@@ -1,0 +1,37 @@
+module;
+
+import hc: lib.hybridcompute.*;
+
+/**
+ * Submits a closest objects query to be processed asynchronously. Extend `hc.on_compute_result` to get the result when it is ready.
+ *
+ * @param id Unique ID for this query compute request.
+ * @param collection The name of the collection.
+ * @param q_vector The vector to search closest to, as a string. For example, `[0.1, 0.2, 0.3]`.
+ * @param max_distance The maximum distance for vectors to include in the closest search.
+ * @param max_vectors The limit of hits to return.
+ * @param context The context of the vector, or null to disable this filter.
+ */
+function submit_vector_db_query_request(
+    id: text,
+    collection: text,
+    q_vector: text,
+    max_distance: decimal,
+    max_vectors: integer? = null,
+    context: integer? = null
+) {
+    val input: map<text, gtv> = [
+        "collection": collection.to_gtv(),
+        "q_vector": q_vector.to_gtv(),
+        "max_distance": max_distance.to_gtv(),
+    ];
+
+    if (max_vectors != null) {
+        input["query_max_vectors"] = max_vectors.to_gtv();
+    }
+    if (context != null) {
+        input["context"] = context.to_gtv();
+    }
+
+    hc.submit_compute_request(id, "vector-db-query", input.to_gtv());
+}

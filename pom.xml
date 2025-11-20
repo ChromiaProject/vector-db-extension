@@ -25,8 +25,8 @@
         <kotlin.compiler.jvmTarget>21</kotlin.compiler.jvmTarget>
         <kotlin.code.style>obsolete</kotlin.code.style> <!-- Kotlin obsolete IntelliJ IDEA codestyle -->
 
-        <postchain.version>3.46.3</postchain.version>
-        <postchain-chromia.version>3.34.15</postchain-chromia.version>
+        <postchain.version>3.47.1</postchain.version>
+        <postchain-chromia.version>3.35.1</postchain-chromia.version>
 
         <!-- Tests -->
         <directory.chain.version>1.91.0</directory.chain.version>
@@ -101,6 +101,12 @@
         <dependency>
             <groupId>net.postchain.images</groupId>
             <artifactId>chromia-subnode</artifactId>
+            <version>${postchain-chromia.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>net.postchain</groupId>
+            <artifactId>chromia-infrastructure</artifactId>
             <version>${postchain-chromia.version}</version>
         </dependency>
 
@@ -284,12 +290,11 @@
                 <groupId>net.postchain.rell</groupId>
                 <artifactId>rell-maven-plugin</artifactId>
                 <executions>
-                    <!-- Vector example dApp -->
                     <execution>
-                        <id>vector-example-compile</id>
-                        <phase>generate-test-resources</phase>
+                        <id>vector-example-install</id>
+                        <phase>generate-test-sources</phase>
                         <goals>
-                            <goal>rell-compile</goal>
+                            <goal>rell-install</goal>
                         </goals>
                         <configuration>
                             <configPath>${project.basedir}/rell/chromia.yml</configPath>
@@ -297,9 +302,8 @@
                             <target>${project.build.directory}/test-classes/chains/</target>
                         </configuration>
                     </execution>
-                    <!-- Vector only test dApp -->
                     <execution>
-                        <id>vector-only-compile</id>
+                        <id>vector-example-compile</id>
                         <phase>generate-test-resources</phase>
                         <goals>
                             <goal>rell-compile</goal>
@@ -323,7 +327,8 @@
                             <force>true</force>
                             <mainModules>
                                 <mainModule>vector_example</mainModule>
-                                <mainModule>vector_example_test</mainModule>
+                                <mainModule>integration_test.vector_example_test</mainModule>
+                                <mainModule>integration_test.query_compute</mainModule>
                             </mainModules>
                         </configuration>
                     </execution>

@@ -13,7 +13,8 @@ pmc subnode-image add --name vector_db_extension \
   --url registry.gitlab.com/chromaway/core/vector-db-extension/chromaway/vector-db-extension-chromia-subnode \
   --digest <digest> \
   --image-description "Extension to Postchain for Postgres Vector DB support" \
-  -gtx net.postchain.gtx.extensions.vectordb.VectorDbGTXModule
+  -gtx net.postchain.gtx.extensions.vectordb.VectorDbGTXModule,net.postchain.hybridcompute.HybridComputeGTXModule \
+  -sync net.postchain.hybridcompute.HybridComputeSynchronizationInfrastructureExtension
 ```
 
 Replace the `<digest>` with the latest `2.x.x` image version found [here](https://gitlab.com/chromaway/core/vector-db-extension/container_registry/8296249).
@@ -35,6 +36,11 @@ blockchains:
       gtx:
         modules:
           - "net.postchain.gtx.extensions.vectordb.VectorDbGTXModule"
+          - "net.postchain.hybridcompute.HybridComputeGTXModule"  # Only required if using query compute
+      sync_ext:
+        - "net.postchain.hybridcompute.HybridComputeSynchronizationInfrastructureExtension"  # Only required if using query compute
+      hybridcompute:
+        engine: "net.postchain.gtx.extensions.vectordb.VectorDBQueryComputeEngine" # Only required if using query compute
       # Static collections defined below, omit if using dynamic mode
       vector_db_extension:
         collections:
@@ -49,7 +55,9 @@ And make sure you deploy your chain to a container with the extension supported.
 
 ## How to use in the dApp
 
-### Rell library
+### Rell libraries
+
+#### Vector management library
 
 There is an optional but recommended library available to manage vectors:
 
@@ -63,11 +71,45 @@ Available versions can be found by running `chr library versions com.chromia.vec
 
 Run `chr install` to install the library. Once installed you can manage dynamic vector collections and vectors for each collection.
 
+#### Query compute library
+
+**⚠️ Warning:** This feature is experimental and not ready for production use. It is a proof of concept and may change in the future.
+
+To compute vector queries you need to add the following libraries:
+
+```yaml
+libs:
+  com.chromia.vector_db_query_compute:
+    version: 2.3.0 # Set to the version you want to use
+  com.chromia.hybridcompute: # vector_db_query_compute depends on this library
+    version: 3.35.1
+```
+
+Available versions can be found by running `chr library versions com.chromia.vector_db_query_compute`.
+
+Run `chr install` to install the library. Once installed you can submit vector queries to be processed asynchronously:
+
+```rell
+operation submit_query_request(
+    id: text,
+    q_vector: text,
+    max_distance: decimal,
+    max_vectors: integer? = null
+) {
+    submit_vector_db_query_request(id, "my-collection", q_vector, max_distance, max_vectors, null);
+}
+
+@extend(hc.on_compute_result)
+function (id: text, result: hc.compute_result) {
+    log("Query computation for query id %s completed".format(id));
+}
+```
+
 ### Insert vectors
 
 Simple dapp to store and remove vectors:
 
-```
+```rell
 import lib.vector_db.*;
 
 /**

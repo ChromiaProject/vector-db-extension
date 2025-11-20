@@ -31,13 +31,6 @@ import net.postchain.gtx.special.GTXSpecialTxExtension
 import java.math.BigDecimal
 import java.util.concurrent.ConcurrentHashMap
 
-const val VECTOR_DB_QUERY_CLOSEST_OBJECTS = "query_closest_objects"
-const val VECTOR_DB_GET_COLLECTIONS = "get_vector_collections"
-const val VECTOR_DB_EXTENSION_CONFIG_NAME = "vector_db_extension"
-
-/** Datum ID 0 is reserved for metadata to sync collection IDs when snapshots are restored */
-const val VECTOR_DB_META_DATUM_ID = 0L
-
 open class VectorDbGTXModule(
         private val db: VectorDbDatabaseAccess = VectorDbDatabaseAccess()
 ) : SimpleGTXModule<VectorDbGTXModuleContext>(
@@ -48,6 +41,16 @@ open class VectorDbGTXModule(
 ), PostchainContextAware, MetadataProvider, SnapshotAware {
 
     companion object : KLogging() {
+
+        const val VECTOR_DB_QUERY_CLOSEST_OBJECTS = "query_closest_objects"
+        const val VECTOR_DB_GET_COLLECTIONS = "get_vector_collections"
+        const val VECTOR_DB_EXTENSION_CONFIG_NAME = "vector_db_extension"
+
+        /** Datum ID 0 is reserved for metadata to sync collection IDs when snapshots are restored */
+        const val VECTOR_DB_META_DATUM_ID = 0L
+
+        const val VECTOR_DB_QUERY_ARG_QUERY_TEMPLATE = "query_template"
+
         fun queryClosestObjects(moduleContext: VectorDbGTXModuleContext, ctx: EContext, args: Gtv): Gtv {
             if (!moduleContext.isInitialized()) {
                 throw UserMistake("Module is not initialized")
@@ -65,7 +68,7 @@ open class VectorDbGTXModule(
                 }
                 it
             } ?: collection.queryMaxVectors
-            val queryTemplate = args["query_template"]?.asDict()
+            val queryTemplate = args[VECTOR_DB_QUERY_ARG_QUERY_TEMPLATE]?.asDict()
 
             val vectorResult = moduleContext.databaseOperations.queryClosestObjects(ctx, collection.id, context,
                     vectorQuery, maxDistance, maxVectors, collection.index)
@@ -216,7 +219,7 @@ open class VectorDbGTXModule(
                                     ArgumentMetadata(name = "q_vector", gtvTypes = setOf(GtvType.STRING)),
                                     ArgumentMetadata(name = "max_distance", gtvTypes = setOf(GtvType.STRING), extendedType = "decimal"),
                                     ArgumentMetadata(name = "query_max_vectors", gtvTypes = setOf(GtvType.INTEGER), required = false),
-                                    ArgumentMetadata(name = "query_template", gtvTypes = setOf(GtvType.DICT),
+                                    ArgumentMetadata(name = VECTOR_DB_QUERY_ARG_QUERY_TEMPLATE, gtvTypes = setOf(GtvType.DICT),
                                             extendedType = "(name:text,args:map<text,gtv>)", required = false),
                             ),
                             returnType = ReturnMetadata(gtvTypes = setOf(GtvType.NULL, GtvType.BYTEARRAY, GtvType.STRING, GtvType.INTEGER, GtvType.DICT, GtvType.ARRAY, GtvType.BIGINTEGER))),

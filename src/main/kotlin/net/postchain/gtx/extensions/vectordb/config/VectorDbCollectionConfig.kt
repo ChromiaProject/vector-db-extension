@@ -37,10 +37,10 @@ data class VectorDbCollectionConfig(
             throw IllegalArgumentException("dimensions must be at least 1")
         }
         if (queryMaxVectors < 1) {
-            throw IllegalArgumentException("maxVectors must be at least 1")
+            throw IllegalArgumentException("query_max_vectors must be at least 1")
         }
         if (storeBatchSize < 1) {
-            throw IllegalArgumentException("storeBatchSize must be at least 1")
+            throw IllegalArgumentException("store_batch_size must be at least 1")
         }
 
         indexType
