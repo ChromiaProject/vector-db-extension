@@ -99,9 +99,10 @@ deploy_library_chain:
   script:
     - apk add curl jq libxml2-utils
     - cd rell
+    - chr install
     - chr build
-    - ../ci/library_chain/deploy.sh vector_db
-    - ../ci/library_chain/deploy.sh vector_db_query_compute "2.3.0" "Library for the Vector DB extension that computes queries asynchronously. EXPERIMENTAL FEATURE, DO NOT USE IN PRODUCTION."
+    - ../ci/library_chain/deploy.sh -n vector_db --major 2 --minor 2
+    - ../ci/library_chain/deploy.sh -n vector_db_query_compute --major 2 --minor 3 --library-description "Library for the Vector DB extension that computes queries asynchronously. EXPERIMENTAL FEATURE, DO NOT USE IN PRODUCTION."
 
 gitlab-release:
   extends: .gitlab-release-with-notes
