@@ -1,6 +1,6 @@
 module;
 
-import lib.vector_db_query_compute.*;
+import vdbq: lib.vector_db_query_compute.*;
 
 import vector_example.*;
 
@@ -10,7 +10,7 @@ operation submit_query_request(
     max_distance: decimal,
     max_vectors: integer? = null
 ) {
-    submit_vector_db_query_request(id, COLLECTION, q_vector, max_distance, max_vectors, null);
+    vdbq.submit_query_request(id, COLLECTION, q_vector, max_distance, max_vectors, null);
 }
 
 entity query_result {
@@ -18,14 +18,13 @@ entity query_result {
     result: byte_array;
 }
 
-@extend(hc.on_compute_result)
-function (id: text, type: text, result: hc.compute_result) {
-    if (type != my_type) return;
+@extend(vdbq.on_query_result)
+function (id: text, query_result: vdbq.query_result) {
+    log("Query computation for query ID %s completed.".format(id));
 
-    log("Query computation for query ID %s completed. %s".format(id, result));
-
-    create query_result(id, result.to_bytes());
+    create query_result(id, query_result.to_bytes());
 }
 
-query get_query_result(id: text): hc.compute_result? =
-    query_result @? { id } ( hc.compute_result.from_gtv(gtv.from_bytes(.result)) );
+
+query get_query_result(id: text): vdbq.query_result? =
+    query_result @? { id } ( vdbq.query_result.from_gtv(gtv.from_bytes(.result)) );

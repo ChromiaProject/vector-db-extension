@@ -59,7 +59,7 @@ class VectorDBQueryComputeEngine : HybridComputeEngine, PostchainContextAware {
         if (localResult == output) {
             logger.info { "Validation of vector db query succeeded" }
         } else {
-            logger.warn { "Validation of vector db query failed, but is ignored. Expected: $output, got: $localResult" }
+            logger.warn { "Validation of vector db query failed, but is ignored." }
         }
     }
 

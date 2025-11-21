@@ -2,17 +2,19 @@ package net.postchain.gtx.extensions.vectordb
 
 import assertk.assertThat
 import assertk.assertions.isEqualTo
-import assertk.assertions.isNotEqualTo
 import assertk.assertions.isNotNull
+import assertk.assertions.isNull
 import net.postchain.devtools.IntegrationTestSetup
 import net.postchain.devtools.PostchainTestNode
 import net.postchain.devtools.PostchainTestNode.Companion.DEFAULT_CHAIN_IID
 import net.postchain.devtools.query
-import net.postchain.gtv.Gtv
 import net.postchain.gtv.GtvFactory.gtv
 import net.postchain.gtv.GtvNull
+import net.postchain.gtv.mapper.GtvObjectMapper
 import net.postchain.gtx.GtxOp
 import net.postchain.gtx.extensions.vectordb.helpers.buildTransaction
+import net.postchain.gtx.extensions.vectordb.lib.vector_db_query_compute.QueryResult
+import net.postchain.gtx.extensions.vectordb.lib.vector_db_query_compute.QueryResultObject
 import net.postchain.images.directory1.awaitUntilAsserted
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
@@ -54,37 +56,23 @@ class VectorDbQueryComputeIT : IntegrationTestSetup() {
             buildBlock(DEFAULT_CHAIN_IID)
 
             getAndAssertSuccessfulComputation(node, "id-1") { result ->
-                assertThat(result[0]).isEqualTo(gtv(mapOf(
-                        "id" to gtv(1),
-                        "context" to gtv(0),
-                        "distance" to gtv("0.00014106752753673124"),
-                )))
-                assertThat(result[1]).isEqualTo(gtv(mapOf(
-                        "id" to gtv(2),
-                        "context" to gtv(0),
-                        "distance" to gtv("0.0005202700678104133"),
-                )))
-                assertThat(result[2]).isEqualTo(gtv(mapOf(
-                        "id" to gtv(3),
-                        "context" to gtv(0),
-                        "distance" to gtv("0.0010824066508604568"),
-                )))
+                assertThat(result.result).isEqualTo(listOf(
+                        QueryResultObject(1, 0, "0.00014106752753673124"),
+                        QueryResultObject(2, 0, "0.0005202700678104133"),
+                        QueryResultObject(3, 0, "0.0010824066508604568"),
+                ))
             }
 
             getAndAssertSuccessfulComputation(node, "id-2") { result ->
-                assertThat(result[0]).isEqualTo(gtv(mapOf(
-                        "id" to gtv(2),
-                        "context" to gtv(0),
-                        "distance" to gtv("0"),
-                )))
+                assertThat(result.result).isEqualTo(listOf(
+                        QueryResultObject(2, 0, "0"),
+                ))
             }
 
             getAndAssertSuccessfulComputation(node, "id-3") { result ->
-                assertThat(result[0]).isEqualTo(gtv(mapOf(
-                        "id" to gtv(1),
-                        "context" to gtv(0),
-                        "distance" to gtv("0.00014106752753673124"),
-                )))
+                assertThat(result.result).isEqualTo(listOf(
+                        QueryResultObject(1, 0, "0.00014106752753673124"),
+                ))
             }
         }
     }
@@ -106,30 +94,29 @@ class VectorDbQueryComputeIT : IntegrationTestSetup() {
             buildBlock(DEFAULT_CHAIN_IID)
 
             getAndAssertComputation(node, "id-1") { result ->
-                assertThat(result).isNotNull()
-                assertThat(result).isNotEqualTo(GtvNull)
-                assertThat(result!!["error"]).isNotNull()
+                assertThat(result?.error).isNotNull()
             }
         }
     }
 
-    fun getAndAssertComputation(node: PostchainTestNode, id: String, asserts: (Gtv?) -> Unit) {
+    fun getAndAssertComputation(node: PostchainTestNode, id: String, asserts: (QueryResult?) -> Unit) {
         val result = node.query(DEFAULT_CHAIN_IID) {
             it.query("get_query_result", gtv(mapOf("id" to gtv(id), )))
         }
 
-        asserts(result)
+        if (result == null || result == GtvNull) {
+            asserts(null)
+        } else {
+            asserts(GtvObjectMapper.fromGtv(result, QueryResult::class.java))
+        }
     }
 
-    fun getAndAssertSuccessfulComputation(node: PostchainTestNode, id: String, asserts: (Gtv) -> Unit) {
+    fun getAndAssertSuccessfulComputation(node: PostchainTestNode, id: String, asserts: (QueryResult) -> Unit) {
         getAndAssertComputation(node, id) { result ->
             assertThat(result)
                     .isNotNull()
-                    .isNotEqualTo(GtvNull)
-            assertThat(result!!["error"]).isEqualTo(GtvNull)
-            val gtvResult = result["result"]
-            assertThat(gtvResult).isNotNull()
-            asserts(gtvResult!!)
+            assertThat(result!!.error).isNull()
+            asserts(result)
         }
     }
 }
