@@ -129,6 +129,6 @@ libs:
   hybridcompute:
     registry: https://gitlab.com/chromaway/postchain-chromia
     path: chromia-infrastructure/rell/src/lib/hybridcompute
-    tagOrBranch: 3.35.1
-    rid: x"254AA454D34E882555A55DC74592A98FA944A30CCAD94F51C66A046DDF5A64E6"
+    tagOrBranch: 3.35.4
+    rid: x"E1496FC9A2DC89353A06F5BA79CF94F2B92BAC1B9291F10EF45B739DFC977712"
     insecure: false
