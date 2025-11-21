@@ -58,11 +58,11 @@ open class VectorDbGTXModule(
 
             val collectionArg = args["collection"]?.asString() ?: throw UserMistake("No collection argument supplied")
             val collection = moduleContext.collectionsByName[collectionArg] ?: throw UserMistake("Collection $collectionArg not found")
-            val context = args["context"]?.asInteger()
+            val context = args["context"]?.asIntegerOrNull()
             val vectorQuery = args["q_vector"]?.asString() ?: throw UserMistake("No q_vector argument supplied")
             val maxDistance = BigDecimal(args["max_distance"]?.asString()
                     ?: throw UserMistake("No max_distance argument supplied"))
-            val maxVectors = args["query_max_vectors"]?.asInteger()?.let {
+            val maxVectors = args["query_max_vectors"]?.asIntegerOrNull()?.let {
                 if (it > collection.queryMaxVectors) {
                     throw UserMistake("query_max_vectors ($it) exceeds the maximum of ${collection.queryMaxVectors}")
                 }
@@ -240,4 +240,8 @@ open class VectorDbGTXModule(
     override fun getPermanentDatums(ctx: EContext, datumIdFrom: Long, datumHandler: (datum: SnapshotDatum?) -> Boolean) {
         datumHandler(null)
     }
+}
+
+fun Gtv?.asIntegerOrNull(): Long? {
+    return if (this == null || this.isNull()) null else asInteger()
 }

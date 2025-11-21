@@ -329,6 +329,7 @@
                                 <mainModule>vector_example</mainModule>
                                 <mainModule>integration_test.vector_example_test</mainModule>
                                 <mainModule>integration_test.query_compute</mainModule>
+                                <mainModule>lib.vector_db_query_compute</mainModule>
                             </mainModules>
                         </configuration>
                     </execution>
