@@ -32,7 +32,7 @@
         <directory.chain.version>1.91.0</directory.chain.version>
         <directory.source>${project.build.directory}/directory-chain/src</directory.source>
         <directory.config>${project.basedir}/src/test/resources/net/postchain/images/directory1/directory1.yml</directory.config>
-        <rell.maven.plugin.version>0.14.9</rell.maven.plugin.version>
+        <rell.maven.plugin.version>0.16.0</rell.maven.plugin.version>
 
         <junit.version>5.9.1</junit.version>
         <testcontainers.version>1.20.3</testcontainers.version>
@@ -116,6 +116,19 @@
         </dependency>
 
         <dependency>
+            <groupId>org.http4k</groupId>
+            <artifactId>http4k-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.http4k</groupId>
+            <artifactId>http4k-client-apache</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.http4k</groupId>
+            <artifactId>http4k-format-gson</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-core</artifactId>
         </dependency>
@@ -125,6 +138,17 @@
             <groupId>net.postchain</groupId>
             <artifactId>deployment-test</artifactId>
             <version>${postchain-chromia.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.postchain</groupId>
+            <artifactId>postchain-devtools</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.postchain.client</groupId>
+            <artifactId>chromia-client</artifactId>
+            <version>3.26.1</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -143,11 +167,6 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>net.postchain</groupId>
-            <artifactId>postchain-devtools</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>jdbc</artifactId>
             <scope>test</scope>
@@ -155,12 +174,6 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.postchain.client</groupId>
-            <artifactId>chromia-client</artifactId>
-            <version>3.26.1</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -289,10 +302,11 @@
             <plugin>
                 <groupId>net.postchain.rell</groupId>
                 <artifactId>rell-maven-plugin</artifactId>
+                <version>${rell.maven.plugin.version}</version>
                 <executions>
                     <execution>
                         <id>vector-example-install</id>
-                        <phase>generate-test-sources</phase>
+                        <phase>generate-sources</phase>
                         <goals>
                             <goal>rell-install</goal>
                         </goals>
@@ -309,7 +323,7 @@
                             <goal>rell-compile</goal>
                         </goals>
                         <configuration>
-                            <configPath>${project.basedir}/rell/chromia.yml</configPath>
+                            <configFile>${project.basedir}/rell/chromia.yml</configFile>
                             <source>${project.basedir}/rell/src</source>
                             <target>${project.build.directory}/test-classes/chains/</target>
                         </configuration>
@@ -333,6 +347,20 @@
                             </mainModules>
                         </configuration>
                     </execution>
+                    <execution>
+                        <id>vector-embedding-compute-gen-client</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>rell-generate-client</goal>
+                        </goals>
+                        <configuration>
+                            <packageName>net.postchain.gtx.extensions.vectordb.hc</packageName>
+                            <mainModules>
+                                <mainModule>lib.vector_db</mainModule>
+                                <mainModule>lib.vector_db_embedding_compute</mainModule>
+                            </mainModules>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
 
@@ -349,6 +377,7 @@
                         </goals>
                         <configuration>
                             <sources>
+                                <source>${project.build.directory}/generated-sources</source>
                                 <source>${project.build.directory}/generated-test-sources</source>
                             </sources>
                         </configuration>

@@ -2,7 +2,6 @@ package net.postchain.gtx.extensions.vectordb
 
 import net.postchain.gtx.GTXModule
 import net.postchain.gtx.SnapshotContext
-import net.postchain.gtx.extensions.vectordb.config.VectorCollectionOrigin
 import net.postchain.gtx.extensions.vectordb.config.VectorDbConfig
 import java.util.concurrent.ConcurrentMap
 

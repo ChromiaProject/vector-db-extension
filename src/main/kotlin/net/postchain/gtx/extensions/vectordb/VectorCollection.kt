@@ -1,8 +1,6 @@
 package net.postchain.gtx.extensions.vectordb
 
-import net.postchain.gtx.extensions.vectordb.config.VectorDBIndex
 import net.postchain.gtx.extensions.vectordb.config.VectorDbCollectionConfig
-import net.postchain.gtx.extensions.vectordb.config.VectorCollectionOrigin
 
 data class VectorCollection(
         val id: Long,

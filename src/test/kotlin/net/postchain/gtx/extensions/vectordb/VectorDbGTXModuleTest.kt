@@ -5,8 +5,6 @@ import assertk.assertions.isEqualTo
 import net.postchain.common.exception.UserMistake
 import net.postchain.core.EContext
 import net.postchain.gtv.GtvFactory.gtv
-import net.postchain.gtx.extensions.vectordb.config.VectorDBIndex
-import net.postchain.gtx.extensions.vectordb.config.VectorCollectionOrigin
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows

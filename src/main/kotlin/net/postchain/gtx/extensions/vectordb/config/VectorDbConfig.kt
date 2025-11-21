@@ -1,18 +1,23 @@
 package net.postchain.gtx.extensions.vectordb.config
 
+import net.postchain.gtv.mapper.DefaultEmpty
 import net.postchain.gtv.mapper.Name
+import net.postchain.gtv.mapper.Nullable
 
 data class VectorDbConfig(
-        @Name("collections")
-        val collections: Map<String, VectorDbCollectionConfig> = emptyMap()
+        @param:Name("collections")
+        @param:DefaultEmpty
+        val collections: Map<String, VectorDbCollectionConfig> = emptyMap(),
 
-        /** Possible container/db specific settings:
-         *  SET hnsw.ef_search = 200;
-         *  SET hnsw.iterative_scan = strict_order; + more with iterative scan
-         */
+        @param:Name("query_compute")
+        @param:Nullable
+        val queryCompute: VectorDbQueryComputeConfig? = null,
+
+        @param:Name("embedding_compute")
+        @param:Nullable
+        val embeddingCompute: VectorDbEmbeddingComputeConfig? = null
 ) {
-
     companion object {
-        val DEFAULT_CONFIG = VectorDbConfig()
+        val DEFAULT_CONFIG = VectorDbConfig(emptyMap())
     }
 }

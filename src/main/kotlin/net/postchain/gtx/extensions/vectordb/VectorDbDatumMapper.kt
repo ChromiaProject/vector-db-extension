@@ -4,8 +4,6 @@ import net.postchain.gtv.Gtv
 import net.postchain.gtv.GtvDictionary
 import net.postchain.gtv.GtvFactory.gtv
 import net.postchain.gtv.GtvNull
-import net.postchain.gtx.extensions.vectordb.config.VectorDBIndex
-import net.postchain.gtx.extensions.vectordb.config.VectorCollectionOrigin
 
 class VectorDbDatumMapper {
     companion object {

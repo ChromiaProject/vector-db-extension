@@ -1,5 +1,6 @@
 package net.postchain.gtx.extensions.vectordb
 
+import io.netty.handler.timeout.TimeoutException
 import mu.KLogging
 import net.postchain.PostchainContext
 import net.postchain.common.exception.ProgrammerMistake
@@ -9,12 +10,17 @@ import net.postchain.core.BlockchainConfiguration
 import net.postchain.core.EContext
 import net.postchain.core.block.BlockQueries
 import net.postchain.gtv.Gtv
+import net.postchain.gtv.mapper.toObject
 import net.postchain.gtx.CompositeGTXModule
 import net.postchain.gtx.GTXModuleAware
 import net.postchain.gtx.PostchainContextAware
+import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.VECTOR_DB_EXTENSION_CONFIG_NAME
 import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.VECTOR_DB_QUERY_ARG_QUERY_TEMPLATE
 import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.VECTOR_DB_QUERY_CLOSEST_OBJECTS
+import net.postchain.gtx.extensions.vectordb.config.VectorDbConfig
+import net.postchain.gtx.extensions.vectordb.config.VectorDbQueryComputeConfig
 import net.postchain.hybridcompute.HybridComputeEngine
+import java.time.Duration
 
 class VectorDBQueryComputeEngine : HybridComputeEngine, PostchainContextAware {
 
@@ -25,6 +31,7 @@ class VectorDBQueryComputeEngine : HybridComputeEngine, PostchainContextAware {
     private lateinit var configuration: BlockchainConfiguration
     private lateinit var postchainContext: PostchainContext
     private lateinit var blockQueries: BlockQueries
+    private lateinit var queryTimeout: Duration
 
     override fun initializeContext(configuration: BlockchainConfiguration, postchainContext: PostchainContext, ctx: EContext) {
         this.postchainContext = postchainContext
@@ -35,7 +42,9 @@ class VectorDBQueryComputeEngine : HybridComputeEngine, PostchainContextAware {
         ((configuration as? GTXModuleAware)?.module as? CompositeGTXModule)?.modules
                 ?.filterIsInstance<VectorDbGTXModule>()?.firstOrNull()
                 ?: throw UserMistake("No VectorDB module found")
-
+        val computeConfig = configuration.rawConfig[VECTOR_DB_EXTENSION_CONFIG_NAME]?.toObject<VectorDbConfig>()
+                ?.queryCompute ?: VectorDbQueryComputeConfig.DEFAULT_CONFIG
+        queryTimeout = Duration.ofMillis(computeConfig.timeoutMs)
     }
 
     override fun load() {
@@ -48,18 +57,24 @@ class VectorDBQueryComputeEngine : HybridComputeEngine, PostchainContextAware {
             throw UserMistake("Query template is not allowed in query compute")
         }
 
-        val result = blockQueries.query(VECTOR_DB_QUERY_CLOSEST_OBJECTS, input).get()
+        val result = blockQueries.queryWithTimeout(VECTOR_DB_QUERY_CLOSEST_OBJECTS, input,
+                queryTimeout = queryTimeout, lockTimeout = queryTimeout).get()
         return result to 0
     }
 
     override fun validate(input: Gtv, output: Gtv) {
-        val localResult = blockQueries.query(VECTOR_DB_QUERY_CLOSEST_OBJECTS, input).get()
-
         // TODO validate result
-        if (localResult == output) {
-            logger.info { "Validation of vector db query succeeded" }
-        } else {
-            logger.warn { "Validation of vector db query failed, but is ignored." }
+        try {
+            val localResult = blockQueries.queryWithTimeout(VECTOR_DB_QUERY_CLOSEST_OBJECTS, input,
+                    queryTimeout = queryTimeout, lockTimeout = queryTimeout).get()
+
+            if (localResult == output) {
+                logger.info { "Validation of vector db query succeeded" }
+            } else {
+                logger.warn { "Validation of vector db query failed, but is ignored." }
+            }
+        } catch (_: TimeoutException) {
+            logger.warn { "Validation of vector db query timed out." }
         }
     }
 

@@ -3,25 +3,26 @@ package net.postchain.gtx.extensions.vectordb.config
 import net.postchain.common.exception.UserMistake
 import net.postchain.gtv.mapper.DefaultValue
 import net.postchain.gtv.mapper.Name
+import net.postchain.gtx.extensions.vectordb.VectorDBIndex
 
 data class VectorDbCollectionConfig(
         /** Number of dimensions of the vectors */
-        @Name("dimensions")
+        @param:Name("dimensions")
         val dimensions: Long,
 
         /** The limit of the query_max_vectors query parameter */
-        @Name("query_max_vectors")
-        @DefaultValue(defaultLong = 10L)
+        @param:Name("query_max_vectors")
+        @param:DefaultValue(defaultLong = 10L)
         val queryMaxVectors: Long,
 
         /** Database batch insert size when storing vectors. This is used while inserting the data into the
          * vector DB, it does not limit the actual list of vectors sent to be stored. */
-        @Name("store_batch_size")
-        @DefaultValue(defaultLong = 300L)
+        @param:Name("store_batch_size")
+        @param:DefaultValue(defaultLong = 300L)
         val storeBatchSize: Long,
 
-        @Name("index")
-        @DefaultValue(defaultString = "hnsw_cosine")
+        @param:Name("index")
+        @param:DefaultValue(defaultString = "hnsw_cosine")
         private val indexString: String,
 ) {
     val indexType: VectorDBIndex by lazy {
