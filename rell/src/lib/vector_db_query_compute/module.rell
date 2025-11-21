@@ -2,6 +2,8 @@ module;
 
 import hc: lib.hybridcompute.*;
 
+val my_type = "vector-db-query";
+
 /**
  * Submits a closest objects query to be processed asynchronously. Extend `hc.on_compute_result` to get the result when it is ready.
  *
@@ -33,5 +35,5 @@ function submit_vector_db_query_request(
         input["context"] = context.to_gtv();
     }
 
-    hc.submit_compute_request(id, "vector-db-query", input.to_gtv());
+    hc.submit_compute_request(id, my_type, input.to_gtv());
 }

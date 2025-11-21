@@ -82,7 +82,7 @@ libs:
   com.chromia.vector_db_query_compute:
     version: 2.3.0 # Set to the version you want to use
   com.chromia.hybridcompute: # vector_db_query_compute depends on this library
-    version: 3.35.1
+    version: 3.35.4
 ```
 
 Available versions can be found by running `chr library versions com.chromia.vector_db_query_compute`.
@@ -100,7 +100,9 @@ operation submit_query_request(
 }
 
 @extend(hc.on_compute_result)
-function (id: text, result: hc.compute_result) {
+function (id: text, type: text, result: hc.compute_result) {
+    if (type != my_type) return;
+
     log("Query computation for query id %s completed".format(id));
 }
 ```
