@@ -40,7 +40,7 @@ struct query_result {
 }
 
 // TODO need something to force generation of code for the structs
-query bogus(query_request) = query_result(result = null, error = null, x"", 0);
+query vdbqc_bogus(query_request) = query_result(result = null, error = null, x"", 0);
 
 /**
  * Submits a closest objects query to be processed asynchronously. Extend `on_query_result` to get the result when it is ready.
