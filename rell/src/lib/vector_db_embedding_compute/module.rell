@@ -34,10 +34,11 @@ struct embedding_result {
 query vdbec_bogus(embedding_request): embedding_result = embedding_result(result = null, error = null, x"", 0);
 
 /**
- * Submits a embedding computation request to be processed asynchronously. Extend `on_embedding_result` to get the result when it is ready.
+ * Submits a text embedding computation request to be processed asynchronously.
+ * Extend `on_embedding_result` to get the result when it is ready.
  *
  * @param id Unique ID for this query compute request.
- * @param texts A list of texts..
+ * @param texts A list of texts.
  */
 function submit_text_embedding_request(id: text, texts: list<text>) {
     val input = embedding_request(texts.to_gtv());
