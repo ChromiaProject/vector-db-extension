@@ -8,7 +8,7 @@ data class VectorDbEmbeddingComputeConfig(
         @param:Name("model")
         val model: String,
 
-        @param:Name("timeout_ms")
-        @param:DefaultValue(defaultLong = VectorDBEmbeddingComputeEngine.DEFAULT_TIMEOUT_MS)
-        val timeoutMs: Long,
+        @param:Name("timeout_seconds")
+        @param:DefaultValue(defaultLong = VectorDBEmbeddingComputeEngine.DEFAULT_TIMEOUT_SECONDS)
+        val timeoutSeconds: Long,
 )

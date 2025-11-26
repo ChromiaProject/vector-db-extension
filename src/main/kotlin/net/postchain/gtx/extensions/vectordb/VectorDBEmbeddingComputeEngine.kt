@@ -8,10 +8,7 @@ import net.postchain.common.exception.UserMistake
 import net.postchain.core.BlockchainConfiguration
 import net.postchain.core.EContext
 import net.postchain.gtv.Gtv
-import net.postchain.gtv.GtvArray
-import net.postchain.gtv.GtvDictionary
 import net.postchain.gtv.mapper.GtvObjectMapper
-import net.postchain.gtv.mapper.toList
 import net.postchain.gtv.mapper.toObject
 import net.postchain.gtx.PostchainContextAware
 import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.VECTOR_DB_EXTENSION_CONFIG_NAME
@@ -44,7 +41,7 @@ class VectorDBEmbeddingComputeEngine(
 
     companion object : KLogging() {
         const val CONNECT_TIMEOUT_MS = 10_000L
-        const val DEFAULT_TIMEOUT_MS = 3_000L
+        const val DEFAULT_TIMEOUT_SECONDS = 3L
 
         const val BASE_REQUEST_COST = 1000L
     }
@@ -80,7 +77,7 @@ class VectorDBEmbeddingComputeEngine(
                                                 RequestConfig.custom()
                                                         .setRedirectsEnabled(false)
                                                         .setCookieSpec(StandardCookieSpec.IGNORE)
-                                                        .setResponseTimeout(Timeout.ofMilliseconds(computeConfig.timeoutMs))
+                                                        .setResponseTimeout(Timeout.ofSeconds(computeConfig.timeoutSeconds))
                                                         .build())
                                         .build())
                         ))
@@ -105,21 +102,8 @@ class VectorDBEmbeddingComputeEngine(
         }
     }
 
-    private fun requestEmbeddings(request: EmbeddingRequest): List<List<String>> {
-        val modelInput = when (request.input) {
-            is GtvArray -> {
-                request.input.toList<String>()
-            }
-
-            is GtvDictionary -> {
-                request.input.asDict()
-            }
-
-            else -> {
-                throw UserMistake("Model input must be an array or dictionary")
-            }
-        }
-
+    private fun requestEmbeddings(request: EmbeddingRequest): List<String> {
+        val modelInput = request.input
         val httpResponse = client(HttpRequest(Method.POST, "${nodeVLLMConfig.url}/v1/embeddings")
                 .with(vLLMEmbeddingRequest of VLLMEmbeddingRequest(
                         model = computeConfig.model,
@@ -135,7 +119,7 @@ class VectorDBEmbeddingComputeEngine(
             throw ProgrammerMistake("Invalid model returned: ${response.model}")
         }
 
-        val embeddings = response.data.map { it.embedding }
+        val embeddings = response.data.map { it.embedding.joinToString(",", "[", "]") }
         if (embeddings.isEmpty()) {
             throw UserMistake("No data found in response")
         }
@@ -162,7 +146,7 @@ data class VLLMEmbeddingRequest(
         /**
          * The model input.
          */
-        val input: Any,
+        val input: List<String>,
 )
 
 data class VLLMEmbeddingResponse(

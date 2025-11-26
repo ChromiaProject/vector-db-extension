@@ -144,7 +144,7 @@ blockchains:
             dimensions: 384
         embedding_compute:
           model: "sentence-transformers/all-MiniLM-L6-v2"
-          timeout_ms: 5000
+          timeout_seconds: 5
 
   vector_db:
     type: library

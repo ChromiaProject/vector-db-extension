@@ -1,6 +1,6 @@
 package net.postchain.gtx.extensions.vectordb
 
-import io.netty.handler.timeout.TimeoutException
+import java.util.concurrent.TimeoutException
 import mu.KLogging
 import net.postchain.PostchainContext
 import net.postchain.common.exception.ProgrammerMistake
@@ -44,7 +44,7 @@ class VectorDBQueryComputeEngine : HybridComputeEngine, PostchainContextAware {
                 ?: throw UserMistake("No VectorDB module found")
         val computeConfig = configuration.rawConfig[VECTOR_DB_EXTENSION_CONFIG_NAME]?.toObject<VectorDbConfig>()
                 ?.queryCompute ?: VectorDbQueryComputeConfig.DEFAULT_CONFIG
-        queryTimeout = Duration.ofMillis(computeConfig.timeoutMs)
+        queryTimeout = Duration.ofSeconds(computeConfig.timeoutSeconds)
     }
 
     override fun load() {

@@ -25,22 +25,17 @@ entity query_result {
 function (id: text, embedding_result: vdbe.embedding_result) {
     if (embedding_result.result != null and embedding_result.result.embeddings.size() == 1) {
         val embedding = embedding_result.result.embeddings[0];
-        val vector = embedding.join_to_text(",", "[", "]");
 
         log("Store vector for embedding %s".format(id));
 
         val text_embedding = text_embedding @ { .id == id };
-        text_embedding.vector = vector;
-        vdb.store_vector("texts", 0, vector, text_embedding.rowid.to_integer());
+        text_embedding.vector = embedding;
+        vdb.store_vector("texts", 0, embedding, text_embedding.rowid.to_integer());
     } else {
         log("Unexpected response for embedding computation %s".format(id));
     }
 }
 
 query get_text_embedding(id: text) {
-    val text_embedding = text_embedding @? { .id == id } ( .rowid, .vector );
-    if (text_embedding == null) {
-        return null;
-    }
-    return text_embedding;
+    return text_embedding @? { .id == id } ( .rowid, .vector );
 }

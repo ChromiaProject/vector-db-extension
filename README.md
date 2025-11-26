@@ -70,14 +70,12 @@ blockchains:
         - "net.postchain.gtx.extensions.vectordb.VectorDBQueryComputeEngine"
       vector_db_extension:
         query_compute:
-            timeout_ms: 3000 # Optional: Timeout used for both compute and validate. Default is 3000ms.
+            timeout_seconds: 3 # Optional: Timeout used for both compute and validate. Default is 3.
 ```
 
 Then use the [Rell library](#query-compute-library) to request query computations.
 
 #### Compute embeddings
-
-**⚠️ Warning:** This feature is experimental and not ready for production use. It is a proof of concept and may change in the future.
 
 The extension supports computing embeddings via the hybrid compute infrastructure by calling an
 external service and then executing a Rell function with the results.  Update the blockchain configuration to enable this:
@@ -99,7 +97,7 @@ blockchains:
       vector_db_extension:
         embedding_compute:
             model: "<model>"
-            timeout_ms: 3000 # Optional: Timeout used for both compute and validate to retrieve result from the model. Default is 3000ms.
+            timeout_seconds: 3 # Optional: Timeout used for both compute and validate to retrieve result from the model. Default is 3.
 ```
 
 The model can be any model supported by the cluster. Then use the [Rell library](#embedding-compute-library) to request embeddings.
@@ -159,8 +157,6 @@ function (id: text, type: text, result: hc.compute_result) {
 ```
 
 #### Embedding compute library
-
-**⚠️ Warning:** This feature is experimental and not ready for production use. It is a proof of concept and may change in the future.
 
 To compute embeddings you need to add the following libraries:
 

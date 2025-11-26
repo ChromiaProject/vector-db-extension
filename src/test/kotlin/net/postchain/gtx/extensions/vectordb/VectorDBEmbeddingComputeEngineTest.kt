@@ -24,10 +24,7 @@ import java.util.concurrent.TimeUnit
 class VectorDBEmbeddingComputeEngineTest {
 
     val unroutableInternetUrl = "http://10.255.255.1:1"
-    val input = GtvObjectMapper.toGtvDictionary(EmbeddingRequest(gtv(mapOf(
-            "model" to gtv("model"),
-            "input" to gtv(listOf(gtv("text1")))
-    ))))
+    val input = GtvObjectMapper.toGtvDictionary(EmbeddingRequest(listOf("text1")))
 
     @Test
     @Timeout(10, unit = TimeUnit.SECONDS)

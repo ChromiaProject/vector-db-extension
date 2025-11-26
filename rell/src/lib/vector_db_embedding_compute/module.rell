@@ -6,14 +6,14 @@ val my_type = "vector-db-embedding";
 
 /** Input for a embedding compute request */
 struct embedding_request {
-    /** Input passed on to model. Verify the format for your model. */
-    input: gtv;
+    /** Input passed on to model. */
+    input: list<text>;
 }
 
 /** Embedding results from model */
 struct embedding_response {
-    /** List of list of vectors from the embedding results. The embedding list is serves in same order as input. */
-    embeddings: list<list<text>>;
+    /** List of vectors from the embedding results. Same order as in request */
+    embeddings: list<text>;
 }
 
 struct embedding_result {
@@ -41,7 +41,7 @@ query vdbec_bogus(embedding_request): embedding_result = embedding_result(result
  * @param texts A list of texts.
  */
 function submit_text_embedding_request(id: text, texts: list<text>) {
-    val input = embedding_request(texts.to_gtv());
+    val input = embedding_request(texts);
     hc.submit_compute_request(id, my_type, input.to_gtv_pretty());
 }
 
