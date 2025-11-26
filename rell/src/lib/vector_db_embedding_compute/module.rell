@@ -1,0 +1,78 @@
+module;
+
+import hc: lib.hybridcompute.*;
+
+val my_type = "vector-db-embedding";
+
+/** Input for a embedding compute request */
+struct embedding_request {
+    /** Input passed on to model. */
+    input: list<text>;
+}
+
+/** Embedding results from model */
+struct embedding_response {
+    /** List of vectors from the embedding results. Same order as in request */
+    embeddings: list<text>;
+}
+
+struct embedding_result {
+    /** The result of the embedding, or null if an error occurred. */
+    result: embedding_response?;
+
+    /** An error message if the embedding request failed, or null if no error occurred. */
+    error: text?;
+
+    /** RID of the transaction where the result was reported. */
+    tx_rid: byte_array;
+
+    /** Index of the operation where the result was reported. */
+    op_index: integer;
+}
+
+// TODO need something to force generation of code for the structs
+query vdbec_bogus(embedding_request): embedding_result = embedding_result(result = null, error = null, x"", 0);
+
+/**
+ * Submits a text embedding computation request to be processed asynchronously.
+ * Extend `on_embedding_result` to get the result when it is ready.
+ *
+ * @param id Unique ID for this query compute request.
+ * @param texts A list of texts.
+ */
+function submit_text_embedding_request(id: text, texts: list<text>) {
+    val input = embedding_request(texts);
+    hc.submit_compute_request(id, my_type, input.to_gtv_pretty());
+}
+
+@extend(hc.on_compute_result)
+function (id: text, type: text, result: hc.compute_result) {
+    if (type != my_type) return;
+
+    on_embedding_result(
+        id,
+        if (result.result != null)
+            embedding_result(
+                result = embedding_response.from_gtv_pretty(result.result),
+                error = null,
+                tx_rid = result.tx_rid,
+                op_index = result.op_index
+            )
+        else
+            embedding_result(
+            result = null,
+            error = result.error,
+            tx_rid = result.tx_rid,
+            op_index = result.op_index
+        )
+    );
+}
+
+/**
+ * Called when an embedding is finished, successfully or failed.
+ *
+ * @param id The identifier of the embedding request
+ * @param embedding_result The result
+ */
+@extendable function on_embedding_result(id: text, embedding_result: embedding_result) {}
+

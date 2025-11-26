@@ -24,7 +24,6 @@ import net.postchain.test.modify
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
 import java.util.concurrent.TimeUnit
-import kotlin.collections.map
 
 class VectorDbSnapshotIT : SnapshotTestBase() {
 

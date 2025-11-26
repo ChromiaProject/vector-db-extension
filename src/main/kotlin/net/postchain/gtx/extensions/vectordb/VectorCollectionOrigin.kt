@@ -1,4 +1,4 @@
-package net.postchain.gtx.extensions.vectordb.config
+package net.postchain.gtx.extensions.vectordb
 
 enum class VectorCollectionOrigin {
     STATIC,

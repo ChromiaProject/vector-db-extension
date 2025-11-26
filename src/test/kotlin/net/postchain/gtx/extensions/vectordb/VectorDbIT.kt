@@ -16,7 +16,6 @@ import net.postchain.gtx.Gtx
 import net.postchain.gtx.GtxBody
 import net.postchain.gtx.GtxOp
 import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.VECTOR_DB_QUERY_CLOSEST_OBJECTS
-import net.postchain.gtx.extensions.vectordb.config.VectorDBIndex
 import net.postchain.gtx.extensions.vectordb.helpers.VectorDbTestExceptionCaptorGTXModule
 import net.postchain.gtx.extensions.vectordb.helpers.addCollection
 import net.postchain.gtx.extensions.vectordb.helpers.addMessage

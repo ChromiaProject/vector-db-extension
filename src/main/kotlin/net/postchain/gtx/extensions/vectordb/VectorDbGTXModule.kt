@@ -25,7 +25,6 @@ import net.postchain.gtx.SnapshotContext
 import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseAccess.Vector
 import net.postchain.gtx.extensions.vectordb.VectorDbDatumMapper.Companion.fromMetaDataGtv
 import net.postchain.gtx.extensions.vectordb.VectorDbDatumMapper.Companion.fromVectorDatumGtv
-import net.postchain.gtx.extensions.vectordb.config.VectorCollectionOrigin
 import net.postchain.gtx.extensions.vectordb.config.VectorDbConfig
 import net.postchain.gtx.special.GTXSpecialTxExtension
 import java.math.BigDecimal

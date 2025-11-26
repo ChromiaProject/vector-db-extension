@@ -103,6 +103,7 @@ deploy_library_chain:
     - chr build
     - ../ci/library_chain/deploy.sh -n vector_db --major 2 --minor 2
     - ../ci/library_chain/deploy.sh -n vector_db_query_compute --major 2 --minor 3 --library-description "Library for the Vector DB extension that computes queries asynchronously. EXPERIMENTAL FEATURE, DO NOT USE IN PRODUCTION."
+    - ../ci/library_chain/deploy.sh -n vector_db_embedding_compute --major 0 --minor 1 --library-description "Library for the Vector DB extension that computes embeddings asynchronously."
 
 gitlab-release:
   extends: .gitlab-release-with-notes

@@ -36,11 +36,6 @@ blockchains:
       gtx:
         modules:
           - "net.postchain.gtx.extensions.vectordb.VectorDbGTXModule"
-          - "net.postchain.hybridcompute.HybridComputeGTXModule"  # Only required if using query compute
-      sync_ext:
-        - "net.postchain.hybridcompute.HybridComputeSynchronizationInfrastructureExtension"  # Only required if using query compute
-      hybridcompute:
-        engine: "net.postchain.gtx.extensions.vectordb.VectorDBQueryComputeEngine" # Only required if using query compute
       # Static collections defined below, omit if using dynamic mode
       vector_db_extension:
         collections:
@@ -52,6 +47,60 @@ blockchains:
 ```
 
 And make sure you deploy your chain to a container with the extension supported.
+
+#### Query compute
+
+**⚠️ Warning:** This feature is experimental and not ready for production use. It is a proof of concept and may change in the future.
+
+The extension supports computing queries asynchronously via the hybrid compute infrastructure. Update the blockchain configuration to enable this:
+
+```yaml
+blockchains:
+  my_chain:
+    module: my_chain_module
+    config:
+      gtx:
+        modules:
+          - "net.postchain.gtx.extensions.vectordb.VectorDbGTXModule"
+          - "net.postchain.hybridcompute.HybridComputeGTXModule"
+      sync_ext:
+        - "net.postchain.hybridcompute.HybridComputeSynchronizationInfrastructureExtension"
+      hybridcompute:
+        engines:
+        - "net.postchain.gtx.extensions.vectordb.VectorDBQueryComputeEngine"
+      vector_db_extension:
+        query_compute:
+            timeout_seconds: 3 # Optional: Timeout used for both compute and validate. Default is 3.
+```
+
+Then use the [Rell library](#query-compute-library) to request query computations.
+
+#### Compute embeddings
+
+The extension supports computing embeddings via the hybrid compute infrastructure by calling an
+external service and then executing a Rell function with the results.  Update the blockchain configuration to enable this:
+
+```yaml
+blockchains:
+  my_chain:
+    module: my_chain_module
+    config:
+      gtx:
+        modules:
+          - "net.postchain.gtx.extensions.vectordb.VectorDbGTXModule"
+          - "net.postchain.hybridcompute.HybridComputeGTXModule"
+      sync_ext:
+        - "net.postchain.hybridcompute.HybridComputeSynchronizationInfrastructureExtension"
+      hybridcompute:
+        engines:
+        - "net.postchain.gtx.extensions.vectordb.VectorDBEmbeddingComputeEngine"
+      vector_db_extension:
+        embedding_compute:
+            model: "<model>"
+            timeout_seconds: 3 # Optional: Timeout used for both compute and validate to retrieve result from the model. Default is 3.
+```
+
+The model can be any model supported by the cluster. Then use the [Rell library](#embedding-compute-library) to request embeddings.
 
 ## How to use in the dApp
 
@@ -80,9 +129,9 @@ To compute vector queries you need to add the following libraries:
 ```yaml
 libs:
   com.chromia.vector_db_query_compute:
-    version: 2.3.0 # Set to the version you want to use
+    version: 2.3.2 # Set to the version you want to use
   com.chromia.hybridcompute: # vector_db_query_compute depends on this library
-    version: 3.35.4
+    version: 3.35.3
 ```
 
 Available versions can be found by running `chr library versions com.chromia.vector_db_query_compute`.
@@ -104,6 +153,35 @@ function (id: text, type: text, result: hc.compute_result) {
     if (type != my_type) return;
 
     log("Query computation for query id %s completed".format(id));
+}
+```
+
+#### Embedding compute library
+
+To compute embeddings you need to add the following libraries:
+
+```yaml
+libs:
+  com.chromia.vector_db_embedding_compute:
+    version: 0.1.0 # Set to the version you want to use
+  com.chromia.hybridcompute: # vector_db_query_compute depends on this library
+    version: 3.35.3
+```
+
+Run `chr install` to install the library. Once installed you can submit embedding requests to be processed asynchronously:
+
+```rell
+operation embed(id: text, text: text) {
+    create text_embedding(id, text);
+    // Generate embeddings for one or multiple texts in the same request
+    submit_text_embedding_request(id, [text]);
+}
+
+// Process the embedding result
+@extend(on_embedding_result)
+function (id: text, embedding_result: embedding_result) {
+    /* `embedding_result.result.embeddings` contains one embedding per text submitted in the request and in the same order */
+    /* Embeddings can be stored as vectors: store_vector("my_collection", contextId, vector, id); */
 }
 ```
 

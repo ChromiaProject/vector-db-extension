@@ -1,0 +1,41 @@
+module;
+
+import vdbe: lib.vector_db_embedding_compute.*;
+import vdb: lib.vector_db.*;
+
+import vector_example.*;
+
+entity text_embedding {
+    id: text;
+    text: text;
+    mutable vector: text = "";
+}
+
+operation embed(id: text, text: text) {
+    create text_embedding(id, text);
+    vdbe.submit_text_embedding_request(id, [text]);
+}
+
+entity query_result {
+    id: text;
+    result: byte_array;
+}
+
+@extend(vdbe.on_embedding_result)
+function (id: text, embedding_result: vdbe.embedding_result) {
+    if (embedding_result.result != null and embedding_result.result.embeddings.size() == 1) {
+        val embedding = embedding_result.result.embeddings[0];
+
+        log("Store vector for embedding %s".format(id));
+
+        val text_embedding = text_embedding @ { .id == id };
+        text_embedding.vector = embedding;
+        vdb.store_vector("texts", 0, embedding, text_embedding.rowid.to_integer());
+    } else {
+        log("Unexpected response for embedding computation %s".format(id));
+    }
+}
+
+query get_text_embedding(id: text) {
+    return text_embedding @? { .id == id } ( .rowid, .vector );
+}

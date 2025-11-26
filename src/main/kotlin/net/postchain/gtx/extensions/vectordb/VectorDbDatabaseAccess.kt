@@ -9,10 +9,8 @@ import net.postchain.gtv.Gtv
 import net.postchain.gtv.GtvArray
 import net.postchain.gtv.GtvFactory.gtv
 import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.VECTOR_DB_META_DATUM_ID
-import net.postchain.gtx.extensions.vectordb.config.VectorDBIndex
 import net.postchain.gtx.extensions.vectordb.config.VectorDbCollectionConfig
 import net.postchain.gtx.extensions.vectordb.config.VectorDbConfig
-import net.postchain.gtx.extensions.vectordb.config.VectorCollectionOrigin
 import java.math.BigDecimal
 import java.sql.ResultSet
 import java.sql.Statement.EXECUTE_FAILED
@@ -364,7 +362,7 @@ class VectorDbDatabaseAccess{
         val vectorRsIdx = ai++
         val contextRsIdx = if (context != null) ai++ else -1
         val maxVectorsRsIdx = ai++
-        val maxDistanceRsIdx = ai++
+        val maxDistanceRsIdx = ai
         ctx.conn.prepareStatement(
                 """
                 WITH nearest_results AS MATERIALIZED (

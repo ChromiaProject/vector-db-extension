@@ -24,7 +24,7 @@ class VectorDbQueryComputeIT : IntegrationTestSetup() {
 
     @Test
     fun `compute multiple queries`() {
-        val node = createNodes(3, "/chains/vector_example_compute_test.xml")[0]
+        val node = createNodes(3, "/chains/vector_example_query_compute_test.xml")[0]
 
         buildBlock(DEFAULT_CHAIN_IID, node.buildTransaction(listOf(
                 GtxOp("add_message", gtv("message 1"), gtv("[0.11, 0.21, 0.31]")),
@@ -79,7 +79,7 @@ class VectorDbQueryComputeIT : IntegrationTestSetup() {
 
     @Test
     fun `compute error`() {
-        val node = createNodes(3, "/chains/vector_example_compute_test.xml")[0]
+        val node = createNodes(3, "/chains/vector_example_query_compute_test.xml")[0]
 
         buildBlock(DEFAULT_CHAIN_IID, node.buildTransaction(listOf(
                 GtxOp("submit_query_request",
