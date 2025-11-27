@@ -15,13 +15,13 @@ import net.postchain.gtx.extensions.vectordb.config.VectorDbConfig
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import org.mockito.Mockito.`when`
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
 import java.sql.Connection
 import java.util.concurrent.ConcurrentHashMap
 
@@ -107,8 +107,8 @@ class VectorDbGTXModuleTest {
 
     @Test
     fun `collections - origin modes - static can't started when dynamics exists`() {
-        `when`(dbaMock.getCollectionOrigins(any())).doReturn(setOf(VectorCollectionOrigin.DYNAMIC))
-        `when`(dbaMock.getExistingCollections(any())).doReturn(emptyMap())
+        whenever(dbaMock.getCollectionOrigins(any())).doReturn(setOf(VectorCollectionOrigin.DYNAMIC))
+        whenever(dbaMock.getExistingCollections(any())).doReturn(emptyMap())
 
         val configuration = mock<GTXBlockchainConfiguration> {
             on { module } doReturn context.module
@@ -128,8 +128,8 @@ class VectorDbGTXModuleTest {
 
     @Test
     fun `reject config with new distance type`() {
-        `when`(dbaMock.getCollectionOrigins(any())).doReturn(setOf(VectorCollectionOrigin.STATIC))
-        `when`(dbaMock.getExistingCollections(any())).doReturn(mapOf(collection1.name to collection1))
+        whenever(dbaMock.getCollectionOrigins(any())).doReturn(setOf(VectorCollectionOrigin.STATIC))
+        whenever(dbaMock.getExistingCollections(any())).doReturn(mapOf(collection1.name to collection1))
 
         val configuration = mock<GTXBlockchainConfiguration> {
             on { module } doReturn context.module
@@ -149,8 +149,8 @@ class VectorDbGTXModuleTest {
 
     @Test
     fun `reject config with new dimension`() {
-        `when`(dbaMock.getCollectionOrigins(any())).doReturn(setOf(VectorCollectionOrigin.STATIC))
-        `when`(dbaMock.getExistingCollections(any())).doReturn(mapOf(collection1.name to collection1))
+        whenever(dbaMock.getCollectionOrigins(any())).doReturn(setOf(VectorCollectionOrigin.STATIC))
+        whenever(dbaMock.getExistingCollections(any())).doReturn(mapOf(collection1.name to collection1))
 
         val configuration = mock<GTXBlockchainConfiguration> {
             on { module } doReturn context.module
