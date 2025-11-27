@@ -129,7 +129,7 @@ open class VectorDbGTXModule(
         conf.collectionsByName = ConcurrentHashMap(getActiveCollections(db, ctx, conf.vectorDbConfig))
 
         // Validate any pending static collection updates
-        val updatedCollections = db.getAndVerifyUpdatedStaticCollections(ctx, conf.vectorDbConfig)
+        val updatedCollections = getAndVerifyUpdatedStaticCollections(ctx, conf.vectorDbConfig)
         val pendingStaticCollections = updatedCollections.isNotEmpty()
         conf.collectionOriginMode = getAndEnsureOneOriginMode(db, ctx, pendingStaticCollections)
 
@@ -188,6 +188,26 @@ open class VectorDbGTXModule(
             }
             db.addReusableDatumIds(ctx, reusableDatumIds)
         }
+    }
+
+    private fun getAndVerifyUpdatedStaticCollections(ctx: EContext, config: VectorDbConfig): List<VectorCollection> {
+        val collectionsMap = db.getExistingCollections(ctx)
+        return config.collections
+                .toList().sortedBy { it.first }
+                .map { (name, tableConfig) ->
+                    val existingCollection = collectionsMap[name]
+                    if (existingCollection != null) {
+                        if (existingCollection.dimensions != tableConfig.dimensions) {
+                            throw UserMistake("Changing dimensions is not supported for collection $name")
+                        }
+                        if (existingCollection.index != tableConfig.indexType) {
+                            throw UserMistake("Changing embedded index is not supported for collection $name")
+                        }
+                    }
+
+                    val id = existingCollection?.id ?: db.getNextTableId(ctx)
+                    VectorCollection(id, name, tableConfig, VectorCollectionOrigin.STATIC)
+                }
     }
 
     private fun validateConfiguration(vectorDbConfig: VectorDbConfig) {

@@ -23,7 +23,7 @@ data class VectorDbCollectionConfig(
 
         @param:Name("index")
         @param:DefaultValue(defaultString = "hnsw_cosine")
-        private val indexString: String,
+        val indexString: String,
 ) {
     val indexType: VectorDBIndex by lazy {
         try {
