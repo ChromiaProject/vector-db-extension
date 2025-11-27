@@ -41,7 +41,7 @@ class VectorDbGTXModuleTest {
 
         context.module = VectorDbGTXModule()
         context.collectionsByName = ConcurrentHashMap(mapOf("collection1" to VectorCollection(
-                0, "collection1", 100, 10, 300, VectorDBIndex.HNSW_COSINE, VectorCollectionOrigin.STATIC, true
+                0, "collection1", 3, 10, 300, VectorDBIndex.HNSW_COSINE, VectorCollectionOrigin.STATIC, true
         )))
         context.vectorDbConfig = mock()
     }

@@ -1,5 +1,6 @@
 package net.postchain.gtx.extensions.vectordb
 
+import assertk.assertFailure
 import assertk.assertThat
 import assertk.assertions.containsOnly
 import assertk.assertions.extracting
@@ -7,8 +8,11 @@ import assertk.assertions.hasMessage
 import assertk.assertions.hasSize
 import assertk.assertions.isEmpty
 import assertk.assertions.isEqualTo
+import assertk.assertions.isInstanceOf
 import assertk.assertions.isNotNull
 import assertk.assertions.isTrue
+import assertk.assertions.messageContains
+import net.postchain.common.exception.UserMistake
 import net.postchain.devtools.IntegrationTestSetup
 import net.postchain.devtools.PostchainTestNode.Companion.DEFAULT_CHAIN_IID
 import net.postchain.gtv.GtvFactory.gtv
@@ -392,7 +396,6 @@ class VectorDbIT : IntegrationTestSetup() {
                     ))
                 }
         node.addConfiguration(DEFAULT_CHAIN_IID, 2, blockchainGtvConfig)
-//        buildBlock(DEFAULT_CHAIN_IID)
 
         Awaitility.await().atMost(Duration.TEN_SECONDS)
                 .untilAsserted {
@@ -477,7 +480,21 @@ class VectorDbIT : IntegrationTestSetup() {
 
         val reason = engine.getTransactionQueue().getRejectionReason(txRid)
         assertThat(reason?.first).isNotNull()
-                .hasMessage("Vector 1 has 2 dimensions, but the collection requires 3 dimensions")
+                .hasMessage("Vector is expected to have 3 dimensions")
+    }
+
+    @Test
+    fun `add vector invalid format`() {
+
+        val node = createNodes(1, "/chains/vector_example_test.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
+
+        val txRid = addMessage(engine, "hello", "1, 2")
+        buildBlock(DEFAULT_CHAIN_IID)
+
+        val reason = engine.getTransactionQueue().getRejectionReason(txRid)
+        assertThat(reason?.first).isNotNull()
+                .hasMessage("Vector is not correctly formatted")
     }
 
     @Test
@@ -510,5 +527,33 @@ class VectorDbIT : IntegrationTestSetup() {
 
         assertThat(queryClosestObjectsNoTemplate(engine, "collection_1", 0, "[1, 2, 3]", 10.0, 10).map { it.second })
                 .isEqualTo(listOf(4L, 6L))
+    }
+
+    @Test
+    fun `query with invalid vector format`() {
+        val node = createNodes(1, "/chains/vector_example_test.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
+        buildBlock(DEFAULT_CHAIN_IID)
+
+        assertFailure {
+            queryClosestObjectsNoTemplate(engine, "messages", 0, "1, 2, 3]", 10.0, 10)
+        }.isInstanceOf(UserMistake::class)
+                .messageContains("Vector is not correctly formatted")
+    }
+
+
+    @Test
+    fun `add and query with scientific annotation`() {
+        val node = createNodes(1, "/chains/vector_example_test.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
+
+        addMessage(engine, "alpha", "[-2.7173894e-1, 2, 3]")
+        buildBlock(DEFAULT_CHAIN_IID)
+
+        assertThat(
+                queryClosestObjectsGetTextAndDistance(engine, "messages", 0, "[-1.7e-1, 2, 3]", 1.0, 3, "get_messages_with_distance")
+        ).isEqualTo(listOf(
+                mapOf("text" to "alpha", "distance" to "0.0003946730651123165"),
+        ))
     }
 }
