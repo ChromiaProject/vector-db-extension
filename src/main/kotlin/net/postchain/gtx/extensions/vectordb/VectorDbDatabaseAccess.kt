@@ -2,7 +2,6 @@ package net.postchain.gtx.extensions.vectordb
 
 import mu.KLogging
 import net.postchain.common.exception.ProgrammerMistake
-import net.postchain.common.exception.UserMistake
 import net.postchain.core.EContext
 import net.postchain.core.TxEContext
 import net.postchain.gtv.Gtv
@@ -10,12 +9,10 @@ import net.postchain.gtv.GtvArray
 import net.postchain.gtv.GtvFactory.gtv
 import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.VECTOR_DB_META_DATUM_ID
 import net.postchain.gtx.extensions.vectordb.config.VectorDbCollectionConfig
-import net.postchain.gtx.extensions.vectordb.config.VectorDbConfig
 import java.math.BigDecimal
 import java.sql.ResultSet
 import java.sql.Statement.EXECUTE_FAILED
 import java.util.LinkedList
-import kotlin.use
 
 
 class VectorDbDatabaseAccess{
@@ -56,26 +53,6 @@ class VectorDbDatabaseAccess{
         initializePgVector(ctx)
         initializeCollectionsTable(ctx)
         initializeReusableDatumIdTable(ctx)
-    }
-
-    fun getAndVerifyUpdatedStaticCollections(ctx: EContext, config: VectorDbConfig): List<VectorCollection> {
-        val collectionsMap = getExistingCollections(ctx)
-        return config.collections
-                .toList().sortedBy { it.first }
-                .map { (name, tableConfig) ->
-                    val existingCollection = collectionsMap[name]
-                    if (existingCollection != null) {
-                        if (existingCollection.dimensions != tableConfig.dimensions) {
-                            throw UserMistake("Changing dimensions is not supported for collection $name")
-                        }
-                        if (existingCollection.index != tableConfig.indexType) {
-                            throw UserMistake("Changing embedded index is not supported for collection $name")
-                        }
-                    }
-
-                    val id = existingCollection?.id ?: getNextTableId(ctx)
-                    VectorCollection(id, name, tableConfig, VectorCollectionOrigin.STATIC)
-                }
     }
 
     fun createOrUpdateCollectionTables(ctx: EContext) {
@@ -230,7 +207,7 @@ class VectorDbDatabaseAccess{
         }
     }
 
-    private fun getNextTableId(ctx: EContext): Long {
+    fun getNextTableId(ctx: EContext): Long {
         return ctx.conn.createStatement().use { stmt ->
             stmt.executeQuery("SELECT MAX(id) AS max_value FROM ${getCollectionMetaTableName(ctx)}").use {
                 if (it.next()) {

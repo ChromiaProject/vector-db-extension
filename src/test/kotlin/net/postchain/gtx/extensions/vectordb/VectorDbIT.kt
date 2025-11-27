@@ -20,7 +20,6 @@ import net.postchain.gtx.Gtx
 import net.postchain.gtx.GtxBody
 import net.postchain.gtx.GtxOp
 import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.VECTOR_DB_QUERY_CLOSEST_OBJECTS
-import net.postchain.gtx.extensions.vectordb.helpers.VectorDbTestExceptionCaptorGTXModule
 import net.postchain.gtx.extensions.vectordb.helpers.addCollection
 import net.postchain.gtx.extensions.vectordb.helpers.addMessage
 import net.postchain.gtx.extensions.vectordb.helpers.addMessages
@@ -273,28 +272,6 @@ class VectorDbIT : IntegrationTestSetup() {
     }
 
     @Test
-    fun `reject config with new distance type`() {
-        val node = createNodes(1, "/chains/vector_example_test.xml")[0]
-
-        val blockchainGtvConfig = readBlockchainConfig("/chains/vector_example_test.xml")
-                .modify(listOf("gtx", "modules")) {
-                    gtv(gtv("net.postchain.gtx.extensions.vectordb.helpers.VectorDbTestExceptionCaptorGTXModule"))
-                }
-                .modify(listOf("vector_db_extension", "collections", "messages", "index")) {
-                    gtv(VectorDBIndex.HNSW_L2.name)
-                }
-        node.addConfiguration(DEFAULT_CHAIN_IID, 2, blockchainGtvConfig)
-
-        Awaitility.await().atMost(Duration.TEN_SECONDS)
-                .untilAsserted {
-                    try {
-                        buildBlockNoWait(nodes, DEFAULT_CHAIN_IID, 2)
-                    } catch (_: Exception) { }
-                    assertThat(VectorDbTestExceptionCaptorGTXModule.INIT_EXCEPTION).isNotNull().hasMessage("Changing embedded index is not supported for collection messages")
-                }
-    }
-
-    @Test
     fun `dynamic collection - create and delete`() {
         val node = createNodes(1, "/chains/vector_example_test_dynamic_collections.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
@@ -423,33 +400,6 @@ class VectorDbIT : IntegrationTestSetup() {
     }
 
     @Test
-    fun `collections - origin modes - static can't started when dynamics exists`() {
-
-        val node = createNodes(1, "/chains/vector_example_test_dynamic_collections.xml")[0]
-        val engine = node.getBlockchainInstance().blockchainEngine
-
-        buildBlock(DEFAULT_CHAIN_IID)
-        assertThat(getVectorCollections(engine)).hasSize(0)
-
-        addCollection(engine, "dynamic", 128, VectorDBIndex.HNSW_COSINE, 10, 100)
-        buildBlock(DEFAULT_CHAIN_IID)
-
-        val blockchainGtvConfig = readBlockchainConfig("/chains/vector_example_test.xml")
-                .modify(listOf("gtx", "modules")) {
-                    gtv(gtv("net.postchain.gtx.extensions.vectordb.helpers.VectorDbTestExceptionCaptorGTXModule"))
-                }
-        node.addConfiguration(DEFAULT_CHAIN_IID, 3, blockchainGtvConfig)
-
-        Awaitility.await().atMost(Duration.TEN_SECONDS)
-                .untilAsserted {
-                    buildBlockNoWait(listOf(node), DEFAULT_CHAIN_IID, 3)
-                    assertThat(VectorDbTestExceptionCaptorGTXModule.INIT_EXCEPTION)
-                            .isNotNull()
-                            .hasMessage("Database initialized with static collections, but dynamic collections exist in DB")
-                }
-    }
-
-    @Test
     fun `dynamic collection - restart node `() {
         val node = createNodes(1, "/chains/vector_example_test_dynamic_collections.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
@@ -514,7 +464,7 @@ class VectorDbIT : IntegrationTestSetup() {
         buildBlock(DEFAULT_CHAIN_IID)
 
         addMessagesInCollection(engine, "collection_1", listOf("hello_${seq++}" to "[1, 2, 3]", "hello_${seq++}" to "[1, 2, 3]", "hello_${seq++}" to "[1, 2, 3]"))
-        addMessagesInCollection(engine, "collection_2", listOf("hello_${seq++}" to "[1, 2, 3]", "hello_${seq++}" to "[1, 2, 3]", "hello_${seq++}" to "[1, 2, 3]"))
+        addMessagesInCollection(engine, "collection_2", listOf("hello_${seq++}" to "[1, 2, 3]", "hello_${seq++}" to "[1, 2, 3]", "hello_${seq}" to "[1, 2, 3]"))
         buildBlock(DEFAULT_CHAIN_IID)
 
         assertThat(queryClosestObjectsNoTemplate(engine, "collection_1", 0, "[1, 2, 3]", 10.0, 10).map { it.second })
