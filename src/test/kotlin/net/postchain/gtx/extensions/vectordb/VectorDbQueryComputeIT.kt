@@ -94,7 +94,9 @@ class VectorDbQueryComputeIT : IntegrationTestSetup() {
             buildBlock(DEFAULT_CHAIN_IID)
 
             getAndAssertComputation(node, "id-1") { result ->
-                assertThat(result?.error).isNotNull()
+                assertThat(result?.error)
+                        .isNotNull()
+                        .isEqualTo("Vector is not correctly formatted")
             }
         }
     }

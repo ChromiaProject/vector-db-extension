@@ -59,6 +59,7 @@ open class VectorDbGTXModule(
             val collection = moduleContext.collectionsByName[collectionArg] ?: throw UserMistake("Collection $collectionArg not found")
             val context = args["context"]?.asIntegerOrNull()
             val vectorQuery = args["q_vector"]?.asString() ?: throw UserMistake("No q_vector argument supplied")
+            validVectorOrThrow(vectorQuery, collection.dimensions.toInt())
             val maxDistance = BigDecimal(args["max_distance"]?.asString()
                     ?: throw UserMistake("No max_distance argument supplied"))
             val maxVectors = args["query_max_vectors"]?.asIntegerOrNull()?.let {

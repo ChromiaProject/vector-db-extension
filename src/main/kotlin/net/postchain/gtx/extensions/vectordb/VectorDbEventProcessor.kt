@@ -66,6 +66,7 @@ open class VectorDbEventProcessor(
         val (collection, context) = parseCollectionAndContextArgs(ctxt, args)
         val vectors = args["vectors"]?.asArray()?.map {
             val vector = it["vector"]?.asString() ?: throw UserMistake("No vector argument supplied")
+            validVectorOrThrow(vector, collection.dimensions.toInt())
             val id = it["id"]?.asInteger() ?: throw UserMistake("No id argument supplied")
             vector to id
         } ?: throw UserMistake("No vectors argument supplied")
