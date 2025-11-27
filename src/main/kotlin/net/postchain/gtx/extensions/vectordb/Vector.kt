@@ -15,7 +15,7 @@ fun isVectorExpectedDimensions(vector: String, dimensions: Int): Boolean {
     return vector.split(",").size == dimensions
 }
 
-fun validVectorOrThrow(vector: String, expectedCollections: Int) {
+fun requireValidVector(vector: String, expectedCollections: Int) {
     if (!isValidVectorFormat(vector)) {
         throw UserMistake("Vector is not correctly formatted")
     }
