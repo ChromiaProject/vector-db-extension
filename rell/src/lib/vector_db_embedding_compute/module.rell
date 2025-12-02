@@ -30,7 +30,7 @@ struct embedding_result {
     op_index: integer;
 }
 
-// TODO need something to force generation of code for the structs
+// Force generation of code for the structs
 query vdbec_bogus(embedding_request): embedding_result = embedding_result(result = null, error = null, x"", 0);
 
 /**

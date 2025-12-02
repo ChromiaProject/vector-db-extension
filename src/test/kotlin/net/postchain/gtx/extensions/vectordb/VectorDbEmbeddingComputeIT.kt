@@ -4,7 +4,6 @@ import assertk.assertThat
 import assertk.assertions.hasSize
 import assertk.assertions.isEqualTo
 import assertk.assertions.isNotEqualTo
-import net.postchain.devtools.IntegrationTestSetup
 import net.postchain.devtools.PostchainTestNode.Companion.DEFAULT_CHAIN_IID
 import net.postchain.devtools.query
 import net.postchain.gtv.GtvFactory.gtv
@@ -22,7 +21,7 @@ import org.junit.jupiter.api.Timeout
 import java.util.concurrent.TimeUnit
 
 @Timeout(10, unit = TimeUnit.MINUTES)
-class VectorDbEmbeddingComputeIT : IntegrationTestSetup() {
+class VectorDbEmbeddingComputeIT : PGVectorBaseTest() {
 
     private val embeddingServiceContainer = SentenceTransformationMiniLMContainer()
 

@@ -72,15 +72,20 @@ open class VectorDbGTXModule(
 
             val vectorResult = moduleContext.databaseOperations.queryClosestObjects(ctx, collection.id, context,
                     vectorQuery, maxDistance, maxVectors, collection.index)
+            val vectorGtvResult = gtv(vectorResult.map { gtv(
+                    "context" to gtv(it.context),
+                    "id" to gtv(it.id),
+                    "distance" to gtv(it.distance)
+            ) })
 
             return if (queryTemplate == null) {
-                vectorResult
+                vectorGtvResult
             } else {
                 val queryTemplateName = queryTemplate["name"]?.asString()
                         ?: throw UserMistake("No name argument supplied to query_template")
                 val queryTemplateArgs = queryTemplate["args"]?.asDict() ?: mapOf()
                 return moduleContext.module.query(ctx, queryTemplateName,
-                        gtv(mapOf("closest_results" to vectorResult) + queryTemplateArgs))
+                        gtv(mapOf("closest_results" to vectorGtvResult) + queryTemplateArgs))
             }
         }
 

@@ -5,7 +5,6 @@ import assertk.assertThat
 import assertk.assertions.hasSize
 import assertk.assertions.isEqualTo
 import net.postchain.base.withReadConnection
-import net.postchain.base.withWriteConnection
 import net.postchain.concurrent.util.get
 import net.postchain.devtools.PostchainTestNode
 import net.postchain.devtools.PostchainTestNode.Companion.DEFAULT_CHAIN_IID
@@ -21,11 +20,17 @@ import net.postchain.gtx.extensions.vectordb.helpers.getVectors
 import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsGetStrings
 import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsNoTemplate
 import net.postchain.test.modify
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
 import java.util.concurrent.TimeUnit
 
 class VectorDbSnapshotIT : SnapshotTestBase() {
+
+    @BeforeEach
+    fun createExtension() {
+        PGVectorBaseTest.ensureExtension()
+    }
 
     /** With 4 nodes, create vectors and then do a clean restart of node 4 to make it sync snapshot. */
     @Test
@@ -34,12 +39,6 @@ class VectorDbSnapshotIT : SnapshotTestBase() {
         val messages = 30
 
         startManagedSystem(4, 0, restApi = true)
-
-        // Avoid race condition to create the pg vector extension by making sure the extension is created by one node only
-        withWriteConnection(nodes[0].postchainContext.sharedStorage, 0) {
-            it.conn.createStatement().use { stmt -> stmt.execute("CREATE EXTENSION IF NOT EXISTS vector") }
-            true
-        }
 
         val config = GtvMLParser.parseGtvML(Any::class::class.java.getResource("/chains/vector_example_test.xml")!!.readText())
                 .modify(listOf("snapshot")) {
@@ -95,12 +94,6 @@ class VectorDbSnapshotIT : SnapshotTestBase() {
         var refSeq = 0L
 
         startManagedSystem(4, 0, restApi = true)
-
-        // Avoid race condition to create the pg vector extension by making sure the extension is created by one node only
-        withWriteConnection(nodes[0].postchainContext.sharedStorage, 0) {
-            it.conn.createStatement().use { stmt -> stmt.execute("CREATE EXTENSION IF NOT EXISTS vector") }
-            true
-        }
 
         val config = GtvMLParser.parseGtvML(Any::class::class.java.getResource("/chains/vector_only_test.xml")!!.readText())
                 .modify(listOf("snapshot")) {

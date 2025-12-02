@@ -10,7 +10,7 @@ import net.postchain.core.BlockchainConfiguration
 import net.postchain.gtv.GtvFactory.gtv
 import net.postchain.gtv.mapper.GtvObjectMapper
 import net.postchain.gtx.extensions.vectordb.config.VectorDbEmbeddingComputeConfig
-import net.postchain.gtx.extensions.vectordb.hc.lib.vector_db_embedding_compute.EmbeddingRequest
+import net.postchain.gtx.extensions.vectordb.lib.vector_db_embedding_compute.EmbeddingRequest
 import net.postchain.hybridcompute.HybridComputeEngine
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout

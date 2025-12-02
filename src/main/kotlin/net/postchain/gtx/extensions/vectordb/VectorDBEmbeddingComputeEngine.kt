@@ -15,8 +15,8 @@ import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.VECTOR_
 import net.postchain.gtx.extensions.vectordb.config.VectorDbConfig
 import net.postchain.gtx.extensions.vectordb.config.VectorDbEmbeddingComputeConfig
 import net.postchain.gtx.extensions.vectordb.config.VectorDbNodeVLLMConfig
-import net.postchain.gtx.extensions.vectordb.hc.lib.vector_db_embedding_compute.EmbeddingRequest
-import net.postchain.gtx.extensions.vectordb.hc.lib.vector_db_embedding_compute.EmbeddingResponse
+import net.postchain.gtx.extensions.vectordb.lib.vector_db_embedding_compute.EmbeddingRequest
+import net.postchain.gtx.extensions.vectordb.lib.vector_db_embedding_compute.EmbeddingResponse
 import net.postchain.hybridcompute.HybridComputeEngine
 import org.apache.hc.client5.http.config.ConnectionConfig
 import org.apache.hc.client5.http.config.RequestConfig

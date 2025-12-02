@@ -4,14 +4,13 @@ import assertk.assertThat
 import assertk.assertions.hasSize
 import assertk.assertions.isEqualTo
 import net.postchain.base.withWriteConnection
-import net.postchain.devtools.IntegrationTestSetup
 import net.postchain.devtools.PostchainTestNode
 import net.postchain.devtools.PostchainTestNode.Companion.DEFAULT_CHAIN_IID
 import net.postchain.gtx.extensions.vectordb.config.VectorDbCollectionConfig
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
-class VectorDBDatabaseAccessTest : IntegrationTestSetup() {
+class VectorDBDatabaseAccessTest : PGVectorBaseTest() {
 
     private lateinit var dba: VectorDbDatabaseAccess
     private lateinit var node: PostchainTestNode
@@ -29,8 +28,6 @@ class VectorDBDatabaseAccessTest : IntegrationTestSetup() {
     @Test
     fun `test datum id sequence and reuse`() {
         withWriteConnection(node.getBlockchainInstance(DEFAULT_CHAIN_IID).blockchainEngine.blockBuilderStorage, DEFAULT_CHAIN_IID) { ctx ->
-
-            dba.initializePgVector(ctx)
 
             listOf("collection1", "collection2", "collection3").forEach {
                 dba.createCollection(ctx, it, VectorDbCollectionConfig(3,

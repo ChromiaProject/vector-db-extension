@@ -13,7 +13,6 @@ import assertk.assertions.isNotNull
 import assertk.assertions.isTrue
 import assertk.assertions.messageContains
 import net.postchain.common.exception.UserMistake
-import net.postchain.devtools.IntegrationTestSetup
 import net.postchain.devtools.PostchainTestNode.Companion.DEFAULT_CHAIN_IID
 import net.postchain.gtv.GtvFactory.gtv
 import net.postchain.gtx.Gtx
@@ -43,7 +42,7 @@ import org.awaitility.Awaitility
 import org.awaitility.Duration
 import org.junit.jupiter.api.Test
 
-class VectorDbIT : IntegrationTestSetup() {
+class VectorDbIT : PGVectorBaseTest() {
 
     init {
         configOverrides.setProperty("messaging.port", 0)
@@ -490,7 +489,6 @@ class VectorDbIT : IntegrationTestSetup() {
         }.isInstanceOf(UserMistake::class)
                 .messageContains("Vector is not correctly formatted")
     }
-
 
     @Test
     fun `add and query with scientific annotation`() {
