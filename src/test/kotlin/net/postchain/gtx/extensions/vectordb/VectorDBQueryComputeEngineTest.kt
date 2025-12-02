@@ -86,7 +86,44 @@ class VectorDBQueryComputeEngineTest {
     }
 
     @Test
-    fun `validation - reject - too long distance`() {
+    fun `validation - successful - distance close enough`() {
+        val qVector = "[0.1, 0.2, 0.3]"
+        val collection = VectorCollection(1, "c1", 10, 20, 300, VectorDBIndex.HNSW_IP, VectorCollectionOrigin.DYNAMIC, true)
+        val computeResults = listOf(QueryResultObject(1, 0, "0.1234567"))
+        val localResults = listOf(QueryResultObject(1, 0, "0.1234568"))
+        val input = GtvObjectMapper.toGtvDictionary(QueryRequest("c1", qVector, 0.2.toBigDecimal(), null, null))
+
+        whenever(dba.getExistingCollectionByName(any(), anyString())).doReturn(collection)
+        whenever(dba.getDistanceOfResults(any(), eq(collection), eq(qVector), any())).doReturn(localResults)
+
+        engine.initializeContext(configuration, postchainContext, mock())
+
+        val computeOutput = gtv(computeResults.map { GtvObjectMapper.toGtvDictionary(it) })
+        engine.validate(bctx, input, computeOutput)
+    }
+
+    @Test
+    fun `validation - reject - distance not close enough`() {
+        val qVector = "[0.1, 0.2, 0.3]"
+        val collection = VectorCollection(1, "c1", 10, 20, 300, VectorDBIndex.HNSW_IP, VectorCollectionOrigin.DYNAMIC, true)
+        val computeResults = listOf(QueryResultObject(1, 0, "0.12345"))
+        val localResults = listOf(QueryResultObject(1, 0, "0.123456"))
+        val input = GtvObjectMapper.toGtvDictionary(QueryRequest("c1", qVector, 0.1.toBigDecimal(), null, null))
+
+        whenever(dba.getExistingCollectionByName(any(), anyString())).doReturn(collection)
+        whenever(dba.getDistanceOfResults(any(), eq(collection), eq(qVector), any())).doReturn(localResults)
+
+        engine.initializeContext(configuration, postchainContext, mock())
+
+        val computeOutput = gtv(computeResults.map { GtvObjectMapper.toGtvDictionary(it) })
+        assertFailure {
+            engine.validate(bctx, input, computeOutput)
+        }.isInstanceOf(ProgrammerMistake::class)
+                .hasMessage("Distance of some results exceeded max distance")
+    }
+
+    @Test
+    fun `validation - reject - too long distance compared to input params`() {
         val qVector = "[0.1, 0.2, 0.3]"
         val collection = VectorCollection(1, "c1", 10, 20, 300, VectorDBIndex.HNSW_IP, VectorCollectionOrigin.DYNAMIC, true)
         val computeResults = listOf(QueryResultObject(1, 0, "0.3"))
@@ -121,7 +158,7 @@ class VectorDBQueryComputeEngineTest {
         assertFailure {
             engine.validate(bctx, input, computeOutput)
         }.isInstanceOf(ProgrammerMistake::class)
-                .hasMessage("Failed to verify result. Vector not found locally: id=1, context=0, distance=0.1")
+                .hasMessage("Failed to verify result")
     }
 
     @Test

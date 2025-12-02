@@ -25,12 +25,15 @@ import net.postchain.gtx.extensions.vectordb.lib.vector_db_query_compute.QueryRe
 import net.postchain.hybridcompute.DatabaseAwareHybridComputeEngine
 import net.postchain.hybridcompute.HybridComputeEngine
 import java.time.Duration
+import kotlin.math.abs
 
 class VectorDBQueryComputeEngine(
         private val dba: VectorDbDatabaseAccess = VectorDbDatabaseAccess()
 ) : HybridComputeEngine, DatabaseAwareHybridComputeEngine, PostchainContextAware {
 
-    companion object : KLogging()
+    companion object : KLogging() {
+        const val DISTANCE_EPSILON = 1e-6
+    }
 
     override val name = "vector-db-query"
 
@@ -93,12 +96,27 @@ class VectorDBQueryComputeEngine(
             if (localResults.size < computedResult.size) {
                 throw ProgrammerMistake("Failed to verify result. Missing local results.")
             }
-            computedResult.forEach { result ->
-                if (!localResults.remove(result)) {
-                    throw ProgrammerMistake("Failed to verify result. Vector not found locally: id=${result.id}, context=${result.context}, distance=${result.distance}")
+
+            val nonExactHits = computedResult.filter { !localResults.remove(it) }
+            val rejectedHits = nonExactHits.filterNot { computedHit ->
+                localResults.removeIf { localHit ->
+                    computedHit.id == localHit.id &&
+                    computedHit.context == localHit.context &&
+                            approximatelyEqual(computedHit.distance.toDouble(), localHit.distance.toDouble())
                 }
             }
+
+            logger.info { "Query validation results, exact match=${computedResult.size - nonExactHits.size}, " +
+                    "approximate match=${nonExactHits.size - rejectedHits.size}, rejected=${rejectedHits.size}" }
+
+            if (rejectedHits.isNotEmpty()) {
+                throw ProgrammerMistake("Failed to verify result")
+            }
         }
+    }
+
+    private fun approximatelyEqual(a: Double, b: Double, epsilon: Double = DISTANCE_EPSILON): Boolean {
+        return abs(a - b) <= epsilon
     }
 
     override fun estimatePoints(input: Gtv): Long = 0
