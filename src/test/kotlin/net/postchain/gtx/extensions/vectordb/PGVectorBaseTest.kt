@@ -15,7 +15,7 @@ open class PGVectorBaseTest : IntegrationTestSetup() {
          */
         fun ensureExtension() {
             DriverManager.getConnection(
-                    "jdbc:postgresql://localhost:5432/postchain",
+                    System.getenv("POSTCHAIN_DB_URL") ?: "jdbc:postgresql://localhost:5432/postchain",
                     "postchain",
                     "postchain"
             ).use { conn ->
