@@ -9,7 +9,7 @@ data class VectorDbNodeVLLMConfig(
         val basicAuth: Credentials? = null,
 ) {
     companion object {
-        private const val CONFIG_ENV_PREFIX = "POSTCHAIN_EXTENSION_VECTOR_DB_EMBEDDING"
+        private const val CONFIG_ENV_PREFIX = "POSTCHAIN_EXTENSION_VECTOR_DB_EMBEDDING_"
         private const val URL = "${CONFIG_ENV_PREFIX}URL"
         private const val BASIC_AUTH_USER = "${CONFIG_ENV_PREFIX}BASIC_AUTH_USER"
         private const val BASIC_AUTH_PASSWORD = "${CONFIG_ENV_PREFIX}BASIC_AUTH_PASSWORD"
