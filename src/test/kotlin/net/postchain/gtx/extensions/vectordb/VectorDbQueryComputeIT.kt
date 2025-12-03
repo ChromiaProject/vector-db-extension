@@ -4,7 +4,6 @@ import assertk.assertThat
 import assertk.assertions.isEqualTo
 import assertk.assertions.isNotNull
 import assertk.assertions.isNull
-import net.postchain.devtools.IntegrationTestSetup
 import net.postchain.devtools.PostchainTestNode
 import net.postchain.devtools.PostchainTestNode.Companion.DEFAULT_CHAIN_IID
 import net.postchain.devtools.query
@@ -20,7 +19,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
 
 @Timeout(120)
-class VectorDbQueryComputeIT : IntegrationTestSetup() {
+class VectorDbQueryComputeIT : PGVectorBaseTest() {
 
     @Test
     fun `compute multiple queries`() {

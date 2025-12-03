@@ -205,6 +205,12 @@ if [ "$1" = 'postgres' ]; then
 		EOSQL
 		echo
 
+    echo "Create pgvector extension"
+		"${psql[@]}" --username "$POSTGRES_USER" <<-EOSQL
+			CREATE EXTENSION IF NOT EXISTS vector SCHEMA public;
+		EOSQL
+		echo
+
 		psql+=( --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" )
 
 		echo

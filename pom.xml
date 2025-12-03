@@ -26,13 +26,13 @@
         <kotlin.code.style>obsolete</kotlin.code.style> <!-- Kotlin obsolete IntelliJ IDEA codestyle -->
 
         <postchain.version>3.47.1</postchain.version>
-        <postchain-chromia.version>3.35.6</postchain-chromia.version>
+        <postchain-chromia.version>3.36.0</postchain-chromia.version>
 
         <!-- Tests -->
         <directory.chain.version>1.91.0</directory.chain.version>
         <directory.source>${project.build.directory}/directory-chain/src</directory.source>
         <directory.config>${project.basedir}/src/test/resources/net/postchain/images/directory1/directory1.yml</directory.config>
-        <rell.maven.plugin.version>0.16.0</rell.maven.plugin.version>
+        <rell.maven.plugin.version>0.16.1</rell.maven.plugin.version>
 
         <junit.version>5.9.1</junit.version>
         <testcontainers.version>1.20.3</testcontainers.version>
@@ -204,14 +204,32 @@
                         <goals>
                             <goal>compile</goal>
                         </goals>
+                        <configuration>
+                            <sourceDirs>
+                                <source>src/main/kotlin</source>
+                                <source>target/generated-sources/annotations</source>
+                                <source>target/generated-sources/rell-client</source>
+                            </sourceDirs>
+                        </configuration>
                     </execution>
                     <execution>
                         <id>test-compile</id>
+                        <phase>test-compile</phase>
                         <goals>
                             <goal>test-compile</goal>
                         </goals>
+                        <configuration>
+                            <sourceDirs>
+                                <source>src/test/kotlin</source>
+                                <source>target/generated-test-sources/net</source>
+                                <source>target/generated-test-sources/test-annotations</source>
+                            </sourceDirs>
+                        </configuration>
                     </execution>
                 </executions>
+                <configuration>
+                    <jvmTarget>${maven.compiler.target}</jvmTarget>
+                </configuration>
             </plugin>
 
             <plugin>
@@ -276,6 +294,9 @@
                         <TESTCONTAINERS_RYUK_DISABLED>true</TESTCONTAINERS_RYUK_DISABLED>
                         <POSTCHAIN_TEST_DOCKER_IMAGE_POSTCHAIN_SERVER>registry.gitlab.com/chromaway/postchain-chromia/chromaway/chromia-server:latest-snapshot</POSTCHAIN_TEST_DOCKER_IMAGE_POSTCHAIN_SERVER>
                     </environmentVariables>
+                    <systemProperties>
+                        <api.version>1.44</api.version> <!-- Fix for Docker engine 29, remove when we use testcontainers 2 - https://github.com/testcontainers/testcontainers-java/issues/11212 -->
+                    </systemProperties>
                     <includes>
                         <include>**/*IT.*</include>
                         <include>**/*SlowIntegrationTest.*</include>
@@ -317,6 +338,21 @@
                         </configuration>
                     </execution>
                     <execution>
+                        <id>vector-gen-client</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>rell-generate-client</goal>
+                        </goals>
+                        <configuration>
+                            <packageName>net.postchain.gtx.extensions.vectordb</packageName>
+                            <mainModules>
+                                <mainModule>lib.vector_db</mainModule>
+                                <mainModule>lib.vector_db_embedding_compute</mainModule>
+                                <mainModule>lib.vector_db_query_compute</mainModule>
+                            </mainModules>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>vector-example-compile</id>
                         <phase>generate-test-resources</phase>
                         <goals>
@@ -343,21 +379,6 @@
                                 <mainModule>vector_example</mainModule>
                                 <mainModule>integration_test.vector_example_test</mainModule>
                                 <mainModule>integration_test.query_compute</mainModule>
-                                <mainModule>lib.vector_db_query_compute</mainModule>
-                            </mainModules>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>vector-embedding-compute-gen-client</id>
-                        <phase>generate-sources</phase>
-                        <goals>
-                            <goal>rell-generate-client</goal>
-                        </goals>
-                        <configuration>
-                            <packageName>net.postchain.gtx.extensions.vectordb.hc</packageName>
-                            <mainModules>
-                                <mainModule>lib.vector_db</mainModule>
-                                <mainModule>lib.vector_db_embedding_compute</mainModule>
                             </mainModules>
                         </configuration>
                     </execution>

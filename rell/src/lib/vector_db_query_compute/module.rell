@@ -39,7 +39,7 @@ struct query_result {
     op_index: integer;
 }
 
-// TODO need something to force generation of code for the structs
+// Force generation of code for the structs
 query vdbqc_bogus(query_request) = query_result(result = null, error = null, x"", 0);
 
 /**
