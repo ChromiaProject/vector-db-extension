@@ -242,6 +242,9 @@ if [ "$1" = 'postgres' ]; then
     file_env 'POSTGRES_DB' "$POSTGRES_USER"
 
     psql=( "$PG_BIN/psql" -v ON_ERROR_STOP=1 )
+
+    echo "ALTER EXTENSION vector SET SCHEMA public" | "${psql[@]}" --username "$POSTGRES_USER"
+
     psql+=( --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" )
 
     echo
