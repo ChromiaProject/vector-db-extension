@@ -89,7 +89,7 @@ deploy:
       clean source:jar deploy
 
 deploy_library_chain:
-  image: registry.gitlab.com/chromaway/core-tools/chromia-cli/chr:0.27.10
+  image: registry.gitlab.com/chromaway/core-tools/chromia-cli/chr:0.29.2
   stage: deploy
   rules:
     - if: $CI_COMMIT_TAG =~ /^[0-9]+\.[0-9]+\.[0-9]+$/

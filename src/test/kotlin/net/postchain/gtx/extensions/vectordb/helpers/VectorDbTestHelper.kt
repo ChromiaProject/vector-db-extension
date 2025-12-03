@@ -18,6 +18,7 @@ import net.postchain.gtx.extensions.vectordb.VectorCollectionInfo
 import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseAccess
 import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.VECTOR_DB_QUERY_CLOSEST_OBJECTS
 import net.postchain.gtx.extensions.vectordb.VectorDBIndex
+import kotlin.random.Random
 
 fun getVectors(engine: BlockchainEngine, chainId: Long, collection: String): List<Vector> {
     val ctx = engine.blockBuilderStorage.openReadConnection(chainId)
@@ -234,4 +235,16 @@ fun PostchainTestNode.buildTransaction(ops: List<GtxOp>): Transaction {
     return engine.getConfiguration().getTransactionFactory().decodeTransaction(
             Gtx(GtxBody(engine.getConfiguration().blockchainRid, ops, listOf()), listOf()).encode()
     )
+}
+
+fun generateVector(dimensions: Int, boundary: Double? = null): String {
+    val decimals = mutableListOf<Float>()
+    for (i in 1..dimensions) {
+        if (boundary == null) {
+            decimals.add(Random.nextFloat())
+        } else {
+            decimals.add(Random.nextDouble(-1 * boundary, boundary).toFloat())
+        }
+    }
+    return decimals.joinToString(",", "[", "]")
 }
