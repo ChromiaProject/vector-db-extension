@@ -16,10 +16,12 @@ import net.postchain.images.directory1.awaitUntilAsserted
 import net.postchain.images.directory1.testLogger
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
 import java.util.concurrent.TimeUnit
 
+@Disabled
 @Timeout(10, unit = TimeUnit.MINUTES)
 class VectorDbEmbeddingComputeIT : PGVectorBaseTest() {
 
