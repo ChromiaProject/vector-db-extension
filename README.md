@@ -131,7 +131,7 @@ libs:
   com.chromia.vector_db_query_compute:
     version: 2.3.2 # Set to the version you want to use
   com.chromia.hybridcompute: # vector_db_query_compute depends on this library
-    version: 3.35.3
+    version: 3.35.4
 ```
 
 Available versions can be found by running `chr library versions com.chromia.vector_db_query_compute`.
@@ -165,7 +165,7 @@ libs:
   com.chromia.vector_db_embedding_compute:
     version: 0.1.0 # Set to the version you want to use
   com.chromia.hybridcompute: # vector_db_query_compute depends on this library
-    version: 3.35.3
+    version: 3.35.4
 ```
 
 Run `chr install` to install the library. Once installed you can submit embedding requests to be processed asynchronously:
