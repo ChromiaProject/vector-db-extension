@@ -7,12 +7,14 @@ import org.http4k.core.Credentials
 data class VectorDbNodeVLLMConfig(
         val url: String,
         val basicAuth: Credentials? = null,
+        val bearerToken: String? = null,
 ) {
     companion object {
         private const val CONFIG_ENV_PREFIX = "POSTCHAIN_EXTENSION_VECTOR_DB_EMBEDDING_"
         private const val URL = "${CONFIG_ENV_PREFIX}URL"
         private const val BASIC_AUTH_USER = "${CONFIG_ENV_PREFIX}BASIC_AUTH_USER"
         private const val BASIC_AUTH_PASSWORD = "${CONFIG_ENV_PREFIX}BASIC_AUTH_PASSWORD"
+        private const val BEARER_TOKEN = "${CONFIG_ENV_PREFIX}BEARER_TOKEN"
 
         @JvmStatic
         fun fromAppConfig(config: AppConfig): VectorDbNodeVLLMConfig {
@@ -30,6 +32,7 @@ data class VectorDbNodeVLLMConfig(
                     basicAuth = if (basicAuthUser != null && basicAuthPassword != null)
                         Credentials(basicAuthUser, basicAuthPassword)
                     else null,
+                    config.getEnvOrString(BEARER_TOKEN, "extension.vector_db.embedding.bearer_token")
             )
         }
     }

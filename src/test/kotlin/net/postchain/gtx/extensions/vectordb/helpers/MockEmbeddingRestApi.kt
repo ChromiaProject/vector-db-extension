@@ -4,6 +4,7 @@ import net.postchain.gtx.extensions.vectordb.VLLMEmbeddingResponse
 import net.postchain.gtx.extensions.vectordb.VLLMEmbeddingResponseData
 import net.postchain.gtx.extensions.vectordb.vLLMEmbeddingRequest
 import net.postchain.gtx.extensions.vectordb.vLLMEmbeddingResponse
+import net.postchain.gtx.extensions.vectordb.vectorToBigDecimalList
 import org.http4k.core.HttpHandler
 import org.http4k.core.Method
 import org.http4k.core.Request
@@ -21,16 +22,20 @@ import java.io.Closeable
 
 class MockEmbeddingRestApi : HttpHandler, Closeable {
     private var server: Http4kServer? = null
-    var data = mapOf<String, String>()
+    var data = mapOf<String, Any>()
 
     private val app = ServerFilters.CatchLensFailure.then(
             routes(
                     "/v1/embeddings" bind Method.POST to { request ->
                         val embeddingRequest = vLLMEmbeddingRequest(request)
 
+                        var embedding: String = if (data[embeddingRequest.input[0]]!! is MutableList<*>) {
+                            (data[embeddingRequest.input[0]] as MutableList<*>).removeFirst() as String
+                        } else {
+                            data[embeddingRequest.input[0]]!! as String
+                        }
                         val responseData = VLLMEmbeddingResponse("id", System.currentTimeMillis(), embeddingRequest.model, listOf(
-                                VLLMEmbeddingResponseData(0, data[embeddingRequest.input[0]]!!
-                                        .removePrefix("[").removeSuffix("]").split(","))
+                                VLLMEmbeddingResponseData(0, embedding.vectorToBigDecimalList())
                         ))
 
                         Response(Status.OK).with(vLLMEmbeddingResponse of responseData)

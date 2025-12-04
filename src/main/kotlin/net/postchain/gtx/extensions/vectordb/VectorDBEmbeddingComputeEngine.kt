@@ -26,6 +26,7 @@ import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuil
 import org.apache.hc.core5.util.Timeout
 import org.http4k.client.ApacheClient
 import org.http4k.core.Body
+import org.http4k.core.Filter
 import org.http4k.core.HttpHandler
 import org.http4k.core.Method
 import org.http4k.core.then
@@ -33,10 +34,12 @@ import org.http4k.core.with
 import org.http4k.filter.ClientFilters
 import org.http4k.filter.GzipCompressionMode
 import org.http4k.lens.basicAuthentication
+import java.math.BigDecimal
 import org.http4k.core.Request as HttpRequest
 
 class VectorDBEmbeddingComputeEngine(
-        val connectTimeoutMs: Long = CONNECT_TIMEOUT_MS
+        val connectTimeoutMs: Long = CONNECT_TIMEOUT_MS,
+        private var vectorSimilarity: VectorSimilarity = VectorSimilarity()
 ) : HybridComputeEngine, PostchainContextAware {
 
     companion object : KLogging() {
@@ -44,6 +47,8 @@ class VectorDBEmbeddingComputeEngine(
         const val DEFAULT_TIMEOUT_SECONDS = 3L
 
         const val BASE_REQUEST_COST = 1000L
+
+        const val DISTANCE_EPSILON = 0.0004
     }
 
     override val name = "vector-db-embedding"
@@ -52,12 +57,23 @@ class VectorDBEmbeddingComputeEngine(
     private lateinit var computeConfig: VectorDbEmbeddingComputeConfig
     internal lateinit var client: HttpHandler
 
+    val addRequestHeaders = Filter { next ->
+        { request ->
+            if (nodeVLLMConfig.bearerToken != null) {
+                next(request.header("Authorization", "Bearer ${nodeVLLMConfig.bearerToken}"))
+            } else {
+                next(request)
+            }
+        }
+    }
+
     override fun initializeContext(configuration: BlockchainConfiguration, postchainContext: PostchainContext, ctx: EContext) {
         nodeVLLMConfig = VectorDbNodeVLLMConfig.fromAppConfig(postchainContext.appConfig)
         computeConfig = configuration.rawConfig[VECTOR_DB_EXTENSION_CONFIG_NAME]?.toObject<VectorDbConfig>()
                 ?.embeddingCompute ?: throw UserMistake("No embedding compute config found in the vector db config")
 
-        client = ClientFilters.AcceptGZip(GzipCompressionMode.Streaming())
+        client = addRequestHeaders
+                .then(ClientFilters.AcceptGZip(GzipCompressionMode.Streaming())
                 .then(
                         ClientFilters.RequestTracing(
                                 startReportFn = { request, _ ->
@@ -80,7 +96,7 @@ class VectorDBEmbeddingComputeEngine(
                                                         .setResponseTimeout(Timeout.ofSeconds(computeConfig.timeoutSeconds))
                                                         .build())
                                         .build())
-                        ))
+                        )))
     }
 
     override fun estimatePoints(input: Gtv): Long = getCost(input)
@@ -88,21 +104,35 @@ class VectorDBEmbeddingComputeEngine(
     override fun compute(input: Gtv): Pair<Gtv, Long> {
         val request = input.toObject<EmbeddingRequest>()
         val embeddings = requestEmbeddings(request)
-        return GtvObjectMapper.toGtvDictionary(EmbeddingResponse(embeddings)) to getCost(input)
+
+        if (request.input.size != embeddings.data.size) {
+            throw ProgrammerMistake("Requested ${request.input.size} embeddings, but got ${embeddings.data.size}")
+        }
+
+        return GtvObjectMapper.toGtvDictionary(EmbeddingResponse(embeddings.dataAsStringVectors())) to getCost(input)
     }
 
     override fun validate(input: Gtv, output: Gtv) {
         val request = input.toObject<EmbeddingRequest>()
-        val embeddings = requestEmbeddings(request)
-        val validationOutput = EmbeddingResponse(embeddings)
+        val validationResponse = requestEmbeddings(request)
+        val validationOutput = EmbeddingResponse(validationResponse.data.map { it.embedding.joinToString(",", "[", "]") })
         val computeOutput = GtvObjectMapper.fromGtv(output, EmbeddingResponse::class.java)
 
+        if (validationOutput.embeddings.size != computeOutput.embeddings.size) {
+            throw ProgrammerMistake("Validation contains ${validationOutput.embeddings.size} embeddings, but compute contains ${computeOutput.embeddings.size}")
+        }
+
         if (validationOutput != computeOutput) {
-            throw ProgrammerMistake("Embeddings do not match")
+            val validationEmbeddings = validationResponse.data.map { embedding -> embedding.embedding.map { it.toDouble() }.toDoubleArray() }
+            val computedEmbeddings = computeOutput.embeddings.map { embedding -> embedding.vectorToBigDecimalList().map { it.toDouble() }.toDoubleArray() }
+            val similar = vectorSimilarity.areAllSimilar(validationEmbeddings, computedEmbeddings, DISTANCE_EPSILON)
+            if (!similar.first) {
+                throw ProgrammerMistake("Embeddings do not match, failed on similarity: ${similar.second}")
+            }
         }
     }
 
-    private fun requestEmbeddings(request: EmbeddingRequest): List<String> {
+    fun requestEmbeddings(request: EmbeddingRequest): VLLMEmbeddingResponse {
         val modelInput = request.input
         val httpResponse = client(HttpRequest(Method.POST, "${nodeVLLMConfig.url}/v1/embeddings")
                 .with(vLLMEmbeddingRequest of VLLMEmbeddingRequest(
@@ -118,14 +148,13 @@ class VectorDBEmbeddingComputeEngine(
         if (response.model != computeConfig.model) {
             throw ProgrammerMistake("Invalid model returned: ${response.model}")
         }
-
-        val embeddings = response.data.map { it.embedding.joinToString(",", "[", "]") }
-        if (embeddings.isEmpty()) {
+        if (response.data.isEmpty()) {
             throw UserMistake("No data found in response")
         }
+
         logger.info("Generated id ${response.id} at ${response.created} with model ${response.model}")
 
-        return embeddings
+        return response
     }
 
     private fun getCost(input: Gtv): Long = BASE_REQUEST_COST + input.nrOfBytes()
@@ -169,9 +198,15 @@ data class VLLMEmbeddingResponse(
          * The model response data.
          */
         val data: List<VLLMEmbeddingResponseData>,
-)
+) {
+    fun dataAsStringVectors(): List<String> {
+        return data.map {
+            it.embedding.joinToString(",", "[", "]")
+        }
+    }
+}
 
 data class VLLMEmbeddingResponseData(
         val index: Long,
-        val embedding: List<String>,
+        val embedding: List<BigDecimal>,
 )
