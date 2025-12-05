@@ -3,7 +3,6 @@ package net.postchain.gtx.extensions.vectordb
 import mu.KLogging
 import net.postchain.PostchainContext
 import net.postchain.api.rest.json.GtvJsonFactory.auto
-import net.postchain.common.exception.ProgrammerMistake
 import net.postchain.common.exception.UserMistake
 import net.postchain.core.BlockchainConfiguration
 import net.postchain.core.EContext
@@ -105,7 +104,7 @@ class VectorDBEmbeddingComputeEngine(
         val embeddings = requestEmbeddings(request)
 
         if (request.input.size != embeddings.data.size) {
-            throw ProgrammerMistake("Requested ${request.input.size} embeddings, but got ${embeddings.data.size}")
+            throw UserMistake("Requested ${request.input.size} embeddings, but got ${embeddings.data.size}")
         }
 
         return GtvObjectMapper.toGtvDictionary(EmbeddingResponse(embeddings.dataAsStringVectors())) to getCost(input)
@@ -118,7 +117,7 @@ class VectorDBEmbeddingComputeEngine(
         val computeOutput = GtvObjectMapper.fromGtv(output, EmbeddingResponse::class.java)
 
         if (validationOutput.embeddings.size != computeOutput.embeddings.size) {
-            throw ProgrammerMistake("Validation contains ${validationOutput.embeddings.size} embeddings, but compute contains ${computeOutput.embeddings.size}")
+            throw UserMistake("Validation contains ${validationOutput.embeddings.size} embeddings, but compute contains ${computeOutput.embeddings.size}")
         }
 
         if (validationOutput != computeOutput) {
@@ -126,7 +125,7 @@ class VectorDBEmbeddingComputeEngine(
             val computedEmbeddings = computeOutput.embeddings.map { embedding -> embedding.vectorToList().map { it.toDouble() }.toDoubleArray() }
             val similar = areAllSimilar(validationEmbeddings, computedEmbeddings, DISTANCE_EPSILON)
             if (!similar.first) {
-                throw ProgrammerMistake("Embeddings do not match, failed on similarity: ${similar.second}")
+                throw UserMistake("Embeddings do not match, failed on similarity: ${similar.second}")
             }
         }
     }
@@ -140,12 +139,12 @@ class VectorDBEmbeddingComputeEngine(
                 )).let { if (nodeVLLMConfig.basicAuth != null) it.basicAuthentication(nodeVLLMConfig.basicAuth!!) else it })
 
         if (!httpResponse.status.successful) {
-            throw ProgrammerMistake("Failed to request embedding: ${httpResponse.status} ${httpResponse.bodyString()}")
+            throw UserMistake("Failed to request embedding: ${httpResponse.status} ${httpResponse.bodyString()}")
         }
 
         val response = vLLMEmbeddingResponse(httpResponse)
         if (response.model != computeConfig.model) {
-            throw ProgrammerMistake("Invalid model returned: ${response.model}")
+            throw UserMistake("Invalid model returned: ${response.model}")
         }
         if (response.data.isEmpty()) {
             throw UserMistake("No data found in response")

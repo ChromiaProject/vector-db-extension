@@ -79,22 +79,22 @@ class VectorDBQueryComputeEngine(
 
         if (computedResult.isNotEmpty()) {
             if (computedResult.size > (queryRequest.queryMaxVectors ?: collection.queryMaxVectors)) {
-                throw ProgrammerMistake("Query returned more results than allowed")
+                throw UserMistake("Query returned more results than allowed")
             }
 
             if (computedResult.any { it.distance.toBigDecimal() > queryRequest.maxDistance }) {
-                throw ProgrammerMistake("Distance of some results exceeded max distance")
+                throw UserMistake("Distance of some results exceeded max distance")
             }
 
             if (queryRequest.context != null && computedResult.any { it.context != queryRequest.context }) {
-                throw ProgrammerMistake("Some results have a different context than requested")
+                throw UserMistake("Some results have a different context than requested")
             }
 
             val localResults = VectorDbDatabaseAccess.withTimeout(bctx, queryTimeout) {
                 dba.getDistanceOfResults(bctx, collection, queryRequest.qVector, computedResult).toMutableList()
             }
             if (localResults.size < computedResult.size) {
-                throw ProgrammerMistake("Failed to verify result. Missing local results.")
+                throw UserMistake("Failed to verify result. Missing local results.")
             }
 
             val nonExactHits = computedResult.filter { !localResults.remove(it) }
@@ -110,7 +110,7 @@ class VectorDBQueryComputeEngine(
                     "approximate match=${nonExactHits.size - rejectedHits.size}, rejected=${rejectedHits.size}" }
 
             if (rejectedHits.isNotEmpty()) {
-                throw ProgrammerMistake("Failed to verify result")
+                throw UserMistake("Failed to verify result")
             }
         }
     }

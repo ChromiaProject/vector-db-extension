@@ -4,7 +4,7 @@ import assertk.assertFailure
 import assertk.assertions.isInstanceOf
 import assertk.assertions.messageContains
 import net.postchain.PostchainContext
-import net.postchain.common.exception.ProgrammerMistake
+import net.postchain.common.exception.UserMistake
 import net.postchain.config.app.AppConfig
 import net.postchain.core.BlockchainConfiguration
 import net.postchain.gtv.GtvFactory.gtv
@@ -32,7 +32,7 @@ class VectorDBEmbeddingComputeEngineTest {
         val engine = createEngine(unroutableInternetUrl)
         assertFailure {
             engine.compute(input)
-        }.isInstanceOf(ProgrammerMistake::class)
+        }.isInstanceOf(UserMistake::class)
                 .messageContains("Client Timeout caused by Connect to")
     }
 
@@ -42,7 +42,7 @@ class VectorDBEmbeddingComputeEngineTest {
         val engine = createEngine(unroutableInternetUrl)
         assertFailure {
             engine.validate(input, gtv("output"))
-        }.isInstanceOf(ProgrammerMistake::class)
+        }.isInstanceOf(UserMistake::class)
                 .messageContains("Client Timeout caused by Connect to")
     }
 
@@ -53,7 +53,7 @@ class VectorDBEmbeddingComputeEngineTest {
             val engine = createEngine(url)
             assertFailure {
                 engine.compute(input)
-            }.isInstanceOf(ProgrammerMistake::class)
+            }.isInstanceOf(UserMistake::class)
                     .messageContains("Client Timeout caused by Read timed out")
         }
     }
@@ -65,7 +65,7 @@ class VectorDBEmbeddingComputeEngineTest {
             val engine = createEngine(url)
             assertFailure {
                 engine.validate(input, gtv("output"))
-            }.isInstanceOf(ProgrammerMistake::class)
+            }.isInstanceOf(UserMistake::class)
                     .messageContains("Client Timeout caused by Read timed out")
         }
     }
