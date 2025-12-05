@@ -12,6 +12,7 @@ import net.postchain.gtv.mapper.GtvObjectMapper
 import net.postchain.gtv.mapper.toObject
 import net.postchain.gtx.PostchainContextAware
 import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.VECTOR_DB_EXTENSION_CONFIG_NAME
+import net.postchain.gtx.extensions.vectordb.VectorSimilarity.areAllSimilar
 import net.postchain.gtx.extensions.vectordb.config.VectorDbConfig
 import net.postchain.gtx.extensions.vectordb.config.VectorDbEmbeddingComputeConfig
 import net.postchain.gtx.extensions.vectordb.config.VectorDbNodeVLLMConfig
@@ -39,7 +40,6 @@ import org.http4k.core.Request as HttpRequest
 
 class VectorDBEmbeddingComputeEngine(
         val connectTimeoutMs: Long = CONNECT_TIMEOUT_MS,
-        private var vectorSimilarity: VectorSimilarity = VectorSimilarity()
 ) : HybridComputeEngine, PostchainContextAware {
 
     companion object : KLogging() {
@@ -125,7 +125,7 @@ class VectorDBEmbeddingComputeEngine(
         if (validationOutput != computeOutput) {
             val validationEmbeddings = validationResponse.data.map { embedding -> embedding.embedding.map { it.toDouble() }.toDoubleArray() }
             val computedEmbeddings = computeOutput.embeddings.map { embedding -> embedding.vectorToBigDecimalList().map { it.toDouble() }.toDoubleArray() }
-            val similar = vectorSimilarity.areAllSimilar(validationEmbeddings, computedEmbeddings, DISTANCE_EPSILON)
+            val similar = areAllSimilar(validationEmbeddings, computedEmbeddings, DISTANCE_EPSILON)
             if (!similar.first) {
                 throw ProgrammerMistake("Embeddings do not match, failed on similarity: ${similar.second}")
             }

@@ -3,7 +3,7 @@ package net.postchain.gtx.extensions.vectordb
 import net.postchain.common.exception.ProgrammerMistake
 import kotlin.math.sqrt
 
-class VectorSimilarity {
+object VectorSimilarity {
 
     fun cosineSimilarity(vectorA: DoubleArray, vectorB: DoubleArray): Double {
         require(vectorA.size == vectorB.size) {
@@ -34,7 +34,7 @@ class VectorSimilarity {
     }
 
     fun areAllSimilar(vectorsA: List<DoubleArray>, vectorB: List<DoubleArray>, epsilon: Double): Pair<Boolean, Double?> {
-        vectorsA.mapIndexed { index, list ->
+        vectorsA.forEachIndexed { index, list ->
             val similar = isSimilar(list, vectorB[index], epsilon)
             if (!similar.first) {
                 return false to similar.second
