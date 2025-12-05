@@ -34,10 +34,8 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.TestMethodOrder
 import org.junitpioneer.jupiter.DisableIfTestFails
-import org.junitpioneer.jupiter.SetSystemProperty
 import org.testcontainers.junit.jupiter.Testcontainers
 
-@SetSystemProperty(key = "api.version", value = "1.44") // Fix for Docker engine 29, remove when we use testcontainers 2 - https://github.com/testcontainers/testcontainers-java/issues/11212
 @Testcontainers(disabledWithoutDocker = true)
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
 @DisableIfTestFails
