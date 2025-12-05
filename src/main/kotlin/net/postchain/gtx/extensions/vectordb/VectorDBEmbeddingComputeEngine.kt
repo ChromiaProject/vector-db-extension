@@ -35,7 +35,6 @@ import org.http4k.core.with
 import org.http4k.filter.ClientFilters
 import org.http4k.filter.GzipCompressionMode
 import org.http4k.lens.basicAuthentication
-import java.math.BigDecimal
 import org.http4k.core.Request as HttpRequest
 
 class VectorDBEmbeddingComputeEngine(
@@ -124,7 +123,7 @@ class VectorDBEmbeddingComputeEngine(
 
         if (validationOutput != computeOutput) {
             val validationEmbeddings = validationResponse.data.map { embedding -> embedding.embedding.map { it.toDouble() }.toDoubleArray() }
-            val computedEmbeddings = computeOutput.embeddings.map { embedding -> embedding.vectorToBigDecimalList().map { it.toDouble() }.toDoubleArray() }
+            val computedEmbeddings = computeOutput.embeddings.map { embedding -> embedding.vectorToList().map { it.toDouble() }.toDoubleArray() }
             val similar = areAllSimilar(validationEmbeddings, computedEmbeddings, DISTANCE_EPSILON)
             if (!similar.first) {
                 throw ProgrammerMistake("Embeddings do not match, failed on similarity: ${similar.second}")
@@ -208,5 +207,5 @@ data class VLLMEmbeddingResponse(
 
 data class VLLMEmbeddingResponseData(
         val index: Long,
-        val embedding: List<BigDecimal>,
+        val embedding: List<String>,
 )

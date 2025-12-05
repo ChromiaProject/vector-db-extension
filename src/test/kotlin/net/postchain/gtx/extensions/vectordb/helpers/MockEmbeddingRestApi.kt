@@ -4,7 +4,7 @@ import net.postchain.gtx.extensions.vectordb.VLLMEmbeddingResponse
 import net.postchain.gtx.extensions.vectordb.VLLMEmbeddingResponseData
 import net.postchain.gtx.extensions.vectordb.vLLMEmbeddingRequest
 import net.postchain.gtx.extensions.vectordb.vLLMEmbeddingResponse
-import net.postchain.gtx.extensions.vectordb.vectorToBigDecimalList
+import net.postchain.gtx.extensions.vectordb.vectorToList
 import org.http4k.core.HttpHandler
 import org.http4k.core.Method
 import org.http4k.core.Request
@@ -35,7 +35,7 @@ class MockEmbeddingRestApi : HttpHandler, Closeable {
                             data[embeddingRequest.input[0]]!! as String
                         }
                         val responseData = VLLMEmbeddingResponse("id", System.currentTimeMillis(), embeddingRequest.model, listOf(
-                                VLLMEmbeddingResponseData(0, embedding.vectorToBigDecimalList())
+                                VLLMEmbeddingResponseData(0, embedding.vectorToList())
                         ))
 
                         Response(Status.OK).with(vLLMEmbeddingResponse of responseData)

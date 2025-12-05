@@ -1,7 +1,6 @@
 package net.postchain.gtx.extensions.vectordb
 
 import net.postchain.common.exception.UserMistake
-import java.math.BigDecimal
 import kotlin.text.removePrefix
 
 fun isValidVectorFormat(vector: String): Boolean {
@@ -26,9 +25,9 @@ fun requireValidVector(vector: String, expectedCollections: Int) {
     }
 }
 
-fun String.vectorToBigDecimalList(): List<BigDecimal> {
+fun String.vectorToList(): List<String> {
     return removePrefix("[")
             .removeSuffix("]")
             .split(",")
-            .map { it.trim().toBigDecimal() }
+            .map { it.trim() }
 }
