@@ -1,6 +1,7 @@
 package net.postchain.gtx.extensions.vectordb
 
 import net.postchain.common.exception.UserMistake
+import kotlin.text.removePrefix
 
 fun isValidVectorFormat(vector: String): Boolean {
     if (!vector.startsWith("[") || !vector.endsWith("]"))
@@ -22,4 +23,11 @@ fun requireValidVector(vector: String, expectedCollections: Int) {
     if (!isVectorExpectedDimensions(vector, expectedCollections)) {
         throw UserMistake("Vector is expected to have $expectedCollections dimensions")
     }
+}
+
+fun String.vectorToList(): List<String> {
+    return removePrefix("[")
+            .removeSuffix("]")
+            .split(",")
+            .map { it.trim() }
 }

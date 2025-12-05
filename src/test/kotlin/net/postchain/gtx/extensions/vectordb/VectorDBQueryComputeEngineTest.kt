@@ -6,7 +6,7 @@ import assertk.assertions.isInstanceOf
 import mu.KLogging
 import net.postchain.PostchainContext
 import net.postchain.base.data.DatabaseAccess
-import net.postchain.common.exception.ProgrammerMistake
+import net.postchain.common.exception.UserMistake
 import net.postchain.core.BlockEContext
 import net.postchain.core.BlockchainConfiguration
 import net.postchain.core.Storage
@@ -118,7 +118,7 @@ class VectorDBQueryComputeEngineTest {
         val computeOutput = gtv(computeResults.map { GtvObjectMapper.toGtvDictionary(it) })
         assertFailure {
             engine.validate(bctx, input, computeOutput)
-        }.isInstanceOf(ProgrammerMistake::class)
+        }.isInstanceOf(UserMistake::class)
                 .hasMessage("Distance of some results exceeded max distance")
     }
 
@@ -137,7 +137,7 @@ class VectorDBQueryComputeEngineTest {
         val computeOutput = gtv(computeResults.map { GtvObjectMapper.toGtvDictionary(it) })
         assertFailure {
             engine.validate(bctx, input, computeOutput)
-        }.isInstanceOf(ProgrammerMistake::class)
+        }.isInstanceOf(UserMistake::class)
                 .hasMessage("Distance of some results exceeded max distance")
     }
 
@@ -157,7 +157,7 @@ class VectorDBQueryComputeEngineTest {
         val computeOutput = gtv(computeResults.map { GtvObjectMapper.toGtvDictionary(it) })
         assertFailure {
             engine.validate(bctx, input, computeOutput)
-        }.isInstanceOf(ProgrammerMistake::class)
+        }.isInstanceOf(UserMistake::class)
                 .hasMessage("Failed to verify result")
     }
 
@@ -180,7 +180,7 @@ class VectorDBQueryComputeEngineTest {
         val computeOutput = gtv(computeResults.map { GtvObjectMapper.toGtvDictionary(it) })
         assertFailure {
             engine.validate(mock(), input, computeOutput)
-        }.isInstanceOf(ProgrammerMistake::class)
+        }.isInstanceOf(UserMistake::class)
                 .hasMessage("Query returned more results than allowed")
     }
 

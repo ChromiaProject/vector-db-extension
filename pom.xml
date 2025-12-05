@@ -26,7 +26,7 @@
         <kotlin.code.style>obsolete</kotlin.code.style> <!-- Kotlin obsolete IntelliJ IDEA codestyle -->
 
         <postchain.version>3.47.1</postchain.version>
-        <postchain-chromia.version>3.36.1</postchain-chromia.version>
+        <postchain-chromia.version>3.36.2</postchain-chromia.version>
 
         <!-- Tests -->
         <directory.chain.version>1.91.0</directory.chain.version>
@@ -35,7 +35,7 @@
         <rell.maven.plugin.version>0.16.1</rell.maven.plugin.version>
 
         <junit.version>5.9.1</junit.version>
-        <testcontainers.version>1.20.3</testcontainers.version>
+        <testcontainers.version>2.0.2</testcontainers.version>
 
         <!--suppress UnresolvedMavenProperty -->
         <gitlab.username>${CI_REGISTRY_USER}</gitlab.username>
@@ -168,23 +168,17 @@
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>jdbc</artifactId>
+            <artifactId>testcontainers-jdbc</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-core-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <!-- Needed for testcontainers -->
-        <dependency>
-            <groupId>commons-codec</groupId>
-            <artifactId>commons-codec</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -294,9 +288,6 @@
                         <TESTCONTAINERS_RYUK_DISABLED>true</TESTCONTAINERS_RYUK_DISABLED>
                         <POSTCHAIN_TEST_DOCKER_IMAGE_POSTCHAIN_SERVER>registry.gitlab.com/chromaway/postchain-chromia/chromaway/chromia-server:latest-snapshot</POSTCHAIN_TEST_DOCKER_IMAGE_POSTCHAIN_SERVER>
                     </environmentVariables>
-                    <systemProperties>
-                        <api.version>1.44</api.version> <!-- Fix for Docker engine 29, remove when we use testcontainers 2 - https://github.com/testcontainers/testcontainers-java/issues/11212 -->
-                    </systemProperties>
                     <includes>
                         <include>**/*IT.*</include>
                         <include>**/*SlowIntegrationTest.*</include>

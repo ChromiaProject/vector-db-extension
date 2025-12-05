@@ -89,4 +89,47 @@ class VectorDbEmbeddingComputeIT : PGVectorBaseTest() {
             }
         }
     }
+
+    @Test
+    fun `accept similar embeddings`() {
+        val text1 = "A block of text"
+        embeddingService.data = mapOf(
+                text1 to mutableListOf(
+                        "[0.7071067812, 0.0, 0.7071067812]", // Compute
+                        "[0.7071, 0.0, 0.7071]", // Verify 1
+                        "[0.706, 0.01, 0.708]", // Verify 2
+                ))
+
+        configOverrides.setProperty("extension.vector_db.embedding.url", "http://localhost:${embeddingService.port()}")
+
+        val node = createNodes(3, "/chains/vector_example_embedding_compute_small_test.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
+
+        buildBlock(DEFAULT_CHAIN_IID, node.buildTransaction(listOf(
+                GtxOp("embed",
+                        gtv("id-1"),
+                        gtv(text1)
+                ),
+        )))
+
+        awaitUntilAsserted {
+            buildBlock(DEFAULT_CHAIN_IID)
+
+            // Verify each embedding is stored in the vector db and can be queried with a distance of 0
+            listOf("id-1").forEach { id ->
+                val textEmbedding = node.query(DEFAULT_CHAIN_IID) {
+                    it.query("get_text_embedding", gtv(mapOf("id" to gtv(id))))
+                }
+
+                assertThat(textEmbedding).isNotEqualTo(GtvNull)
+                val vector = textEmbedding!!["vector"]!!.asString()
+                assertThat(vector).isNotEqualTo("")
+
+                val queryResult = queryClosestObjectsNoTemplate(engine, "texts", null,
+                        vector, 0.0, 10)
+                assertThat(queryResult).hasSize(1)
+                assertThat(queryResult[0].second).isEqualTo(textEmbedding["rowid"]!!.asInteger())
+            }
+        }
+    }
 }
