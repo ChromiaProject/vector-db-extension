@@ -95,9 +95,9 @@ class VectorDbEmbeddingComputeIT : PGVectorBaseTest() {
         val text1 = "A block of text"
         embeddingService.data = mapOf(
                 text1 to mutableListOf(
-                        "[0.1, 0.2, 0.3]", // Compute
-                        "[0.1, 0.201, 0.3]", // Verify 1
-                        "[0.1, 0.202, 0.3]", // Verify 2
+                        "[0.7071067812, 0.0, 0.7071067812]", // Compute
+                        "[0.7071, 0.0, 0.7071]", // Verify 1
+                        "[0.706, 0.01, 0.708]", // Verify 2
                 ))
 
         configOverrides.setProperty("extension.vector_db.embedding.url", "http://localhost:${embeddingService.port()}")

@@ -18,6 +18,7 @@ import net.postchain.gtx.extensions.vectordb.VectorCollectionInfo
 import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseAccess
 import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.VECTOR_DB_QUERY_CLOSEST_OBJECTS
 import net.postchain.gtx.extensions.vectordb.VectorDBIndex
+import kotlin.math.sqrt
 import kotlin.random.Random
 
 fun getVectors(engine: BlockchainEngine, chainId: Long, collection: String): List<Vector> {
@@ -226,10 +227,6 @@ fun deleteMessagesInCollection(engine: BlockchainEngine, collection: String, mes
 
 data class Vector(val context: Long, val id: Long, val embedding: String)
 
-fun PostchainTestNode.buildTransaction(op: GtxOp): Transaction {
-    return buildTransaction(listOf(op))
-}
-
 fun PostchainTestNode.buildTransaction(ops: List<GtxOp>): Transaction {
     val engine = getBlockchainInstance().blockchainEngine
     return engine.getConfiguration().getTransactionFactory().decodeTransaction(
@@ -237,14 +234,14 @@ fun PostchainTestNode.buildTransaction(ops: List<GtxOp>): Transaction {
     )
 }
 
-fun generateVector(dimensions: Int, boundary: Double? = null): String {
-    val decimals = mutableListOf<Float>()
-    for (i in 1..dimensions) {
-        if (boundary == null) {
-            decimals.add(Random.nextFloat())
-        } else {
-            decimals.add(Random.nextDouble(-1 * boundary, boundary).toFloat())
-        }
+fun generateVector(dimensions: Int, boundary: Double = 1.0): String {
+    val decimals = (1..dimensions).map {
+        Random.nextDouble(-1 * boundary, boundary)
     }
-    return decimals.joinToString(",", "[", "]")
+    return normalizeVector(decimals).joinToString(",", "[", "]")
+}
+
+fun normalizeVector(v: List<Double>): List<Double> {
+    val norm = sqrt(v.sumOf { it * it })
+    return v.map { it / norm }
 }

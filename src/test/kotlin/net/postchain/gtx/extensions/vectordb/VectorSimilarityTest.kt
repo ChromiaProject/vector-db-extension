@@ -1,8 +1,7 @@
 package net.postchain.gtx.extensions.vectordb
 
 import assertk.assertThat
-import assertk.assertions.isFalse
-import assertk.assertions.isTrue
+import assertk.assertions.isEqualTo
 import net.postchain.gtx.extensions.vectordb.VectorSimilarity.isSimilar
 import org.junit.jupiter.api.Test
 
@@ -12,20 +11,18 @@ class VectorSimilarityTest {
     fun testSimilarity() {
         assertThat(isSimilar(
                 doubleArrayOf(0.0, 1.0),
-                        doubleArrayOf(0.0, 1.0),
-                0.0).first).isTrue()
+                doubleArrayOf(0.0, 1.0),
+                0.0)).isEqualTo(true to 1.0)
+
         assertThat(isSimilar(
-                doubleArrayOf(1.0, 2.0, 3.0),
-                doubleArrayOf(4.0, 5.0, 6.0),
-                0.0).first).isFalse()
+                doubleArrayOf(1.0, 0.0, 0.577350269),
+                doubleArrayOf(0.577350269, 0.577350269, 0.577350269),
+                0.0)).isEqualTo(false to 0.9106836021143723)
+
         assertThat(isSimilar(
-                doubleArrayOf(1.0, 2.0, 3.0),
-                doubleArrayOf(8.0, 7.0, 6.0),
-                0.0).first).isFalse()
-        assertThat(isSimilar(
-                doubleArrayOf(1.0, 2.0, 3.0),
-                doubleArrayOf(8.0, 7.0, 6.0),
-                0.15).first).isTrue()
+                doubleArrayOf(1.0, 0.0, 0.577350269),
+                doubleArrayOf(0.577350269, 0.577350269, 0.577350269),
+                0.19)).isEqualTo(true to 0.9106836021143723)
     }
 }
 

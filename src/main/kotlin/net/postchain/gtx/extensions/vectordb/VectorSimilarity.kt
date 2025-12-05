@@ -1,7 +1,6 @@
 package net.postchain.gtx.extensions.vectordb
 
 import net.postchain.common.exception.ProgrammerMistake
-import kotlin.math.sqrt
 
 object VectorSimilarity {
 
@@ -11,21 +10,10 @@ object VectorSimilarity {
         }
 
         var dotProduct = 0.0
-        var normA = 0.0
-        var normB = 0.0
-
         for (i in vectorA.indices) {
             dotProduct += vectorA[i] * vectorB[i]
-            normA += vectorA[i] * vectorA[i]
-            normB += vectorB[i] * vectorB[i]
         }
-
-        val denominator = sqrt(normA) * sqrt(normB)
-        if (denominator == 0.0) {
-            throw ProgrammerMistake("Cannot compute similarity: one or both vectors have zero magnitude")
-        }
-
-        return dotProduct / denominator
+        return dotProduct
     }
 
     fun isSimilar(vectorA: DoubleArray, vectorV: DoubleArray, epsilon: Double): Pair<Boolean, Double> {
