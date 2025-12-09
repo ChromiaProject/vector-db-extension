@@ -31,7 +31,7 @@ class EmbeddingsFetcher {
 
     // https://www.kaggle.com/datasets/ffatty/plain-text-wikipedia-simpleenglish?resource=download
     private val textSource = File("/home/joh-nils/Downloads/AllCombined.txt.zip")
-    private val embeddingTestDir = File("/home/joh-nils/chromaway/embeddings-test/150/")
+    private val embeddingTestDir = File("/home/joh-nils/chromaway/embeddings-test/manual/")
     private val testnetConfig = "/home/joh-nils/chromaway/embeddings-test/testnet.properties"
     private val cfConfig = "/home/joh-nils/chromaway/embeddings-test/cf.properties"
     private val startOffset = 950
@@ -45,9 +45,10 @@ class EmbeddingsFetcher {
         val serviceA = embeddingComputeEngine("qwen3-embedding-0.6b", testnetConfig)
         val serviceB = embeddingComputeEngine("@cf/qwen/qwen3-embedding-0.6b", cfConfig)
 
-        sequentialTextSegmentsStream(minWords = 150, maxWords = 150)
-                .drop(startOffset)
-            .take(workCount)
+//        sequentialTextSegmentsStream(minWords = 150, maxWords = 150)
+//                .drop(startOffset)
+//            .take(workCount)
+                listOf("Tell me about EU and President George Bush")
             .forEach { segment ->
                 val hash = segment.hashCode().toString().replace('-', 'n')
 
