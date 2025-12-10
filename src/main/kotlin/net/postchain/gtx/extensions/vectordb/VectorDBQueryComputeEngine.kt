@@ -32,7 +32,7 @@ class VectorDBQueryComputeEngine(
 ) : HybridComputeEngine, DatabaseAwareHybridComputeEngine, PostchainContextAware {
 
     companion object : KLogging() {
-        const val DISTANCE_EPSILON = 1e-6
+        const val QUERY_VALIDATION_DISTANCE_EPSILON = 1e-6
     }
 
     override val name = "vector-db-query"
@@ -115,7 +115,7 @@ class VectorDBQueryComputeEngine(
         }
     }
 
-    private fun approximatelyEqual(a: Double, b: Double, epsilon: Double = DISTANCE_EPSILON): Boolean {
+    private fun approximatelyEqual(a: Double, b: Double, epsilon: Double = QUERY_VALIDATION_DISTANCE_EPSILON): Boolean {
         return abs(a - b) <= epsilon
     }
 

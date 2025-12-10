@@ -39,16 +39,16 @@ class VectorDBDatabaseAccessTest : PGVectorBaseTest() {
             assertThat(dba.getNextAvailableDatumIdFromSequence(ctx)).isEqualTo(1)
 
             // Store 3 datum
-            dba.storeVectors(ctx, collections[0].id, listOf(VectorDbDatabaseAccess.Vector(1, 0, 0, "[0.1,0.2,0.3]")))
-            dba.storeVectors(ctx, collections[1].id, listOf(VectorDbDatabaseAccess.Vector(2, 0, 1, "[0.1,0.2,0.3]")))
-            dba.storeVectors(ctx, collections[2].id, listOf(VectorDbDatabaseAccess.Vector(3, 0, 2, "[0.1,0.2,0.3]")))
+            dba.storeVectors(ctx, collections[0].id, listOf(VectorDbDatabaseAccess.Vector(1, 0, 0, "[0.1,0.2,0.3]", false)))
+            dba.storeVectors(ctx, collections[1].id, listOf(VectorDbDatabaseAccess.Vector(2, 0, 1, "[0.1,0.2,0.3]", false)))
+            dba.storeVectors(ctx, collections[2].id, listOf(VectorDbDatabaseAccess.Vector(3, 0, 2, "[0.1,0.2,0.3]", false)))
 
             // Next datum id start with 2
             assertThat(dba.getNextAvailableDatumIdFromSequence(ctx)).isEqualTo(4)
             assertThat(dba.getAvailableDatumIds(ctx, 1)).isEqualTo(listOf(4L))
 
             // Delete last datum
-            dba.deleteVectors(ctx, collections[2].id, 0, listOf(2))
+            dba.deleteVectors(ctx, collections[2].id, 0, setOf(2))
 
             // Next in sequence is unchanged
             assertThat(dba.getNextAvailableDatumIdFromSequence(ctx)).isEqualTo(4)
@@ -57,7 +57,7 @@ class VectorDBDatabaseAccessTest : PGVectorBaseTest() {
             assertThat(dba.getAvailableDatumIds(ctx, 3)).isEqualTo(listOf(3L, 4L, 5L))
 
             // Delete datum 1 (ref id 0)
-            dba.deleteVectors(ctx, collections[0].id, 0, listOf(0))
+            dba.deleteVectors(ctx, collections[0].id, 0, setOf(0))
 
             // Next in sequence is unchanged
             assertThat(dba.getNextAvailableDatumIdFromSequence(ctx)).isEqualTo(4)
@@ -66,9 +66,9 @@ class VectorDBDatabaseAccessTest : PGVectorBaseTest() {
             assertThat(dba.getAvailableDatumIds(ctx, 3)).isEqualTo(listOf(1L, 3L, 4L))
 
             // Store 3 new datums
-            dba.storeVectors(ctx, collections[0].id, listOf(VectorDbDatabaseAccess.Vector(1, 0, 0, "[0.1,0.2,0.3]")))
-            dba.storeVectors(ctx, collections[1].id, listOf(VectorDbDatabaseAccess.Vector(3, 0, 1, "[0.1,0.2,0.3]")))
-            dba.storeVectors(ctx, collections[2].id, listOf(VectorDbDatabaseAccess.Vector(4, 0, 2, "[0.1,0.2,0.3]")))
+            dba.storeVectors(ctx, collections[0].id, listOf(VectorDbDatabaseAccess.Vector(1, 0, 0, "[0.1,0.2,0.3]", false)))
+            dba.storeVectors(ctx, collections[1].id, listOf(VectorDbDatabaseAccess.Vector(3, 0, 1, "[0.1,0.2,0.3]", false)))
+            dba.storeVectors(ctx, collections[2].id, listOf(VectorDbDatabaseAccess.Vector(4, 0, 2, "[0.1,0.2,0.3]", false)))
 
             // Next in sequence ticks up by 1 (3-2+3=4)
             assertThat(dba.getNextAvailableDatumIdFromSequence(ctx)).isEqualTo(5)

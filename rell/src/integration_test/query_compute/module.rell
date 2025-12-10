@@ -1,6 +1,6 @@
 module;
 
-import vdbq: lib.vector_db_query_compute.*;
+import vdbqc: lib.vector_db_query_compute.*;
 
 import vector_example.*;
 
@@ -10,7 +10,7 @@ operation submit_query_request(
     max_distance: decimal,
     max_vectors: integer? = null
 ) {
-    vdbq.submit_query_request(id, COLLECTION, q_vector, max_distance, max_vectors, null);
+    vdbqc.submit_query_request(id, COLLECTION, q_vector, max_distance, max_vectors, null);
 }
 
 entity query_result {
@@ -18,13 +18,20 @@ entity query_result {
     result: byte_array;
 }
 
-@extend(vdbq.on_query_result)
-function (id: text, query_result: vdbq.query_result) {
+@extend(vdbqc.on_query_result)
+function (id: text, query_result: vdbqc.query_result) {
     log("Query computation for query ID %s completed.".format(id));
 
     create query_result(id, query_result.to_bytes());
 }
 
+query get_query_result(id: text): vdbqc.query_result? =
+    query_result @? { id } ( vdbqc.query_result.from_gtv(gtv.from_bytes(.result)) );
 
-query get_query_result(id: text): vdbq.query_result? =
-    query_result @? { id } ( vdbq.query_result.from_gtv(gtv.from_bytes(.result)) );
+operation delete_vectors_safely(collection: text, context: integer, ids: set<integer>) {
+    vdbqc.delete_vectors_safely(collection, context, ids);
+}
+
+query get_safe_deletes() {
+    return vdbqc.safe_delete @* {} (.height, .collection, .context, ids = set<integer>.from_gtv(gtv.from_bytes(.ids)));
+}
