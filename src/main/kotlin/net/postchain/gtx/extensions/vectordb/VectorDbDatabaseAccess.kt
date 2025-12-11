@@ -20,6 +20,7 @@ import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.Long
 
 class VectorDbDatabaseAccess{
 
@@ -45,6 +46,7 @@ class VectorDbDatabaseAccess{
         const val COLLECTION_COLUMN_CONTEXT = "context"
         const val COLLECTION_COLUMN_ID = "id"
         const val COLLECTION_COLUMN_EMBEDDING = "embedding"
+        const val COLLECTION_COLUMN_EXCLUDE = "exclude"
 
         const val REUSABLE_DATUM_ID_COLUMN_DATUM_ID = "datum_id"
 
@@ -289,6 +291,22 @@ class VectorDbDatabaseAccess{
                 """
             )
         }
+
+        // Add column for vector exclusion. This works as a soft remove to exclude vectors from query, before they are removed
+        ctx.conn.createStatement().use { stmt ->
+            stmt.execute("""
+                ALTER TABLE $tableName
+                ADD COLUMN IF NOT EXISTS $COLLECTION_COLUMN_EXCLUDE BOOLEAN DEFAULT false                
+            """)
+        }
+
+        // Index for exclude
+        ctx.conn.createStatement().use { stmt ->
+            stmt.execute("""
+                CREATE INDEX IF NOT EXISTS "${getTableIndexName(tableName, COLLECTION_COLUMN_EXCLUDE)}"
+                ON $tableName ($COLLECTION_COLUMN_EXCLUDE)
+            """)
+        }
     }
 
     private fun getTableIndexName(tableName: String, suffix: String): String {
@@ -299,8 +317,8 @@ class VectorDbDatabaseAccess{
     fun storeVectors(ctx: EContext, tableId: Long, vectors: List<Vector>, batchSize: Long = 300) {
         val tableName = getCollectionTableName(ctx, tableId)
         ctx.conn.prepareStatement("""
-            INSERT INTO $tableName ($COLLECTION_COLUMN_DATUM_ID, $COLLECTION_COLUMN_CONTEXT, $COLLECTION_COLUMN_ID, $COLLECTION_COLUMN_EMBEDDING)
-            VALUES (?, ?, ?, ?::${PG_VECTOR_SCHEMA}.halfvec)
+            INSERT INTO $tableName ($COLLECTION_COLUMN_DATUM_ID, $COLLECTION_COLUMN_CONTEXT, $COLLECTION_COLUMN_ID, $COLLECTION_COLUMN_EMBEDDING, $COLLECTION_COLUMN_EXCLUDE)
+            VALUES (?, ?, ?, ?::${PG_VECTOR_SCHEMA}.halfvec, ?)
             """
         ).use { stmt ->
             vectors.forEachIndexed { index, vector ->
@@ -308,6 +326,7 @@ class VectorDbDatabaseAccess{
                 stmt.setLong(2, vector.context)
                 stmt.setLong(3, vector.refId)
                 stmt.setString(4, vector.vector)
+                stmt.setBoolean(5, vector.exlude)
                 stmt.addBatch()
 
                 if ((index + 1) % batchSize == 0L) {
@@ -334,7 +353,21 @@ class VectorDbDatabaseAccess{
         }
     }
 
-    fun deleteVectors(ctx: EContext, tableId: Long, context: Long, ids: List<Long>) {
+    fun excludeVectors(ctx: EContext, tableId: Long, context: Long, ids: Set<Long>) {
+        val rowsAffected = ctx.conn.prepareStatement("""
+                UPDATE ${getCollectionTableName(ctx, tableId)}
+                SET $COLLECTION_COLUMN_EXCLUDE = true
+                 WHERE $COLLECTION_COLUMN_CONTEXT = ? AND $COLLECTION_COLUMN_ID = ANY(?)
+             """).use { stmt ->
+            stmt.setLong(1, context)
+            stmt.setArray(2, ctx.conn.createArrayOf("bigint", ids.toTypedArray()))
+            stmt.executeUpdate()
+        }
+
+        logger.info { "Excluded $rowsAffected vectors" }
+    }
+
+    fun deleteVectors(ctx: EContext, tableId: Long, context: Long, ids: Set<Long>) {
 
         // Mark datum ids reusable
         ctx.conn.prepareStatement("""
@@ -373,9 +406,10 @@ class VectorDbDatabaseAccess{
         ctx.conn.prepareStatement(
                 """
                 WITH nearest_results AS MATERIALIZED (
-                    SELECT $COLLECTION_COLUMN_CONTEXT, $COLLECTION_COLUMN_ID, $COLLECTION_COLUMN_EMBEDDING OPERATOR("${PG_VECTOR_SCHEMA}".${index.operator}) ?::${PG_VECTOR_SCHEMA}.halfvec AS distance
+                    SELECT $COLLECTION_COLUMN_CONTEXT, $COLLECTION_COLUMN_ID, $COLLECTION_COLUMN_EMBEDDING OPERATOR("$PG_VECTOR_SCHEMA".${index.operator}) ?::${PG_VECTOR_SCHEMA}.halfvec AS distance
                     FROM $tableName
-                    ${if (context == null) "" else "WHERE $COLLECTION_COLUMN_CONTEXT = ?"}
+                    WHERE $COLLECTION_COLUMN_EXCLUDE = false
+                    ${if (context == null) "" else "AND $COLLECTION_COLUMN_CONTEXT = ?"}
                     ORDER BY distance
                     LIMIT ?
                 ) SELECT $COLLECTION_COLUMN_CONTEXT, $COLLECTION_COLUMN_ID, distance FROM nearest_results WHERE distance <= ? ORDER BY distance
@@ -404,7 +438,7 @@ class VectorDbDatabaseAccess{
         val ids = result.map { it.id }.toSet()
         val contexts = result.map { it.context }.toSet()
         ctx.conn.prepareStatement("""
-                SELECT $COLLECTION_COLUMN_ID, $COLLECTION_COLUMN_CONTEXT, $COLLECTION_COLUMN_EMBEDDING OPERATOR("${PG_VECTOR_SCHEMA}".${collection.index.operator}) ?::${PG_VECTOR_SCHEMA}.halfvec AS distance
+                SELECT $COLLECTION_COLUMN_ID, $COLLECTION_COLUMN_CONTEXT, $COLLECTION_COLUMN_EMBEDDING OPERATOR("$PG_VECTOR_SCHEMA".${collection.index.operator}) ?::${PG_VECTOR_SCHEMA}.halfvec AS distance
                 FROM ${getCollectionTableName(ctx, collection.id)}
                 WHERE id = ANY(?) AND context = ANY(?)
                 ORDER BY distance
@@ -422,22 +456,25 @@ class VectorDbDatabaseAccess{
         }
     }
 
-    fun getDatumIdFromContextIds(ctx: EContext, tableId: Long, context: Long, ids: Set<Long>): Set<Long> {
+    fun getVectorsFromContextIds(ctx: EContext, tableId: Long, context: Long, ids: Set<Long>): Set<Vector> {
         val tableName = getCollectionTableName(ctx, tableId)
-        val datumIds = mutableSetOf<Long>()
-        ctx.conn.prepareStatement(
-                "SELECT $COLLECTION_COLUMN_DATUM_ID FROM $tableName WHERE $COLLECTION_COLUMN_CONTEXT = ? AND $COLLECTION_COLUMN_ID = ANY(?)"
-        ).use { stmt ->
+        val vectors = mutableSetOf<Vector>()
+        ctx.conn.prepareStatement("""
+                SELECT $COLLECTION_COLUMN_DATUM_ID, $COLLECTION_COLUMN_ID, $COLLECTION_COLUMN_EMBEDDING, $COLLECTION_COLUMN_EXCLUDE
+                FROM $tableName
+                WHERE $COLLECTION_COLUMN_CONTEXT = ? AND $COLLECTION_COLUMN_ID = ANY(?)
+        """).use { stmt ->
             stmt.setLong(1, context)
             stmt.setArray(2, ctx.conn.createArrayOf("bigint", ids.toTypedArray()))
 
             stmt.executeQuery().use { rs ->
                 while (rs.next()) {
-                    datumIds.add(rs.getLong(1))
+                    vectors.add(Vector(rs.getLong(1), context,
+                            rs.getLong(2), rs.getString(3), rs.getBoolean(4)))
                 }
             }
         }
-        return datumIds
+        return vectors
     }
 
     fun getCollectionMetaTableName(ctx: EContext): String {
@@ -562,5 +599,5 @@ class VectorDbDatabaseAccess{
         }
     }
 
-    data class Vector(val datumId: Long, val context: Long, val refId: Long, val vector: String)
+    data class Vector(val datumId: Long, val context: Long, val refId: Long, val vector: String, val exlude: Boolean)
 }

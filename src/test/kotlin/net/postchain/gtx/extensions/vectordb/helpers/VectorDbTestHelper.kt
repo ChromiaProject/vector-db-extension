@@ -18,8 +18,16 @@ import net.postchain.gtx.extensions.vectordb.VectorCollectionInfo
 import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseAccess
 import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.VECTOR_DB_QUERY_CLOSEST_OBJECTS
 import net.postchain.gtx.extensions.vectordb.VectorDBIndex
+import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseAccess.Companion.COLLECTION_COLUMN_CONTEXT
+import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseAccess.Companion.COLLECTION_COLUMN_EMBEDDING
+import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseAccess.Companion.COLLECTION_COLUMN_EXCLUDE
+import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseAccess.Companion.COLLECTION_COLUMN_ID
 import kotlin.math.sqrt
 import kotlin.random.Random
+
+fun getVectors(node: PostchainTestNode, chainId: Long, collection: String): List<Vector> {
+    return getVectors(node.getBlockchainInstance().blockchainEngine, chainId, collection)
+}
 
 fun getVectors(engine: BlockchainEngine, chainId: Long, collection: String): List<Vector> {
     val ctx = engine.blockBuilderStorage.openReadConnection(chainId)
@@ -29,10 +37,10 @@ fun getVectors(engine: BlockchainEngine, chainId: Long, collection: String): Lis
             val tableId = collection.id
             val tableName = getCollectionTableName(ctx, tableId)
             return ctx.conn.createStatement().use { stmt ->
-                stmt.executeQuery("SELECT ${VectorDbDatabaseAccess.COLLECTION_COLUMN_CONTEXT}, ${VectorDbDatabaseAccess.COLLECTION_COLUMN_ID}, ${VectorDbDatabaseAccess.COLLECTION_COLUMN_EMBEDDING} FROM $tableName").use { rs ->
+                stmt.executeQuery("SELECT $COLLECTION_COLUMN_CONTEXT, $COLLECTION_COLUMN_ID, $COLLECTION_COLUMN_EMBEDDING, $COLLECTION_COLUMN_EXCLUDE FROM $tableName").use { rs ->
                     val vectors = mutableListOf<Vector>()
                     while (rs.next()) {
-                        vectors.add(Vector(rs.getLong(1), rs.getLong(2), rs.getString(3)))
+                        vectors.add(Vector(rs.getLong(1), rs.getLong(2), rs.getString(3), rs.getBoolean(4)))
                     }
                     vectors
                 }
@@ -225,7 +233,7 @@ fun deleteMessagesInCollection(engine: BlockchainEngine, collection: String, mes
     engine.getTransactionQueue().enqueue(tx)
 }
 
-data class Vector(val context: Long, val id: Long, val embedding: String)
+data class Vector(val context: Long, val id: Long, val embedding: String, val exclude: Boolean)
 
 fun PostchainTestNode.buildTransaction(ops: List<GtxOp>): Transaction {
     val engine = getBlockchainInstance().blockchainEngine

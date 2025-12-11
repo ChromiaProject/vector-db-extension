@@ -19,6 +19,7 @@ import net.postchain.gtx.extensions.vectordb.config.VectorDbCollectionConfig
 import java.util.concurrent.ConcurrentHashMap
 
 const val EVENT_STORE_VECTORS_NAME = "store_vectors"
+const val EVENT_EXCLUDE_VECTORS_NAME = "exclude_vectors"
 const val EVENT_DELETE_VECTORS_NAME = "delete_vectors"
 const val EVENT_CREATE_COLLECTION = "create_collection"
 const val EVENT_DELETE_COLLECTION = "delete_collection"
@@ -33,6 +34,7 @@ open class VectorDbEventProcessor(
 
     override fun init(blockEContext: BlockEContext, baseBB: BaseBlockBuilder) {
         baseBB.installEventProcessor(EVENT_STORE_VECTORS_NAME, this)
+        baseBB.installEventProcessor(EVENT_EXCLUDE_VECTORS_NAME, this)
         baseBB.installEventProcessor(EVENT_DELETE_VECTORS_NAME, this)
         baseBB.installEventProcessor(EVENT_CREATE_COLLECTION, this)
         baseBB.installEventProcessor(EVENT_DELETE_COLLECTION, this)
@@ -52,6 +54,7 @@ open class VectorDbEventProcessor(
     override fun processEmittedEvent(ctxt: TxEContext, type: String, data: Gtv) {
         when (type) {
             EVENT_STORE_VECTORS_NAME -> storeVectorsEvent(ctxt, data.asDict())
+            EVENT_EXCLUDE_VECTORS_NAME -> excludeVectorsEvent(ctxt, data.asDict())
             EVENT_DELETE_VECTORS_NAME -> deleteVectorsEvent(ctxt, data.asDict())
 
             EVENT_CREATE_COLLECTION-> createCollectionEvent(ctxt, data.asDict())
@@ -80,24 +83,39 @@ open class VectorDbEventProcessor(
                 throw UserMistake("Vector $id has ${vectorString.size} dimensions, but the collection requires ${collection.dimensions} dimensions")
             }
             val compactVectorString = vectorString.joinToString(",", "[", "]")
-            Vector(datumIds.pop(), context, id, compactVectorString)
+            Vector(datumIds.pop(), context, id, compactVectorString, false)
         }
         db.storeVectors(ctxt, collection.id, dbVectors, collection.storeBatchSize)
         
         dbVectors.forEach {
             conf.snapshotContext?.let { snapshotContext ->
-                logger.debug { "Emitting stored datum id ${it.datumId} in collection ${collection.id}: ${VectorDbDatumMapper.toVectorDatumGtv(collection.id, context, it.refId, it.vector).merkleHash(makeMerkleHashCalculator(2)).toHex()}: ${it.vector}" }
+                logger.debug { "Emitting stored datum id ${it.datumId} in collection ${collection.id}: ${VectorDbDatumMapper.toVectorDatumGtv(collection.id, context, it.refId, it.vector, it.exlude).merkleHash(makeMerkleHashCalculator(2)).toHex()}: ${it.vector}" }
                 snapshotContext.emitDatum(ctxt, it.datumId,
                         VectorDbDatumMapper.toVectorDatumGtv(collection.id, context, it.refId, it.vector), false)
             }
         }
     }
 
+    private fun excludeVectorsEvent(ctxt: TxEContext, args: Map<String, Gtv>) {
+        val (collection, context) = parseCollectionAndContextArgs(ctxt, args)
+        val ids = parseIdsArg(args)
+
+        db.excludeVectors(ctxt, collection.id, context, ids)
+        db.getVectorsFromContextIds(ctxt, collection.id, context, ids.toSet())
+                .forEach {
+                    logger.debug { "Emitting excluded datum $it in collection ${collection.id}" }
+
+                    conf.snapshotContext?.emitDatum(ctxt, it.datumId, VectorDbDatumMapper.toVectorDatumGtv(
+                            collection.id, context, it.refId, it.vector, it.exlude), false)
+                }
+    }
+
     private fun deleteVectorsEvent(ctxt: TxEContext, args: Map<String, Gtv>) {
         val (collection, context) = parseCollectionAndContextArgs(ctxt, args)
-        val ids = args["ids"]?.asArray() ?: throw UserMistake("No ids argument supplied")
+        val ids = parseIdsArg(args)
 
-        db.getDatumIdFromContextIds(ctxt, collection.id, context, ids.map { it.asInteger() }.toSet() )
+        db.getVectorsFromContextIds(ctxt, collection.id, context, ids )
+                .map { it.datumId }
                 .forEach {
                     logger.debug { "Emitting deleted datum $it in collection ${collection.id}" }
 
@@ -105,7 +123,7 @@ open class VectorDbEventProcessor(
                             collection.id, context, null, null), false)
                 }
 
-        db.deleteVectors(ctxt, collection.id, context, ids.map { it.asInteger() })
+        db.deleteVectors(ctxt, collection.id, context, ids)
     }
 
     private fun createCollectionEvent(ctxt: TxEContext, args: Map<String, Gtv>) {
@@ -182,6 +200,14 @@ open class VectorDbEventProcessor(
         val collection = parseCollectionArg(ctxt, args)
         val context = args["context"]?.asInteger() ?: throw UserMistake("No context argument supplied")
         return Pair(collection, context)
+    }
+
+    private fun parseIdsArg(args: Map<String, Gtv>): Set<Long> {
+        val ids = args["ids"]?.asArray()?.map { it.asInteger() }?.toSet() ?: throw UserMistake("No ids argument supplied")
+        if (ids.isEmpty()) {
+            throw UserMistake("No ids supplied")
+        }
+        return ids
     }
 
     private fun parseCollectionArg(ctxt: TxEContext, args: Map<String, Gtv>): VectorCollection {

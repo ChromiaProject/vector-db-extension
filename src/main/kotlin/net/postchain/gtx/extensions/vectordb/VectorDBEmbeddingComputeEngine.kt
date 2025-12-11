@@ -46,7 +46,7 @@ class VectorDBEmbeddingComputeEngine(
 
         const val BASE_REQUEST_COST = 1000L
 
-        const val DISTANCE_EPSILON = 0.0004
+        const val EMBEDDING_VALIDATION_COSINE_DISTANCE_EPSILON = 0.001
     }
 
     override val name = "vector-db-embedding"
@@ -123,7 +123,7 @@ class VectorDBEmbeddingComputeEngine(
         if (validationOutput != computeOutput) {
             val validationEmbeddings = validationResponse.data.map { embedding -> embedding.embedding.map { it.toDouble() }.toDoubleArray() }
             val computedEmbeddings = computeOutput.embeddings.map { embedding -> embedding.vectorToList().map { it.toDouble() }.toDoubleArray() }
-            val similar = areAllSimilar(validationEmbeddings, computedEmbeddings, DISTANCE_EPSILON)
+            val similar = areAllSimilar(validationEmbeddings, computedEmbeddings, EMBEDDING_VALIDATION_COSINE_DISTANCE_EPSILON)
             if (!similar.first) {
                 throw UserMistake("Embeddings do not match, failed on similarity: ${similar.second}")
             }

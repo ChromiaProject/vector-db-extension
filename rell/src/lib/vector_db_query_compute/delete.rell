@@ -1,0 +1,60 @@
+entity compute_request_height {
+    height: integer;
+    key id: text;
+    collection: text;
+}
+
+entity safe_delete {
+    height: integer;
+    collection: text;
+    index height, collection;
+    context: integer;
+    ids: byte_array;
+}
+
+function is_computing(collection: text): boolean {
+    return exists(compute_request_height @? { .collection == collection } limit 1);
+}
+
+@extend(hc.on_compute_result)
+function maybe_delete_vectors_after_computing(id: text, type: text, result: hc.compute_result) {
+    if (type != my_type) return;
+
+    val compute_request = compute_request_height @? { .id == id };
+    if (compute_request == null) return;
+
+    val min_compute_height = compute_request_height @ {
+        .id != id,
+        .collection == compute_request.collection
+    } ( @min(.height) );
+
+    val can_be_deleted = safe_delete @* {
+        min_compute_height == null or .height < min_compute_height,
+        .collection == compute_request.collection,
+    } ( .rowid, .collection, .context, .ids );
+
+    for (safe_delete in can_be_deleted) {
+        val ids = set<integer>.from_gtv(gtv.from_bytes(safe_delete.ids));
+        op_context.emit_event("delete_vectors", (collection = safe_delete.collection, context = safe_delete.context, ids = ids).to_gtv_pretty());
+    }
+
+    delete safe_delete @* { .rowid in can_be_deleted @* {} (.rowid) };
+    delete compute_request;
+}
+
+/**
+ * Delete a set of vectors from the database safely to not break any ongoing query computation. Vectors are excluded
+ * from search directly, but removed from database once all queries related to this height has completed.
+ *
+ * @param collection The name of the collection defined in the blockchain configuration.
+ * @param context The context of the vector.
+ * @param ids The list of vector IDs to delete.
+ */
+function delete_vectors_safely(collection: text, context: integer, ids: set<integer>) {
+    if (is_computing(collection)) {
+        create safe_delete(.height = op_context.block_height, collection, .context = context, ids.to_gtv().to_bytes());
+        op_context.emit_event("exclude_vectors", (collection = collection, context = context, ids = ids).to_gtv_pretty());
+    } else {
+        op_context.emit_event("delete_vectors", (collection = collection, context = context, ids = ids).to_gtv_pretty());
+    }
+}

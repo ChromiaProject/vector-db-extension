@@ -7,20 +7,23 @@ import net.postchain.gtv.GtvNull
 
 class VectorDbDatumMapper {
     companion object {
-        fun toVectorDatumGtv(collectionId: Long, context: Long, refId: Long?, vector: String?) =
+        fun toVectorDatumGtv(collectionId: Long, context: Long, refId: Long?, vector: String?, exclude: Boolean = false) =
                 gtv(
                         gtv(collectionId),
                         gtv(context),
                         if (refId == null) GtvNull else gtv(refId),
-                        if (vector == null) GtvNull else gtv(vector)
+                        if (vector == null) GtvNull else gtv(vector),
+                        gtv(exclude)
                 )
 
         fun fromVectorDatumGtv(gtv: Gtv): CollectionVectorDatum {
+            val size = gtv.asArray().size
             return CollectionVectorDatum(
                     gtv[0].asInteger(),
                     gtv[1].asInteger(),
                     if (gtv[2].isNull()) null else gtv[2].asInteger(),
                     if (gtv[3].isNull()) null else gtv[3].asString(),
+                    if (size < 5) false else gtv[4].asBoolean(),
             )
         }
 
@@ -61,4 +64,4 @@ class VectorDbDatumMapper {
     }
 }
 
-data class CollectionVectorDatum(val collectionId: Long, val context: Long, val refId: Long?, val vector: String?)
+data class CollectionVectorDatum(val collectionId: Long, val context: Long, val refId: Long?, val vector: String?, val exclude: Boolean)

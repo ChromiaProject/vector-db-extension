@@ -52,6 +52,9 @@ And make sure you deploy your chain to a container with the extension supported.
 
 **⚠️ Warning:** This feature is experimental and not ready for production use. It is a proof of concept and may change in the future.
 
+**⚠️ Warning:** To remove vectors safely while using query computations you need to use
+`delete_vectors_safely(collection: text, context: integer, ids: set<integer>)`. This will ensure vectors are removed without breaking any pending computation.
+
 The extension supports computing queries asynchronously via the hybrid compute infrastructure. Update the blockchain configuration to enable this:
 
 ```yaml

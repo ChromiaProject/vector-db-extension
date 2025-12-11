@@ -60,11 +60,10 @@ function submit_query_request(
     max_vectors: integer? = null,
     context: integer? = null
 ) {
-    val input =
-        query_request(collection, q_vector, max_distance, context = context, query_max_vectors = max_vectors);
+    create compute_request_height(height = op_context.block_height, id, collection);
+    val input = query_request(collection, q_vector, max_distance, context = context, query_max_vectors = max_vectors);
     hc.submit_compute_request(id, my_type, input.to_gtv_pretty());
 }
-
 
 @extend(hc.on_compute_result)
 function (id: text, type: text, result: hc.compute_result) {

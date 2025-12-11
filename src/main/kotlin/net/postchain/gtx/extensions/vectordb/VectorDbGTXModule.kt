@@ -84,11 +84,12 @@ open class VectorDbGTXModule(
                 val queryTemplateName = queryTemplate["name"]?.asString()
                         ?: throw UserMistake("No name argument supplied to query_template")
                 val queryTemplateArgs = queryTemplate["args"]?.asDict() ?: mapOf()
-                return moduleContext.module.query(ctx, queryTemplateName,
+                moduleContext.module.query(ctx, queryTemplateName,
                         gtv(mapOf("closest_results" to vectorGtvResult) + queryTemplateArgs))
             }
         }
 
+        @Suppress("UNUSED_PARAMETER")
         fun getVectorCollections(moduleContext: VectorDbGTXModuleContext, ctx: EContext, args: Gtv): Gtv {
             val vectorCollections = moduleContext.collectionsByName.values.map { collection ->
                 gtv(mapOf(
@@ -180,7 +181,7 @@ open class VectorDbGTXModule(
                     reusableDatumIds.add(it.id)
                 } else {
                     vectorsPerCollection.getOrPut(collectionVector.collectionId) { mutableListOf() }
-                            .add(Vector(it.id, collectionVector.context, collectionVector.refId, collectionVector.vector))
+                            .add(Vector(it.id, collectionVector.context, collectionVector.refId, collectionVector.vector, collectionVector.exclude))
                 }
             }
 
