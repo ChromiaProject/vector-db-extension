@@ -143,7 +143,7 @@ blockchains:
           texts:
             dimensions: 384
         embedding_compute:
-          model: "qwen3-embedding-0.6b"
+          model: "qwen3_embedding_0_6b"
           timeout_seconds: 5
   vector_example_embedding_compute_small_test:
     module: integration_test.embedding_compute
@@ -172,7 +172,31 @@ blockchains:
           texts:
             dimensions: 3
         embedding_compute:
-          model: "qwen3-embedding-0.6b"
+          model: "qwen3_embedding_0_6b"
+          timeout_seconds: 5
+  vector_example_embedding_compute_slow_it:
+    module: integration_test.embedding_compute
+    config:
+      blockstrategy:
+        maxblocktime: 2000
+      features:
+        merkle_hash_version: 2
+      gtx:
+        modules:
+          - "net.postchain.rell.module.RellPostchainModuleFactory"
+          - "net.postchain.gtx.StandardOpsGTXModule"
+          - "net.postchain.gtx.extensions.vectordb.VectorDbGTXModule"
+          - "net.postchain.hybridcompute.HybridComputeGTXModule"
+      sync_ext:
+        - "net.postchain.hybridcompute.HybridComputeSynchronizationInfrastructureExtension"
+      hybridcompute:
+        engine: "net.postchain.gtx.extensions.vectordb.VectorDBEmbeddingComputeEngine"
+      vector_db_extension:
+        collections:
+          texts:
+            dimensions: 3
+        embedding_compute:
+          model: "qwen3_embedding_0_6b"
           timeout_seconds: 5
 
   vector_db:

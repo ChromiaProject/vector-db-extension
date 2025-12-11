@@ -26,7 +26,7 @@ function (id: text, embedding_result: vdbe.embedding_result) {
     if (embedding_result.result != null and embedding_result.result.embeddings.size() == 1) {
         val embedding = embedding_result.result.embeddings[0];
 
-        log("Store vector for embedding %s".format(id));
+        log("Store vector for embedding %s: %s".format(id, embedding));
 
         val text_embedding = text_embedding @ { .id == id };
         text_embedding.vector = embedding;

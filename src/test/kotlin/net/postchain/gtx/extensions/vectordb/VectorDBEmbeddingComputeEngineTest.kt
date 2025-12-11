@@ -20,10 +20,11 @@ import java.net.InetSocketAddress
 import java.net.StandardProtocolFamily
 import java.nio.channels.ServerSocketChannel
 import java.util.concurrent.TimeUnit
+import kotlin.random.Random
 
 class VectorDBEmbeddingComputeEngineTest {
 
-    val unroutableInternetUrl = "http://10.255.255.1:1"
+    val unroutableInternetUrl = "http://10.255.255.${Random.nextInt(255)}:1"
     val input = GtvObjectMapper.toGtvDictionary(EmbeddingRequest(listOf("text1")))
 
     @Test
@@ -85,11 +86,12 @@ class VectorDBEmbeddingComputeEngineTest {
         val engine = VectorDBEmbeddingComputeEngine(connectTimeout)
         val postchainContext = mock<PostchainContext> {
             on { appConfig } doReturn AppConfig.fromEnvironment(mapOf(
-                    "extension.vector_db.embedding.url" to url
+                    "extension.vector_db.embedding.test_model.url" to url,
+                    "extension.vector_db.embedding.test_model.model" to "test-model",
             ))
         }
         val embeddingConfig = VectorDbEmbeddingComputeConfig(
-                "test-model",
+                "test_model",
                 2
         )
         val configuration = mock<BlockchainConfiguration> {
