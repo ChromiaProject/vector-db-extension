@@ -22,7 +22,7 @@ class EmbeddingsAnalyzer {
 
     companion object : KLogging()
 
-    private val embeddingInputDir = File("/home/joh-nils/chromaway/embeddings-test/manual/")
+    private val embeddingInputDir = File("/home/joh-nils/chromaway/embeddings-test/")
 
     val walkPattern = "${embeddingInputDir.absolutePath}/.*/.*[.]json".toRegex()
     val filePattern = "([^_]+)_([^_]+)+_\\d+.json".toRegex()

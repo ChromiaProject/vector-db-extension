@@ -48,7 +48,7 @@ class VectorDBEmbeddingComputeEngine(
 
         const val BASE_REQUEST_COST = 1000L
 
-        const val DISTANCE_EPSILON = 0.0004
+        const val DISTANCE_EPSILON = 0.001
     }
 
     override val name = "vector-db-embedding"
