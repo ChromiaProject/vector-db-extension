@@ -292,7 +292,7 @@ class VectorDbDatabaseAccess{
             )
         }
 
-        // Exclude column
+        // Add column for vector exclusion. This works as a soft remove to exclude vectors from query, before they are removed
         ctx.conn.createStatement().use { stmt ->
             stmt.execute("""
                 ALTER TABLE $tableName
@@ -300,6 +300,7 @@ class VectorDbDatabaseAccess{
             """)
         }
 
+        // Index for exclude
         ctx.conn.createStatement().use { stmt ->
             stmt.execute("""
                 CREATE INDEX IF NOT EXISTS "${getTableIndexName(tableName, COLLECTION_COLUMN_EXCLUDE)}"
