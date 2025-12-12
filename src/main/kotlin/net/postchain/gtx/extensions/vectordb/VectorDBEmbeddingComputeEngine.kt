@@ -14,7 +14,7 @@ import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.VECTOR_
 import net.postchain.gtx.extensions.vectordb.VectorSimilarity.areAllSimilar
 import net.postchain.gtx.extensions.vectordb.config.VectorDbConfig
 import net.postchain.gtx.extensions.vectordb.config.VectorDbEmbeddingComputeConfig
-import net.postchain.gtx.extensions.vectordb.config.VectorDbNodeVLLMConfig
+import net.postchain.gtx.extensions.vectordb.config.VectorDbEmbeddingNodeConfig
 import net.postchain.gtx.extensions.vectordb.lib.vector_db_embedding_compute.EmbeddingRequest
 import net.postchain.gtx.extensions.vectordb.lib.vector_db_embedding_compute.EmbeddingResponse
 import net.postchain.hybridcompute.HybridComputeEngine
@@ -23,6 +23,7 @@ import org.apache.hc.client5.http.config.RequestConfig
 import org.apache.hc.client5.http.cookie.StandardCookieSpec
 import org.apache.hc.client5.http.impl.classic.HttpClients
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder
+import org.apache.hc.core5.http.HttpHeaders.AUTHORIZATION
 import org.apache.hc.core5.util.Timeout
 import org.http4k.client.ApacheClient
 import org.http4k.core.Body
@@ -41,6 +42,7 @@ class VectorDBEmbeddingComputeEngine(
 ) : HybridComputeEngine, PostchainContextAware {
 
     companion object : KLogging() {
+        const val X_API_KEY_HEADER = "X-API-Key"
         const val CONNECT_TIMEOUT_MS = 10_000L
         const val DEFAULT_TIMEOUT_SECONDS = 3L
 
@@ -51,24 +53,30 @@ class VectorDBEmbeddingComputeEngine(
 
     override val name = "vector-db-embedding"
 
-    private lateinit var nodeVLLMConfig: VectorDbNodeVLLMConfig
+    private lateinit var embeddingNodeConfig: VectorDbEmbeddingNodeConfig
     private lateinit var computeConfig: VectorDbEmbeddingComputeConfig
     internal lateinit var client: HttpHandler
 
     val addRequestHeaders = Filter { next ->
         { request ->
-            if (nodeVLLMConfig.bearerToken != null) {
-                next(request.header("Authorization", "Bearer ${nodeVLLMConfig.bearerToken}"))
-            } else {
-                next(request)
-            }
+            next(
+                    request.let {
+                        if (embeddingNodeConfig.authBearer != null)
+                            it.header(AUTHORIZATION, "Bearer ${embeddingNodeConfig.authBearer}")
+                        else it
+                    }.let {
+                        if (embeddingNodeConfig.xApiKey != null)
+                            it.header(X_API_KEY_HEADER, embeddingNodeConfig.xApiKey)
+                        else it
+                    }
+            )
         }
     }
 
     override fun initializeContext(configuration: BlockchainConfiguration, postchainContext: PostchainContext, ctx: EContext) {
-        nodeVLLMConfig = VectorDbNodeVLLMConfig.fromAppConfig(postchainContext.appConfig)
         computeConfig = configuration.rawConfig[VECTOR_DB_EXTENSION_CONFIG_NAME]?.toObject<VectorDbConfig>()
                 ?.embeddingCompute ?: throw UserMistake("No embedding compute config found in the vector db config")
+        embeddingNodeConfig = VectorDbEmbeddingNodeConfig.fromAppConfig(postchainContext.appConfig, computeConfig.model)
 
         client = addRequestHeaders
                 .then(ClientFilters.AcceptGZip(GzipCompressionMode.Streaming())
@@ -132,18 +140,18 @@ class VectorDBEmbeddingComputeEngine(
 
     fun requestEmbeddings(request: EmbeddingRequest): VLLMEmbeddingResponse {
         val modelInput = request.input
-        val httpResponse = client(HttpRequest(Method.POST, "${nodeVLLMConfig.url}/v1/embeddings")
+        val httpResponse = client(HttpRequest(Method.POST, "${embeddingNodeConfig.url}/v1/embeddings")
                 .with(vLLMEmbeddingRequest of VLLMEmbeddingRequest(
-                        model = computeConfig.model,
+                        model = embeddingNodeConfig.model,
                         input = modelInput
-                )).let { if (nodeVLLMConfig.basicAuth != null) it.basicAuthentication(nodeVLLMConfig.basicAuth!!) else it })
+                )).let { if (embeddingNodeConfig.basicAuth != null) it.basicAuthentication(embeddingNodeConfig.basicAuth!!) else it })
 
         if (!httpResponse.status.successful) {
             throw UserMistake("Failed to request embedding: ${httpResponse.status} ${httpResponse.bodyString()}")
         }
 
         val response = vLLMEmbeddingResponse(httpResponse)
-        if (response.model != computeConfig.model) {
+        if (response.model != embeddingNodeConfig.model) {
             throw UserMistake("Invalid model returned: ${response.model}")
         }
         if (response.data.isEmpty()) {
