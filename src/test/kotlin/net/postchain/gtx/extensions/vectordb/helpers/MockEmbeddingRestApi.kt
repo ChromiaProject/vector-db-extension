@@ -2,11 +2,11 @@ package net.postchain.gtx.extensions.vectordb.helpers
 
 import assertk.assertThat
 import assertk.assertions.isEqualTo
-import net.postchain.gtx.extensions.vectordb.VLLMEmbeddingResponse
-import net.postchain.gtx.extensions.vectordb.VLLMEmbeddingResponseData
 import net.postchain.gtx.extensions.vectordb.VectorDBEmbeddingComputeEngine.Companion.X_API_KEY_HEADER
-import net.postchain.gtx.extensions.vectordb.vLLMEmbeddingRequest
-import net.postchain.gtx.extensions.vectordb.vLLMEmbeddingResponse
+import net.postchain.gtx.extensions.vectordb.embedding.client.OpenAiEmbeddingResponse
+import net.postchain.gtx.extensions.vectordb.embedding.client.OpenAiEmbeddingResponseData
+import net.postchain.gtx.extensions.vectordb.embedding.client.openAiEmbeddingRequest
+import net.postchain.gtx.extensions.vectordb.embedding.client.openAiEmbeddingResponse
 import net.postchain.gtx.extensions.vectordb.vectorToList
 import org.apache.hc.core5.http.HttpHeaders.AUTHORIZATION
 import org.http4k.core.Credentials
@@ -47,7 +47,7 @@ class MockEmbeddingRestApi(
     init {
         val routesApp = routes(
                 "/v1/embeddings" bind Method.POST to { request ->
-                    val embeddingRequest = vLLMEmbeddingRequest(request)
+                    val embeddingRequest = openAiEmbeddingRequest(request)
 
                     if (embeddingRequest.model != model) {
                         Response(Status.NOT_FOUND)
@@ -58,16 +58,14 @@ class MockEmbeddingRestApi(
                         } else {
                             data[embeddingRequest.input[0]]!! as String
                         }
-                        val responseData = VLLMEmbeddingResponse(
+                        val responseData = OpenAiEmbeddingResponse(
                                 "id",
                                 System.currentTimeMillis(),
                                 embeddingRequest.model,
-                                listOf(
-                                        VLLMEmbeddingResponseData(0, embedding.vectorToList())
-                                )
+                                listOf(OpenAiEmbeddingResponseData(0, embedding.vectorToList()))
                         )
 
-                        Response(Status.OK).with(vLLMEmbeddingResponse of responseData)
+                        Response(Status.OK).with(openAiEmbeddingResponse of responseData)
                     }
                 },
         )

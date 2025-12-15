@@ -2,7 +2,6 @@ package net.postchain.gtx.extensions.vectordb
 
 import mu.KLogging
 import net.postchain.PostchainContext
-import net.postchain.api.rest.json.GtvJsonFactory.auto
 import net.postchain.common.exception.UserMistake
 import net.postchain.core.BlockchainConfiguration
 import net.postchain.core.EContext
@@ -10,32 +9,16 @@ import net.postchain.gtv.Gtv
 import net.postchain.gtv.mapper.GtvObjectMapper
 import net.postchain.gtv.mapper.toObject
 import net.postchain.gtx.PostchainContextAware
-import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.VECTOR_DB_EXTENSION_CONFIG_NAME
-import net.postchain.gtx.extensions.vectordb.VectorSimilarity.areAllSimilar
 import net.postchain.gtx.extensions.vectordb.config.VectorDbConfig
 import net.postchain.gtx.extensions.vectordb.config.VectorDbEmbeddingComputeConfig
 import net.postchain.gtx.extensions.vectordb.config.VectorDbEmbeddingNodeConfig
+import net.postchain.gtx.extensions.vectordb.embedding.client.EmbeddingAPIClient
+import net.postchain.gtx.extensions.vectordb.embedding.client.EmbeddingApiType
+import net.postchain.gtx.extensions.vectordb.embedding.client.GcpEmbeddingApiClient
+import net.postchain.gtx.extensions.vectordb.embedding.client.OpenAiEmbeddingApiClient
 import net.postchain.gtx.extensions.vectordb.lib.vector_db_embedding_compute.EmbeddingRequest
 import net.postchain.gtx.extensions.vectordb.lib.vector_db_embedding_compute.EmbeddingResponse
 import net.postchain.hybridcompute.HybridComputeEngine
-import org.apache.hc.client5.http.config.ConnectionConfig
-import org.apache.hc.client5.http.config.RequestConfig
-import org.apache.hc.client5.http.cookie.StandardCookieSpec
-import org.apache.hc.client5.http.impl.classic.HttpClients
-import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder
-import org.apache.hc.core5.http.HttpHeaders.AUTHORIZATION
-import org.apache.hc.core5.util.Timeout
-import org.http4k.client.ApacheClient
-import org.http4k.core.Body
-import org.http4k.core.Filter
-import org.http4k.core.HttpHandler
-import org.http4k.core.Method
-import org.http4k.core.then
-import org.http4k.core.with
-import org.http4k.filter.ClientFilters
-import org.http4k.filter.GzipCompressionMode
-import org.http4k.lens.basicAuthentication
-import org.http4k.core.Request as HttpRequest
 
 class VectorDBEmbeddingComputeEngine(
         val connectTimeoutMs: Long = CONNECT_TIMEOUT_MS,
@@ -55,61 +38,20 @@ class VectorDBEmbeddingComputeEngine(
 
     private lateinit var embeddingNodeConfig: VectorDbEmbeddingNodeConfig
     private lateinit var computeConfig: VectorDbEmbeddingComputeConfig
-    internal lateinit var client: HttpHandler
-
-    val addRequestHeaders = Filter { next ->
-        { request ->
-            next(
-                    request.let {
-                        if (embeddingNodeConfig.authBearer != null)
-                            it.header(AUTHORIZATION, "Bearer ${embeddingNodeConfig.authBearer}")
-                        else it
-                    }.let {
-                        if (embeddingNodeConfig.xApiKey != null)
-                            it.header(X_API_KEY_HEADER, embeddingNodeConfig.xApiKey)
-                        else it
-                    }
-            )
-        }
-    }
+    private lateinit var client: EmbeddingAPIClient
 
     override fun initializeContext(configuration: BlockchainConfiguration, postchainContext: PostchainContext, ctx: EContext) {
-        computeConfig = configuration.rawConfig[VECTOR_DB_EXTENSION_CONFIG_NAME]?.toObject<VectorDbConfig>()
+        computeConfig = configuration.rawConfig[VectorDbGTXModule.VECTOR_DB_EXTENSION_CONFIG_NAME]?.toObject<VectorDbConfig>()
                 ?.embeddingCompute ?: throw UserMistake("No embedding compute config found in the vector db config")
         embeddingNodeConfig = VectorDbEmbeddingNodeConfig.fromAppConfig(postchainContext.appConfig, computeConfig.model)
-
-        client = addRequestHeaders
-                .then(ClientFilters.AcceptGZip(GzipCompressionMode.Streaming())
-                .then(
-                        ClientFilters.RequestTracing(
-                                startReportFn = { request, _ ->
-                                    logger.debug { "\n$request" }
-                                },
-                                endReportFn = { _, response, _ ->
-                                    logger.debug { "\n$response" }
-                                }
-                        ).then(
-                                ApacheClient(HttpClients.custom()
-                                        .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
-                                                .setDefaultConnectionConfig(ConnectionConfig.custom()
-                                                        .setConnectTimeout(Timeout.ofMilliseconds(connectTimeoutMs))
-                                                        .build())
-                                                .build())
-                                        .setDefaultRequestConfig(
-                                                RequestConfig.custom()
-                                                        .setRedirectsEnabled(false)
-                                                        .setCookieSpec(StandardCookieSpec.IGNORE)
-                                                        .setResponseTimeout(Timeout.ofSeconds(computeConfig.timeoutSeconds))
-                                                        .build())
-                                        .build())
-                        )))
+        client = createEmbeddingClient(embeddingNodeConfig, connectTimeoutMs, computeConfig)
     }
 
     override fun estimatePoints(input: Gtv): Long = getCost(input)
 
     override fun compute(input: Gtv): Pair<Gtv, Long> {
         val request = input.toObject<EmbeddingRequest>()
-        val embeddings = requestEmbeddings(request)
+        val embeddings = client.requestEmbeddings(request)
 
         if (request.input.size != embeddings.data.size) {
             throw UserMistake("Requested ${request.input.size} embeddings, but got ${embeddings.data.size}")
@@ -120,7 +62,7 @@ class VectorDBEmbeddingComputeEngine(
 
     override fun validate(input: Gtv, output: Gtv) {
         val request = input.toObject<EmbeddingRequest>()
-        val validationResponse = requestEmbeddings(request)
+        val validationResponse = client.requestEmbeddings(request)
         val validationOutput = EmbeddingResponse(validationResponse.data.map { it.embedding.joinToString(",", "[", "]") })
         val computeOutput = GtvObjectMapper.fromGtv(output, EmbeddingResponse::class.java)
 
@@ -131,36 +73,18 @@ class VectorDBEmbeddingComputeEngine(
         if (validationOutput != computeOutput) {
             val validationEmbeddings = validationResponse.data.map { embedding -> embedding.embedding.map { it.toDouble() }.toDoubleArray() }
             val computedEmbeddings = computeOutput.embeddings.map { embedding -> embedding.vectorToList().map { it.toDouble() }.toDoubleArray() }
-            val similar = areAllSimilar(validationEmbeddings, computedEmbeddings, EMBEDDING_VALIDATION_COSINE_DISTANCE_EPSILON)
+            val similar = VectorSimilarity.areAllSimilar(validationEmbeddings, computedEmbeddings, EMBEDDING_VALIDATION_COSINE_DISTANCE_EPSILON)
             if (!similar.first) {
                 throw UserMistake("Embeddings do not match, failed on similarity: ${similar.second}")
             }
         }
     }
 
-    fun requestEmbeddings(request: EmbeddingRequest): VLLMEmbeddingResponse {
-        val modelInput = request.input
-        val httpResponse = client(HttpRequest(Method.POST, "${embeddingNodeConfig.url}/v1/embeddings")
-                .with(vLLMEmbeddingRequest of VLLMEmbeddingRequest(
-                        model = embeddingNodeConfig.model,
-                        input = modelInput
-                )).let { if (embeddingNodeConfig.basicAuth != null) it.basicAuthentication(embeddingNodeConfig.basicAuth!!) else it })
-
-        if (!httpResponse.status.successful) {
-            throw UserMistake("Failed to request embedding: ${httpResponse.status} ${httpResponse.bodyString()}")
+    private fun createEmbeddingClient(embeddingNodeConfig: VectorDbEmbeddingNodeConfig, connectTimeoutMs: Long, computeConfig: VectorDbEmbeddingComputeConfig): EmbeddingAPIClient {
+        return when (embeddingNodeConfig.apiType) {
+            EmbeddingApiType.OPENAI -> OpenAiEmbeddingApiClient(embeddingNodeConfig, connectTimeoutMs, computeConfig)
+            EmbeddingApiType.GCP -> GcpEmbeddingApiClient(embeddingNodeConfig, connectTimeoutMs, computeConfig)
         }
-
-        val response = vLLMEmbeddingResponse(httpResponse)
-        if (response.model != embeddingNodeConfig.model) {
-            throw UserMistake("Invalid model returned: ${response.model}")
-        }
-        if (response.data.isEmpty()) {
-            throw UserMistake("No data found in response")
-        }
-
-        logger.info("Generated id ${response.id} at ${response.created} with model ${response.model}")
-
-        return response
     }
 
     private fun getCost(input: Gtv): Long = BASE_REQUEST_COST + input.nrOfBytes()
@@ -168,51 +92,3 @@ class VectorDBEmbeddingComputeEngine(
     override fun load() {
     }
 }
-
-val vLLMEmbeddingRequest = Body.auto<VLLMEmbeddingRequest>().toLens()
-val vLLMEmbeddingResponse = Body.auto<VLLMEmbeddingResponse>().toLens()
-
-data class VLLMEmbeddingRequest(
-        /**
-         * The model to request embedding from.
-         */
-        val model: String,
-
-        /**
-         * The model input.
-         */
-        val input: List<String>,
-)
-
-data class VLLMEmbeddingResponse(
-        /**
-         * A unique identifier for the chat completion response (e.g., `chatcmpl-verified-xxx`).
-         */
-        val id: String,
-
-        /**
-         * The Unix timestamp (in seconds) of when the chat completion was created.
-         */
-        val created: Long,
-
-        /**
-         * The model serving this embedding.
-         */
-        val model: String,
-
-        /**
-         * The model response data.
-         */
-        val data: List<VLLMEmbeddingResponseData>,
-) {
-    fun dataAsStringVectors(): List<String> {
-        return data.map {
-            it.embedding.joinToString(",", "[", "]")
-        }
-    }
-}
-
-data class VLLMEmbeddingResponseData(
-        val index: Long,
-        val embedding: List<String>,
-)

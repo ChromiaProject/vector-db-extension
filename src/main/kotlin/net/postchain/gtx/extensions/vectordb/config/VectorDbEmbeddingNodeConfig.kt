@@ -2,10 +2,12 @@ package net.postchain.gtx.extensions.vectordb.config
 
 import net.postchain.common.exception.UserMistake
 import net.postchain.config.app.AppConfig
+import net.postchain.gtx.extensions.vectordb.embedding.client.EmbeddingApiType
 import org.http4k.core.Credentials
 
 data class VectorDbEmbeddingNodeConfig(
         val model: String,
+        val apiType: EmbeddingApiType,
         val url: String,
         val basicAuth: Credentials? = null,
         val authBearer: String? = null,
@@ -17,6 +19,7 @@ data class VectorDbEmbeddingNodeConfig(
 
         @JvmStatic
         fun fromAppConfig(config: AppConfig, model: String): VectorDbEmbeddingNodeConfig {
+            val apiType = config.getEmbeddingEnvOrString(model, "api_type")?.uppercase()?.let { EmbeddingApiType.valueOf(it) }
             val basicAuthUser = config.getEmbeddingEnvOrString(model, "basic_auth_user")
             val basicAuthPassword = config.getEmbeddingEnvOrString(model, "basic_auth_password")
             if (basicAuthUser != null && basicAuthPassword == null) {
@@ -28,6 +31,7 @@ data class VectorDbEmbeddingNodeConfig(
             return VectorDbEmbeddingNodeConfig(
                     model = config.getEmbeddingEnvOrString(model, "model")
                             ?: throw UserMistake("Vector DB embedding model must be configured"),
+                    apiType = apiType ?: EmbeddingApiType.OPENAI,
                     url = config.getEmbeddingEnvOrString(model, "url")
                             ?: throw UserMistake("Vector DB embedding url must be configured"),
                     basicAuth = if (basicAuthUser != null && basicAuthPassword != null)

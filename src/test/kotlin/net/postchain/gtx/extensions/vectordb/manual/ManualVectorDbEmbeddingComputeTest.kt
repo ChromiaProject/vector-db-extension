@@ -45,7 +45,8 @@ class ManualVectorDbEmbeddingComputeTest : PGVectorBaseTest() {
     fun `compute multiple embeddings`() {
         val embeddingServiceUrl = "http://${embeddingServiceContainer.host}:${embeddingServiceContainer.getMappedPort(80)}"
         testLogger.info("Embedding service URL: $embeddingServiceUrl")
-        configOverrides.setProperty("extension.vector_db.embedding.url", embeddingServiceUrl)
+        configOverrides.setProperty("extension.vector_db.embedding.qwen3_embedding_0_6b.model", "sentence-transformers/all-MiniLM-L6-v2")
+        configOverrides.setProperty("extension.vector_db.embedding.qwen3_embedding_0_6b.url", embeddingServiceUrl)
 
         val node = createNodes(3, "/chains/vector_example_embedding_compute_test.xml")[0]
         val engine = node.getBlockchainInstance().blockchainEngine
