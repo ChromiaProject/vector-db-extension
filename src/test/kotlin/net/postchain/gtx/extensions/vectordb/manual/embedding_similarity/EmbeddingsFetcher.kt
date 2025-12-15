@@ -5,6 +5,7 @@ import mu.KLogging
 import net.postchain.gtx.extensions.vectordb.VLLMEmbeddingResponse
 import net.postchain.gtx.extensions.vectordb.VectorDBEmbeddingComputeEngine
 import net.postchain.gtx.extensions.vectordb.helpers.EmbeddingHelper.embeddingComputeEngine
+import net.postchain.gtx.extensions.vectordb.helpers.EmbeddingHelper.embeddingComputeGCPEngine
 import net.postchain.gtx.extensions.vectordb.lib.vector_db_embedding_compute.EmbeddingRequest
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
@@ -31,25 +32,27 @@ class EmbeddingsFetcher {
 
     // https://www.kaggle.com/datasets/ffatty/plain-text-wikipedia-simpleenglish?resource=download
     private val textSource = File("/home/joh-nils/Downloads/AllCombined.txt.zip")
-    private val embeddingTestDir = File("/home/joh-nils/chromaway/embeddings-test/manual/")
+    private val embeddingTestDir = File("/home/joh-nils/chromaway/embeddings-test/150/")
     private val testnetConfig = "/home/joh-nils/chromaway/embeddings-test/testnet.properties"
     private val cfConfig = "/home/joh-nils/chromaway/embeddings-test/cf.properties"
-    private val startOffset = 950
-    private val workCount = 200
+    private val gcpConfig = "/home/joh-nils/chromaway/embeddings-test/gcp.properties"
+    private val startOffset = 200
+    private val workCount = 1000
     private val gson = Gson()
 
     @Test
     fun run() {
 
         val executor = Executors.newFixedThreadPool(8)
-        val serviceA = embeddingComputeEngine("qwen3-embedding-0.6b", testnetConfig)
-        val serviceB = embeddingComputeEngine("@cf/qwen/qwen3-embedding-0.6b", cfConfig)
+        val serviceA = "testnet" to embeddingComputeEngine(testnetConfig)
+        val serviceB = "cf" to embeddingComputeEngine(cfConfig)
+        val serviceC = "gcp" to embeddingComputeGCPEngine(gcpConfig)
 
-//        sequentialTextSegmentsStream(minWords = 150, maxWords = 150)
-//                .drop(startOffset)
-//            .take(workCount)
-                listOf("Tell me about EU and President George Bush")
-            .forEach { segment ->
+        sequentialTextSegmentsStream(minWords = 150, maxWords = 150)
+                .drop(startOffset)
+            .take(workCount)
+//                listOf("Tell me about EU and President George Bush")
+            .forEachIndexed { index, segment ->
                 val hash = segment.hashCode().toString().replace('-', 'n')
 
                 val inputFile = embeddingTestDir.resolve("${hash}/input")
@@ -57,9 +60,14 @@ class EmbeddingsFetcher {
                     inputFile.parentFile.mkdirs()
                     inputFile.writeText(gson.toJson(segment))
                 }
+                val offsetFile = embeddingTestDir.resolve("${hash}/offset_${startOffset + index}")
+                if (!offsetFile.exists()) {
+                    offsetFile.createNewFile()
+                }
 
-                executor.submit(createEmbeddingRequestTask(serviceA, "testnet", hash, segment))
-                executor.submit(createEmbeddingRequestTask(serviceB, "cf", hash, segment))
+                executor.submit(createEmbeddingRequestTask(serviceA.second, serviceA.first, hash, segment))
+                executor.submit(createEmbeddingRequestTask(serviceB.second, serviceB.first, hash, segment))
+                executor.submit(createEmbeddingRequestTask(serviceC.second, serviceC.first, hash, segment))
             }
 
         executor.shutdown()

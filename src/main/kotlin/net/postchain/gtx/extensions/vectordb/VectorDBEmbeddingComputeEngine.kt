@@ -37,7 +37,7 @@ import org.http4k.filter.GzipCompressionMode
 import org.http4k.lens.basicAuthentication
 import org.http4k.core.Request as HttpRequest
 
-class VectorDBEmbeddingComputeEngine(
+open class VectorDBEmbeddingComputeEngine(
         val connectTimeoutMs: Long = CONNECT_TIMEOUT_MS,
 ) : HybridComputeEngine, PostchainContextAware {
 
@@ -53,8 +53,8 @@ class VectorDBEmbeddingComputeEngine(
 
     override val name = "vector-db-embedding"
 
-    private lateinit var embeddingNodeConfig: VectorDbEmbeddingNodeConfig
-    private lateinit var computeConfig: VectorDbEmbeddingComputeConfig
+    protected lateinit var embeddingNodeConfig: VectorDbEmbeddingNodeConfig
+    protected lateinit var computeConfig: VectorDbEmbeddingComputeConfig
     internal lateinit var client: HttpHandler
 
     val addRequestHeaders = Filter { next ->
@@ -83,10 +83,10 @@ class VectorDBEmbeddingComputeEngine(
                 .then(
                         ClientFilters.RequestTracing(
                                 startReportFn = { request, _ ->
-                                    logger.debug { "\n$request" }
+//                                    logger.debug { "\n$request" }
                                 },
                                 endReportFn = { _, response, _ ->
-                                    logger.debug { "\n$response" }
+//                                    logger.debug { "\n$response" }
                                 }
                         ).then(
                                 ApacheClient(HttpClients.custom()
@@ -138,7 +138,7 @@ class VectorDBEmbeddingComputeEngine(
         }
     }
 
-    fun requestEmbeddings(request: EmbeddingRequest): VLLMEmbeddingResponse {
+    open fun requestEmbeddings(request: EmbeddingRequest): VLLMEmbeddingResponse {
         val modelInput = request.input
         val httpResponse = client(HttpRequest(Method.POST, "${embeddingNodeConfig.url}/v1/embeddings")
                 .with(vLLMEmbeddingRequest of VLLMEmbeddingRequest(
