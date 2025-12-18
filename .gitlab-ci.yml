@@ -2,7 +2,7 @@ image: registry.gitlab.com/chromaway/core-tools/chromia-images/maven-docker-java
 
 include:
   - project: "chromaway/core-infra/gitlab-automation"
-    ref: 1.3.0
+    ref: 1.3.4
     file:
       - templates/release.yml
       - templates/maven-dependency-scanning.yml
@@ -104,11 +104,16 @@ deploy_library_chain:
     - ../ci/library_chain/deploy.sh -n vector_db --major 2 --minor 2
     - ../ci/library_chain/deploy.sh -n vector_db_query_compute --major 2 --minor 3 --library-description "Library for the Vector DB extension that computes queries asynchronously. EXPERIMENTAL FEATURE, DO NOT USE IN PRODUCTION."
     - ../ci/library_chain/deploy.sh -n vector_db_embedding_compute --major 0 --minor 1 --library-description "Library for the Vector DB extension that computes embeddings asynchronously."
+  artifacts:
+    reports:
+      dotenv: .library_chain_releases.env
 
 gitlab-release:
   extends: .gitlab-release-with-notes
   script:
-    - echo "Running the release job."
+    - |
+      echo "Running the release job."
+      include_library_chain_releases
   release:
     name: 'Vector DB extension $CI_COMMIT_TAG'
     description: release_notes.md
