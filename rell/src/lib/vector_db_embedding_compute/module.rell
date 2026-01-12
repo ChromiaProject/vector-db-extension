@@ -76,3 +76,19 @@ function (id: text, type: text, result: hc.compute_result) {
  */
 @extendable function on_embedding_result(id: text, embedding_result: embedding_result) {}
 
+/**
+ * Fetches the result of a previously submitted embedding request.
+ *
+ * @param id The identifier of the embedding request for which the result is being fetched.
+ * @return The result, or `null` if not ready yet
+ */
+function fetch_embedding_result(id: text): embedding_result? {
+    val result = hc.fetch_compute_result(id);
+    if (result == null) return null;
+    return embedding_result(
+        result = if (result.result != null) embedding_response.from_gtv_pretty(result.result) else null,
+        error = result.error,
+        tx_rid = result.tx_rid,
+        op_index = result.op_index
+    );
+}
