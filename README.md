@@ -116,7 +116,7 @@ There is an optional but recommended library available to manage vectors:
 ```yaml
 libs:
   com.chromia.vector_db:
-    version: 2.2.0 # Set to version you want to use
+    version: 2.2.1 # Set to version you want to use
 ```
 
 Available versions can be found by running `chr library versions com.chromia.vector_db`.
@@ -132,7 +132,7 @@ To compute vector queries you need to add the following libraries:
 ```yaml
 libs:
   com.chromia.vector_db_query_compute:
-    version: 2.3.2 # Set to the version you want to use
+    version: 2.3.5 # Set to the version you want to use
   com.chromia.hybridcompute: # vector_db_query_compute depends on this library
     version: 3.35.4
 ```
@@ -166,10 +166,12 @@ To compute embeddings you need to add the following libraries:
 ```yaml
 libs:
   com.chromia.vector_db_embedding_compute:
-    version: 0.1.0 # Set to the version you want to use
+    version: 0.1.2 # Set to the version you want to use
   com.chromia.hybridcompute: # vector_db_query_compute depends on this library
-    version: 3.35.4
+    version: 3.35.5
 ```
+
+Available versions can be found by running `chr library list` and `chr library view <id>`.
 
 Run `chr install` to install the library. Once installed you can submit embedding requests to be processed asynchronously:
 

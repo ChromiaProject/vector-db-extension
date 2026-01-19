@@ -6,6 +6,7 @@ import net.postchain.gtv.mapper.Name
 private const val QUERY_COMPUTE_DEFAULT_TIMEOUT_SECONDS = 3L
 
 data class VectorDbQueryComputeConfig(
+        /** The timeout for the query compute and validation */
         @param:Name("timeout_seconds")
         @param:DefaultValue(defaultLong = QUERY_COMPUTE_DEFAULT_TIMEOUT_SECONDS)
         val timeoutSeconds: Long = QUERY_COMPUTE_DEFAULT_TIMEOUT_SECONDS,

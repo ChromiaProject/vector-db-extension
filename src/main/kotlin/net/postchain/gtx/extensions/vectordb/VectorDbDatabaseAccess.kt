@@ -326,7 +326,7 @@ class VectorDbDatabaseAccess{
                 stmt.setLong(2, vector.context)
                 stmt.setLong(3, vector.refId)
                 stmt.setString(4, vector.vector)
-                stmt.setBoolean(5, vector.exlude)
+                stmt.setBoolean(5, vector.exclude)
                 stmt.addBatch()
 
                 if ((index + 1) % batchSize == 0L) {
@@ -599,5 +599,5 @@ class VectorDbDatabaseAccess{
         }
     }
 
-    data class Vector(val datumId: Long, val context: Long, val refId: Long, val vector: String, val exlude: Boolean)
+    data class Vector(val datumId: Long, val context: Long, val refId: Long, val vector: String, val exclude: Boolean)
 }

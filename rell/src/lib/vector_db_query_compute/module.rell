@@ -57,11 +57,11 @@ function submit_query_request(
     collection: text,
     q_vector: text,
     max_distance: decimal,
-    max_vectors: integer? = null,
+    query_max_vectors: integer? = null,
     context: integer? = null
 ) {
     create compute_request_height(height = op_context.block_height, id, collection);
-    val input = query_request(collection, q_vector, max_distance, context = context, query_max_vectors = max_vectors);
+    val input = query_request(collection, q_vector, max_distance, context = context, query_max_vectors = query_max_vectors);
     hc.submit_compute_request(id, my_type, input.to_gtv_pretty());
 }
 
@@ -69,21 +69,7 @@ function submit_query_request(
 function (id: text, type: text, result: hc.compute_result) {
     if (type != my_type) return;
 
-    on_query_result(id,if (result.result != null)
-        query_result(
-            result = list<query_result_object>.from_gtv_pretty(result.result),
-            error = null,
-            tx_rid = result.tx_rid,
-            op_index = result.op_index
-        )
-    else
-        query_result(
-            result = null,
-            error = result.error,
-            tx_rid = result.tx_rid,
-            op_index = result.op_index
-        )
-    );
+    on_query_result(id, build_query_result(result));
 }
 
 /**
@@ -103,6 +89,10 @@ function (id: text, type: text, result: hc.compute_result) {
 function fetch_query_result(id: text): query_result? {
     val result = hc.fetch_compute_result(id);
     if (result == null) return null;
+    return build_query_result(result);
+}
+
+function build_query_result(result: hc.compute_result) {
     return query_result(
         result = if (result.result != null) list<query_result_object>.from_gtv_pretty(result.result) else null,
         error = result.error,

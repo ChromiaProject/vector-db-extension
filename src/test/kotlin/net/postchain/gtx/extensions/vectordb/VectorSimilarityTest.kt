@@ -12,17 +12,16 @@ class VectorSimilarityTest {
         assertThat(isSimilar(
                 doubleArrayOf(0.0, 1.0),
                 doubleArrayOf(0.0, 1.0),
-                0.0)).isEqualTo(true to 1.0)
+                0.0)).isEqualTo(SimilarityResult(true, 1.0))
 
         assertThat(isSimilar(
                 doubleArrayOf(1.0, 0.0, 0.577350269),
                 doubleArrayOf(0.577350269, 0.577350269, 0.577350269),
-                0.0)).isEqualTo(false to 0.9106836021143723)
+                0.0)).isEqualTo(SimilarityResult(false, 0.9106836021143723))
 
         assertThat(isSimilar(
                 doubleArrayOf(1.0, 0.0, 0.577350269),
                 doubleArrayOf(0.577350269, 0.577350269, 0.577350269),
-                0.19)).isEqualTo(true to 0.9106836021143723)
+                0.19)).isEqualTo(SimilarityResult(true, 0.9106836021143723))
     }
 }
-

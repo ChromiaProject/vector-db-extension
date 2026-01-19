@@ -5,6 +5,9 @@ import net.postchain.gtv.mapper.DefaultValue
 import net.postchain.gtv.mapper.Name
 import net.postchain.gtx.extensions.vectordb.VectorDBIndex
 
+/**
+ * Configuration for a single vector database collection.
+ */
 data class VectorDbCollectionConfig(
         /** Number of dimensions of the vectors */
         @param:Name("dimensions")
@@ -21,6 +24,7 @@ data class VectorDbCollectionConfig(
         @param:DefaultValue(defaultLong = 300L)
         val storeBatchSize: Long,
 
+        /** Type of index to use for this collection */
         @param:Name("index")
         @param:DefaultValue(defaultString = "hnsw_cosine")
         val indexString: String,

@@ -3,6 +3,8 @@ package net.postchain.gtx.extensions.vectordb
 import assertk.assertThat
 import assertk.assertions.isEqualTo
 import net.postchain.common.exception.UserMistake
+import net.postchain.gtx.extensions.vectordb.VectorDbEventProcessor.Companion.EVENT_CREATE_COLLECTION
+import net.postchain.gtx.extensions.vectordb.VectorDbEventProcessor.Companion.EVENT_DELETE_COLLECTION
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
