@@ -45,6 +45,12 @@ open class VectorDbGTXModule(
         const val VECTOR_DB_GET_COLLECTIONS = "get_vector_collections"
         const val VECTOR_DB_EXTENSION_CONFIG_NAME = "vector_db_extension"
 
+        private const val ARG_COLLECTION = "collection"
+        private const val ARG_CONTEXT = "context"
+        private const val ARG_Q_VECTOR = "q_vector"
+        private const val ARG_MAX_DISTANCE = "max_distance"
+        private const val ARG_QUERY_MAX_VECTORS = "query_max_vectors"
+
         /** Datum ID 0 is reserved for metadata to sync collection IDs when snapshots are restored */
         const val VECTOR_DB_META_DATUM_ID = 0L
 
@@ -55,16 +61,16 @@ open class VectorDbGTXModule(
                 throw UserMistake("Module is not initialized")
             }
 
-            val collectionArg = args["collection"]?.asString() ?: throw UserMistake("No collection argument supplied")
+            val collectionArg = args[ARG_COLLECTION]?.asString() ?: throw UserMistake("No collection argument supplied")
             val collection = moduleContext.collectionsByName[collectionArg] ?: throw UserMistake("Collection $collectionArg not found")
-            val context = args["context"]?.asIntegerOrNull()
-            val vectorQuery = args["q_vector"]?.asString() ?: throw UserMistake("No q_vector argument supplied")
+            val context = args[ARG_CONTEXT]?.asIntegerOrNull()
+            val vectorQuery = args[ARG_Q_VECTOR]?.asString() ?: throw UserMistake("No q_vector argument supplied")
             requireValidVector(vectorQuery, collection.dimensions.toInt())
-            val maxDistance = BigDecimal(args["max_distance"]?.asString()
-                    ?: throw UserMistake("No max_distance argument supplied"))
-            val maxVectors = args["query_max_vectors"]?.asIntegerOrNull()?.let {
+            val maxDistance = BigDecimal(args[ARG_MAX_DISTANCE]?.asString()
+                    ?: throw UserMistake("No $ARG_MAX_DISTANCE argument supplied"))
+            val maxVectors = args[ARG_QUERY_MAX_VECTORS]?.asIntegerOrNull()?.let {
                 if (it > collection.queryMaxVectors) {
-                    throw UserMistake("query_max_vectors ($it) exceeds the maximum of ${collection.queryMaxVectors}")
+                    throw UserMistake("$ARG_QUERY_MAX_VECTORS ($it) exceeds the maximum of ${collection.queryMaxVectors}")
                 }
                 it
             } ?: collection.queryMaxVectors
@@ -152,48 +158,52 @@ open class VectorDbGTXModule(
 
     override fun constructDatum(ctx: EContext, datumList: List<SnapshotDatum>) {
         if (datumList.isNotEmpty() && datumList[0].id == VECTOR_DB_META_DATUM_ID) {
-            val snapshotMetaData = fromMetaDataGtv(datumList[0].data)
-
-            logger.debug { "Resets vector db with collections: $snapshotMetaData" }
-
-            db.wipeVectorDb(ctx)
-            db.initialize(ctx)
-            db.storeCollections(ctx, snapshotMetaData.values.toList())
-            db.createOrUpdateCollectionTables(ctx)
-
-            conf.collectionOriginMode = getAndEnsureOneOriginMode(db, ctx, false)
-            conf.collectionsByName = ConcurrentHashMap(getActiveCollections(db, ctx, conf.vectorDbConfig))
-
-            constructDatum(ctx, datumList.subList(1, datumList.size))
+            processMetadataSnapshot(ctx, datumList)
         } else {
-
-            val existingCollectionIds = conf.collectionsByName.values.map { it.id }.toSet()
-            val reusableDatumIds = mutableSetOf<Long>()
-            val vectorsPerCollection = mutableMapOf<Long, MutableList<Vector>>()
-            datumList.forEach {
-                val collectionVector = fromVectorDatumGtv(it.data)
-
-                if (!existingCollectionIds.contains(collectionVector.collectionId)) {
-                    logger.trace { "Ignored datum ${it.id} for non existing collection ${collectionVector.collectionId}" }
-                    reusableDatumIds.add(it.id)
-                } else if (collectionVector.refId == null || collectionVector.vector == null) {
-                    logger.trace { "Ignored removed datum ${it.id}" }
-                    reusableDatumIds.add(it.id)
-                } else {
-                    vectorsPerCollection.getOrPut(collectionVector.collectionId) { mutableListOf() }
-                            .add(Vector(it.id, collectionVector.context, collectionVector.refId, collectionVector.vector, collectionVector.exclude))
-                }
-            }
-
-            vectorsPerCollection.forEach { (cid, vectors) ->
-                val collection = conf.collectionsByName.values.find { it.id == cid }
-                if (collection == null) {
-                    throw ProgrammerMistake("Received snapshot datum for collection $cid which is not registered in the module")
-                }
-                db.storeVectors(ctx, cid, vectors, collection.storeBatchSize)
-            }
-            db.addReusableDatumIds(ctx, reusableDatumIds)
+            processVectorSnapshot(ctx, datumList)
         }
+    }
+
+    private fun processMetadataSnapshot(ctx: EContext, datumList: List<SnapshotDatum>) {
+        val snapshotMetaData = fromMetaDataGtv(datumList[0].data)
+        logger.debug { "Resets vector db with collections: $snapshotMetaData" }
+
+        db.wipeVectorDb(ctx)
+        db.initialize(ctx)
+        db.storeCollections(ctx, snapshotMetaData.values.toList())
+        db.createOrUpdateCollectionTables(ctx)
+
+        conf.collectionOriginMode = getAndEnsureOneOriginMode(db, ctx, false)
+        conf.collectionsByName = ConcurrentHashMap(getActiveCollections(db, ctx, conf.vectorDbConfig))
+
+        constructDatum(ctx, datumList.subList(1, datumList.size))
+    }
+
+    private fun processVectorSnapshot(ctx: EContext, datumList: List<SnapshotDatum>) {
+        val existingCollectionIds = conf.collectionsByName.values.map { it.id }.toSet()
+        val reusableDatumIds = mutableSetOf<Long>()
+        val vectorsPerCollection = mutableMapOf<Long, MutableList<Vector>>()
+
+        datumList.forEach {
+            val collectionVector = fromVectorDatumGtv(it.data)
+            if (!existingCollectionIds.contains(collectionVector.collectionId)) {
+                logger.trace { "Ignored datum ${it.id} for non existing collection ${collectionVector.collectionId}" }
+                reusableDatumIds.add(it.id)
+            } else if (collectionVector.refId == null || collectionVector.vector == null) {
+                logger.trace { "Ignored removed datum ${it.id}" }
+                reusableDatumIds.add(it.id)
+            } else {
+                vectorsPerCollection.getOrPut(collectionVector.collectionId) { mutableListOf() }
+                        .add(Vector(it.id, collectionVector.context, collectionVector.refId, collectionVector.vector, collectionVector.exclude))
+            }
+        }
+
+        vectorsPerCollection.forEach { (cid, vectors) ->
+            val collection = conf.collectionsByName.values.find { it.id == cid }
+                    ?: throw ProgrammerMistake("Received snapshot datum for collection $cid which is not registered in the module")
+            db.storeVectors(ctx, cid, vectors, collection.storeBatchSize)
+        }
+        db.addReusableDatumIds(ctx, reusableDatumIds)
     }
 
     private fun getAndVerifyUpdatedStaticCollections(ctx: EContext, config: VectorDbConfig): List<VectorCollection> {
@@ -240,11 +250,11 @@ open class VectorDbGTXModule(
             queries = mapOf(
                     VECTOR_DB_QUERY_CLOSEST_OBJECTS to QueryMetadata(
                             args = listOf(
-                                    ArgumentMetadata(name = "collection", gtvTypes = setOf(GtvType.STRING)),
-                                    ArgumentMetadata(name = "context", gtvTypes = setOf(GtvType.INTEGER), required = false),
-                                    ArgumentMetadata(name = "q_vector", gtvTypes = setOf(GtvType.STRING)),
-                                    ArgumentMetadata(name = "max_distance", gtvTypes = setOf(GtvType.STRING), extendedType = "decimal"),
-                                    ArgumentMetadata(name = "query_max_vectors", gtvTypes = setOf(GtvType.INTEGER), required = false),
+                                    ArgumentMetadata(name = ARG_COLLECTION, gtvTypes = setOf(GtvType.STRING)),
+                                    ArgumentMetadata(name = ARG_CONTEXT, gtvTypes = setOf(GtvType.INTEGER), required = false),
+                                    ArgumentMetadata(name = ARG_Q_VECTOR, gtvTypes = setOf(GtvType.STRING)),
+                                    ArgumentMetadata(name = ARG_MAX_DISTANCE, gtvTypes = setOf(GtvType.STRING), extendedType = "decimal"),
+                                    ArgumentMetadata(name = ARG_QUERY_MAX_VECTORS, gtvTypes = setOf(GtvType.INTEGER), required = false),
                                     ArgumentMetadata(name = VECTOR_DB_QUERY_ARG_QUERY_TEMPLATE, gtvTypes = setOf(GtvType.DICT),
                                             extendedType = "(name:text,args:map<text,gtv>)", required = false),
                             ),

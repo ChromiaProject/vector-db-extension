@@ -11,8 +11,8 @@ class VectorDbDatumMapper {
                 gtv(
                         gtv(collectionId),
                         gtv(context),
-                        if (refId == null) GtvNull else gtv(refId),
-                        if (vector == null) GtvNull else gtv(vector),
+                        refId?.let { gtv(it) } ?: GtvNull,
+                        vector?.let { gtv(it) } ?: GtvNull,
                         gtv(exclude)
                 )
 

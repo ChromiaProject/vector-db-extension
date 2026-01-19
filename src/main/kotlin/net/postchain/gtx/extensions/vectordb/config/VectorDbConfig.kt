@@ -4,6 +4,9 @@ import net.postchain.gtv.mapper.DefaultEmpty
 import net.postchain.gtv.mapper.Name
 import net.postchain.gtv.mapper.Nullable
 
+/**
+ * Top level configuration for vector database extension.
+ */
 data class VectorDbConfig(
         @param:Name("collections")
         @param:DefaultEmpty

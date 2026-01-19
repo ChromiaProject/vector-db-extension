@@ -18,19 +18,22 @@ import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.getActi
 import net.postchain.gtx.extensions.vectordb.config.VectorDbCollectionConfig
 import java.util.concurrent.ConcurrentHashMap
 
-const val EVENT_STORE_VECTORS_NAME = "store_vectors"
-const val EVENT_EXCLUDE_VECTORS_NAME = "exclude_vectors"
-const val EVENT_DELETE_VECTORS_NAME = "delete_vectors"
-const val EVENT_CREATE_COLLECTION = "create_collection"
-const val EVENT_DELETE_COLLECTION = "delete_collection"
-const val EVENT_UPDATE_COLLECTION = "update_collection"
-
+/**
+ * Handles events related to managing collection and vectors.
+ */
 open class VectorDbEventProcessor(
         private val db: VectorDbDatabaseAccess,
         private val conf: VectorDbGTXModuleContext,
 ) : BaseBlockBuilderExtension, TxEventSink {
 
-    companion object : KLogging()
+    companion object : KLogging() {
+        const val EVENT_STORE_VECTORS_NAME = "store_vectors"
+        const val EVENT_EXCLUDE_VECTORS_NAME = "exclude_vectors"
+        const val EVENT_DELETE_VECTORS_NAME = "delete_vectors"
+        const val EVENT_CREATE_COLLECTION = "create_collection"
+        const val EVENT_DELETE_COLLECTION = "delete_collection"
+        const val EVENT_UPDATE_COLLECTION = "update_collection"
+    }
 
     override fun init(blockEContext: BlockEContext, baseBB: BaseBlockBuilder) {
         baseBB.installEventProcessor(EVENT_STORE_VECTORS_NAME, this)
@@ -89,7 +92,7 @@ open class VectorDbEventProcessor(
         
         dbVectors.forEach {
             conf.snapshotContext?.let { snapshotContext ->
-                logger.debug { "Emitting stored datum id ${it.datumId} in collection ${collection.id}: ${VectorDbDatumMapper.toVectorDatumGtv(collection.id, context, it.refId, it.vector, it.exlude).merkleHash(makeMerkleHashCalculator(2)).toHex()}: ${it.vector}" }
+                logger.debug { "Emitting stored datum id ${it.datumId} in collection ${collection.id}: ${VectorDbDatumMapper.toVectorDatumGtv(collection.id, context, it.refId, it.vector, it.exclude).merkleHash(makeMerkleHashCalculator(2)).toHex()}: ${it.vector}" }
                 snapshotContext.emitDatum(ctxt, it.datumId,
                         VectorDbDatumMapper.toVectorDatumGtv(collection.id, context, it.refId, it.vector), false)
             }
@@ -106,7 +109,7 @@ open class VectorDbEventProcessor(
                     logger.debug { "Emitting excluded datum $it in collection ${collection.id}" }
 
                     conf.snapshotContext?.emitDatum(ctxt, it.datumId, VectorDbDatumMapper.toVectorDatumGtv(
-                            collection.id, context, it.refId, it.vector, it.exlude), false)
+                            collection.id, context, it.refId, it.vector, it.exclude), false)
                 }
     }
 

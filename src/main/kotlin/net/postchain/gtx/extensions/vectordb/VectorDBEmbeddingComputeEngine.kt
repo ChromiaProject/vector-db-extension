@@ -74,8 +74,8 @@ class VectorDBEmbeddingComputeEngine(
             val validationEmbeddings = validationResponse.data.map { embedding -> embedding.embedding.map { it.toDouble() }.toDoubleArray() }
             val computedEmbeddings = computeOutput.embeddings.map { embedding -> embedding.vectorToList().map { it.toDouble() }.toDoubleArray() }
             val similar = VectorSimilarity.areAllSimilar(validationEmbeddings, computedEmbeddings, EMBEDDING_VALIDATION_COSINE_DISTANCE_EPSILON)
-            if (!similar.first) {
-                throw UserMistake("Embeddings do not match, failed on similarity: ${similar.second}")
+            if (!similar.isSimilar) {
+                throw UserMistake("Embeddings do not match, failed on similarity: ${similar.similarity}")
             }
         }
     }

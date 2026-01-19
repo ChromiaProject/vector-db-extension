@@ -49,23 +49,7 @@ function submit_text_embedding_request(id: text, texts: list<text>) {
 function (id: text, type: text, result: hc.compute_result) {
     if (type != my_type) return;
 
-    on_embedding_result(
-        id,
-        if (result.result != null)
-            embedding_result(
-                result = embedding_response.from_gtv_pretty(result.result),
-                error = null,
-                tx_rid = result.tx_rid,
-                op_index = result.op_index
-            )
-        else
-            embedding_result(
-            result = null,
-            error = result.error,
-            tx_rid = result.tx_rid,
-            op_index = result.op_index
-        )
-    );
+    on_embedding_result(id, build_embedding_result(result));
 }
 
 /**
@@ -85,6 +69,10 @@ function (id: text, type: text, result: hc.compute_result) {
 function fetch_embedding_result(id: text): embedding_result? {
     val result = hc.fetch_compute_result(id);
     if (result == null) return null;
+    return build_embedding_result(result);
+}
+
+function build_embedding_result(result: hc.compute_result) {
     return embedding_result(
         result = if (result.result != null) embedding_response.from_gtv_pretty(result.result) else null,
         error = result.error,
