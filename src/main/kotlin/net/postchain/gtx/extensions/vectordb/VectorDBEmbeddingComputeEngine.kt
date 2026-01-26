@@ -63,7 +63,7 @@ class VectorDBEmbeddingComputeEngine(
     override fun validate(input: Gtv, output: Gtv) {
         val request = input.toObject<EmbeddingRequest>()
         val validationResponse = client.requestEmbeddings(request)
-        val validationOutput = EmbeddingResponse(validationResponse.data.map { it.embedding.joinToString(",", "[", "]") })
+        val validationOutput = EmbeddingResponse(validationResponse.data.map { it.embedding.listToVector() })
         val computeOutput = GtvObjectMapper.fromGtv(output, EmbeddingResponse::class.java)
 
         if (validationOutput.embeddings.size != computeOutput.embeddings.size) {
@@ -71,6 +71,7 @@ class VectorDBEmbeddingComputeEngine(
         }
 
         if (validationOutput != computeOutput) {
+            // If the the validation result isn't identical we will still accept it within a tolerance
             val validationEmbeddings = validationResponse.data.map { embedding -> embedding.embedding.map { it.toDouble() }.toDoubleArray() }
             val computedEmbeddings = computeOutput.embeddings.map { embedding -> embedding.vectorToList().map { it.toDouble() }.toDoubleArray() }
             val similar = VectorSimilarity.areAllSimilar(validationEmbeddings, computedEmbeddings, EMBEDDING_VALIDATION_COSINE_DISTANCE_EPSILON)
@@ -80,7 +81,9 @@ class VectorDBEmbeddingComputeEngine(
         }
     }
 
-    private fun createEmbeddingClient(embeddingNodeConfig: VectorDbEmbeddingNodeConfig, connectTimeoutMs: Long, computeConfig: VectorDbEmbeddingComputeConfig): EmbeddingAPIClient {
+    private fun createEmbeddingClient(
+            embeddingNodeConfig: VectorDbEmbeddingNodeConfig, connectTimeoutMs: Long,
+            computeConfig: VectorDbEmbeddingComputeConfig): EmbeddingAPIClient {
         return when (embeddingNodeConfig.apiType) {
             EmbeddingApiType.OPENAI -> OpenAiEmbeddingApiClient(embeddingNodeConfig, connectTimeoutMs, computeConfig)
             EmbeddingApiType.GCP -> GcpEmbeddingApiClient(embeddingNodeConfig, connectTimeoutMs, computeConfig)
@@ -89,6 +92,5 @@ class VectorDBEmbeddingComputeEngine(
 
     private fun getCost(input: Gtv): Long = BASE_REQUEST_COST + input.nrOfBytes()
 
-    override fun load() {
-    }
+    override fun load() {}
 }

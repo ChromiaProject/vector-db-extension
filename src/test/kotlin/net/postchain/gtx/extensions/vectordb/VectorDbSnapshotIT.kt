@@ -57,7 +57,8 @@ class VectorDbSnapshotIT : SnapshotTestBase() {
         }
 
         val engine = nodes[0].getBlockchainInstance().blockchainEngine
-        val queryResults = queryClosestObjectsGetStrings(engine, "messages", 0, "[0.1, 0.2, 0.3]", 100.0, 1, "get_messages")
+        val queryResults = queryClosestObjectsGetStrings(engine, "messages", 0,
+                "[0.1, 0.2, 0.3]", 100.0, 1, "get_messages")
 
         assertThat(queryResults).hasSize(1)
         assertThat(queryResults[0]).isEqualTo("hello 1")
@@ -102,7 +103,8 @@ class VectorDbSnapshotIT : SnapshotTestBase() {
                 .modify(listOf("features")) { configEntry ->
                     gtv(configEntry.asDict() + mapOf("snapshot_enabled" to gtv(true)))
                 }
-        startNewBlockchain(setOf(0, 1, 2, 3), setOf(), null, rawBlockchainConfiguration = GtvEncoder.encodeGtv(config), blockchainConfigurationFactory = GTXBlockchainConfigurationFactory())
+        startNewBlockchain(setOf(0, 1, 2, 3), setOf(), null, rawBlockchainConfiguration =
+                GtvEncoder.encodeGtv(config), blockchainConfigurationFactory = GTXBlockchainConfigurationFactory())
 
         buildBlockWithOps(nodes) {
             it.addOperation("add_collection", gtv("collection_0"), gtv(3), gtv("hnsw_cosine"), gtv(10), gtv(300))

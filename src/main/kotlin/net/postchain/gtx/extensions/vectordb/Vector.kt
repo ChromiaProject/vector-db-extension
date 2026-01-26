@@ -12,16 +12,16 @@ fun isValidVectorFormat(vector: String): Boolean {
     }
 }
 
-fun isVectorExpectedDimensions(vector: String, dimensions: Int): Boolean {
-    return vector.split(",").size == dimensions
+fun isVectorExpectedDimensions(vector: String, dimensions: Long): Boolean {
+    return vector.split(",").size.toLong() == dimensions
 }
 
-fun requireValidVector(vector: String, expectedCollections: Int) {
+fun requireValidVector(vector: String, expectedDimensions: Long) {
     if (!isValidVectorFormat(vector)) {
         throw UserMistake("Vector is not correctly formatted")
     }
-    if (!isVectorExpectedDimensions(vector, expectedCollections)) {
-        throw UserMistake("Vector is expected to have $expectedCollections dimensions")
+    if (!isVectorExpectedDimensions(vector, expectedDimensions)) {
+        throw UserMistake("Vector is expected to have $expectedDimensions dimensions")
     }
 }
 
@@ -30,4 +30,8 @@ fun String.vectorToList(): List<String> {
             .removeSuffix("]")
             .split(",")
             .map { it.trim() }
+}
+
+fun List<String>.listToVector(): String {
+    return joinToString(",", "[", "]")
 }

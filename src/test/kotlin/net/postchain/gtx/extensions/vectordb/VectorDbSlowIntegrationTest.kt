@@ -134,7 +134,8 @@ class VectorDbSlowIntegrationTest : ManagedModeBase("vectordb") {
     fun `query - without query template`() {
         awaitUntilAsserted(atMost = Duration.ONE_MINUTE) {
             assertThat(
-                    vectorClient.queryClosestObjectsGetIdAndDistance("messages", 0, "[0.1, 0.2, 0.3]", 1.0, 1)
+                    vectorClient.queryClosestObjectsGetIdAndDistance("messages", 0,
+                            "[0.1, 0.2, 0.3]", 1.0, 1)
             ).isEqualTo(listOf(
                     mapOf(
                             "id" to 1L,
@@ -148,7 +149,8 @@ class VectorDbSlowIntegrationTest : ManagedModeBase("vectordb") {
     @Order(41)
     fun `query - with template`() {
         assertThat(
-                vectorClient.queryClosestObjectsGetStrings("messages", 0, "[0.3, 0.3, 0.3]", 1.0, 2, "get_messages")
+                vectorClient.queryClosestObjectsGetStrings("messages", 0,
+                        "[0.3, 0.3, 0.3]", 1.0, 2, "get_messages")
         ).isEqualTo(listOf("world", "hello"))
     }
 
@@ -164,7 +166,8 @@ class VectorDbSlowIntegrationTest : ManagedModeBase("vectordb") {
         // Hello is no longer returned
         awaitUntilAsserted {
             assertThat(
-                    vectorClient.queryClosestObjectsGetStrings("messages", 0, "[0.3, 0.3, 0.3]", 1.0, 2, "get_messages")
+                    vectorClient.queryClosestObjectsGetStrings("messages", 0,
+                            "[0.3, 0.3, 0.3]", 1.0, 2, "get_messages")
             ).isEqualTo(listOf("world"))
         }
     }

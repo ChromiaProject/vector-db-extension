@@ -27,6 +27,9 @@ import org.http4k.server.SunHttp
 import org.http4k.server.asServer
 import java.io.Closeable
 
+/**
+ * Mock a openAI embedding rest api service.
+ */
 class MockEmbeddingRestApi(
         val model: String,
         val basicAuth: Credentials? = null,

@@ -57,7 +57,8 @@ class VectorDbIT : PGVectorBaseTest() {
         addMessage(engine, "hello", "[1, 2, 3]")
         buildBlock(DEFAULT_CHAIN_IID)
 
-        val queryResults = queryClosestObjectsGetStrings(engine, "messages", 0, "[1, 2, 3]", 1.0, 1, "get_messages")
+        val queryResults = queryClosestObjectsGetStrings(engine, "messages", 0, "[1, 2, 3]",
+                1.0, 1, "get_messages")
 
         assertThat(queryResults).hasSize(1)
         assertThat(queryResults[0]).isEqualTo("hello")
@@ -91,11 +92,13 @@ class VectorDbIT : PGVectorBaseTest() {
         buildBlock(DEFAULT_CHAIN_IID)
 
         assertThat(
-                queryClosestObjectsGetStrings(engine, "messages", 0, "[1, 2, 3]", 1.0, 3, "get_messages")
+                queryClosestObjectsGetStrings(engine, "messages", 0, "[1, 2, 3]",
+                        1.0, 3, "get_messages")
         ).isEqualTo(listOf("alpha", "eve", "beta"))
 
         assertThat(
-                queryClosestObjectsGetStrings(engine, "messages", 0, "[1, 2, 3]", 0.02, 3, "get_messages")
+                queryClosestObjectsGetStrings(engine, "messages", 0, "[1, 2, 3]",
+                        0.02, 3, "get_messages")
         ).isEqualTo(listOf("alpha", "eve"))
     }
 
@@ -112,7 +115,8 @@ class VectorDbIT : PGVectorBaseTest() {
         buildBlock(DEFAULT_CHAIN_IID)
 
         assertThat(
-                queryClosestObjectsGetTextAndDistance(engine, "messages", 0, "[1, 2, 3]", 1.0, 3, "get_messages_with_distance")
+                queryClosestObjectsGetTextAndDistance(engine, "messages", 0, "[1, 2, 3]",
+                        1.0, 3, "get_messages_with_distance")
         ).isEqualTo(listOf(
                 mapOf("text" to "alpha", "distance" to "0"),
                 mapOf("text" to "eve", "distance" to "0.015675861711910488"),
@@ -120,7 +124,8 @@ class VectorDbIT : PGVectorBaseTest() {
         ))
 
         assertThat(
-                queryClosestObjectsGetTextAndDistance(engine, "messages", 0, "[1, 2, 3]", 0.02, 3, "get_messages_with_distance")
+                queryClosestObjectsGetTextAndDistance(engine, "messages", 0, "[1, 2, 3]",
+                        0.02, 3, "get_messages_with_distance")
         ).isEqualTo(listOf(
                 mapOf("text" to "alpha", "distance" to "0"),
                 mapOf("text" to "eve", "distance" to "0.015675861711910488"),
@@ -140,7 +145,8 @@ class VectorDbIT : PGVectorBaseTest() {
         buildBlock(DEFAULT_CHAIN_IID)
 
         assertThat(
-                queryClosestObjects(engine, VECTOR_DB_QUERY_CLOSEST_OBJECTS, "messages", 0, "[1, 2, 3]", 1.0, 3,
+                queryClosestObjects(engine, VECTOR_DB_QUERY_CLOSEST_OBJECTS, "messages",
+                        0, "[1, 2, 3]", 1.0, 3,
                         buildQueryTemplateOrNull("get_messages_with_filter",
                                 gtv(mapOf(
                                         "text_filter" to gtv("v"),
@@ -160,7 +166,8 @@ class VectorDbIT : PGVectorBaseTest() {
         buildBlock(DEFAULT_CHAIN_IID)
 
         assertThat(
-                queryClosestObjectsGetIdAndDistance(engine, "messages", 0, "[1, 2, 3]", 0.0, 1)
+                queryClosestObjectsGetIdAndDistance(engine, "messages", 0, "[1, 2, 3]",
+                        0.0, 1)
         ).isEqualTo(listOf(
                 mapOf(
                         "id" to 1L,
@@ -179,7 +186,8 @@ class VectorDbIT : PGVectorBaseTest() {
         buildBlock(DEFAULT_CHAIN_IID)
 
         assertThat(
-                queryClosestObjectsGetIdAndDistance(engine, "messages", 0, "[1, 2, 3]", 0.0, 1)
+                queryClosestObjectsGetIdAndDistance(engine, "messages", 0, "[1, 2, 3]",
+                        0.0, 1)
         ).isEqualTo(listOf(
                 mapOf(
                         "id" to 1L,
@@ -197,17 +205,20 @@ class VectorDbIT : PGVectorBaseTest() {
         buildBlock(DEFAULT_CHAIN_IID)
 
         // No context = search in all contexts
-        var queryResults = queryClosestObjectsGetStrings(engine, "messages", null, "[1, 2, 3]", 1.0, 1, "get_messages")
+        var queryResults = queryClosestObjectsGetStrings(engine, "messages", null, "[1, 2, 3]",
+                1.0, 1, "get_messages")
         assertThat(queryResults).hasSize(1)
         assertThat(queryResults[0]).isEqualTo("hello")
 
         // Context 0
-        queryResults = queryClosestObjectsGetStrings(engine, "messages", 0, "[1, 2, 3]", 1.0, 1, "get_messages")
+        queryResults = queryClosestObjectsGetStrings(engine, "messages", 0, "[1, 2, 3]",
+                1.0, 1, "get_messages")
         assertThat(queryResults).hasSize(1)
         assertThat(queryResults[0]).isEqualTo("hello")
 
         // Context 100 (no message in that context)
-        queryResults = queryClosestObjectsGetStrings(engine, "messages", 100, "[1, 2, 3]", 1.0, 1, "get_messages")
+        queryResults = queryClosestObjectsGetStrings(engine, "messages", 100, "[1, 2, 3]",
+                1.0, 1, "get_messages")
         assertThat(queryResults).hasSize(0)
     }
 
@@ -226,18 +237,21 @@ class VectorDbIT : PGVectorBaseTest() {
         val op2 = GtxOp("add_messages_in_context", gtv(2), gtv(
                 listOf(gtv(gtv("hello 2"), gtv("[1, 2, 3]")))))
         val tx = engine.getConfiguration().getTransactionFactory().decodeTransaction(
-                Gtx(GtxBody(engine.getConfiguration().blockchainRid, listOf(op1, op2), listOf()), listOf()).encode()
+                Gtx(GtxBody(engine.getConfiguration().blockchainRid, listOf(op1, op2),
+                        listOf()), listOf()).encode()
         )
         buildBlock(DEFAULT_CHAIN_IID, tx)
 
         // No context = search in all contexts
-        var queryResults = queryClosestObjectsNoTemplate(engine, "messages", null, "[1, 2, 3]", 1.0, 10)
+        var queryResults = queryClosestObjectsNoTemplate(engine, "messages", null, "[1, 2, 3]",
+                1.0, 10)
         assertThat(queryResults).hasSize(2)
         assertThat(queryResults.any { it.first == 1L && it.second == 1L }).isTrue()
         assertThat(queryResults.any { it.first == 2L && it.second == 2L }).isTrue()
 
         // Context 1
-        queryResults = queryClosestObjectsNoTemplate(engine, "messages", 1, "[1, 2, 3]", 1.0, 10)
+        queryResults = queryClosestObjectsNoTemplate(engine, "messages", 1, "[1, 2, 3]",
+                1.0, 10)
         assertThat(queryResults).hasSize(1)
         assertThat(queryResults.any { it.first == 1L && it.second == 1L }).isTrue()
     }
@@ -390,7 +404,8 @@ class VectorDbIT : PGVectorBaseTest() {
         buildBlock(DEFAULT_CHAIN_IID)
 
         val newEngine = node.getBlockchainInstance().blockchainEngine
-        val txRid = addCollection(newEngine, "dynamic", 128, VectorDBIndex.HNSW_COSINE, 10, 100)
+        val txRid = addCollection(newEngine, "dynamic", 128, VectorDBIndex.HNSW_COSINE,
+                10, 100)
         buildBlock(DEFAULT_CHAIN_IID)
 
         assertThat(engine.getTransactionQueue().getRejectionReason(txRid)?.first)
@@ -462,19 +477,24 @@ class VectorDbIT : PGVectorBaseTest() {
         addMessage(engine, "collection_3", "hello_${seq++}", "[1, 2, 3]")
         buildBlock(DEFAULT_CHAIN_IID)
 
-        addMessagesInCollection(engine, "collection_1", listOf("hello_${seq++}" to "[1, 2, 3]", "hello_${seq++}" to "[1, 2, 3]", "hello_${seq++}" to "[1, 2, 3]"))
-        addMessagesInCollection(engine, "collection_2", listOf("hello_${seq++}" to "[1, 2, 3]", "hello_${seq++}" to "[1, 2, 3]", "hello_${seq}" to "[1, 2, 3]"))
+        addMessagesInCollection(engine, "collection_1", listOf("hello_${seq++}" to "[1, 2, 3]",
+                "hello_${seq++}" to "[1, 2, 3]", "hello_${seq++}" to "[1, 2, 3]"))
+        addMessagesInCollection(engine, "collection_2", listOf("hello_${seq++}" to "[1, 2, 3]",
+                "hello_${seq++}" to "[1, 2, 3]", "hello_${seq}" to "[1, 2, 3]"))
         buildBlock(DEFAULT_CHAIN_IID)
 
-        assertThat(queryClosestObjectsNoTemplate(engine, "collection_1", 0, "[1, 2, 3]", 10.0, 10).map { it.second })
+        assertThat(queryClosestObjectsNoTemplate(engine, "collection_1", 0, "[1, 2, 3]",
+                10.0, 10).map { it.second })
                 .isEqualTo(listOf(1L, 4L, 5L, 6L))
-        assertThat(queryClosestObjectsNoTemplate(engine, "collection_2", 0, "[1, 2, 3]", 10.0, 10).map { it.second })
+        assertThat(queryClosestObjectsNoTemplate(engine, "collection_2", 0, "[1, 2, 3]",
+                10.0, 10).map { it.second })
                 .isEqualTo(listOf(2L, 7L, 8L, 9L))
 
         deleteMessagesInCollection(engine, "collection_1", listOf("hello_0", "hello_4"))
         buildBlock(DEFAULT_CHAIN_IID)
 
-        assertThat(queryClosestObjectsNoTemplate(engine, "collection_1", 0, "[1, 2, 3]", 10.0, 10).map { it.second })
+        assertThat(queryClosestObjectsNoTemplate(engine, "collection_1", 0, "[1, 2, 3]",
+                10.0, 10).map { it.second })
                 .isEqualTo(listOf(4L, 6L))
     }
 
@@ -499,7 +519,8 @@ class VectorDbIT : PGVectorBaseTest() {
         buildBlock(DEFAULT_CHAIN_IID)
 
         assertThat(
-                queryClosestObjectsGetTextAndDistance(engine, "messages", 0, "[-1.7e-1, 2, 3]", 1.0, 3, "get_messages_with_distance")
+                queryClosestObjectsGetTextAndDistance(engine, "messages", 0, "[-1.7e-1, 2, 3]",
+                        1.0, 3, "get_messages_with_distance")
         ).isEqualTo(listOf(
                 mapOf("text" to "alpha", "distance" to "0.0003946730651123165"),
         ))

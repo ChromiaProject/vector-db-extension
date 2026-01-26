@@ -1,7 +1,6 @@
 package net.postchain.gtx.extensions.vectordb
 
 import mu.KLogging
-import net.postchain.admin.cli.util.toHex
 import net.postchain.base.BaseBlockBuilderExtension
 import net.postchain.base.TxEventSink
 import net.postchain.base.data.BaseBlockBuilder
@@ -10,8 +9,6 @@ import net.postchain.common.exception.UserMistake
 import net.postchain.core.BlockEContext
 import net.postchain.core.TxEContext
 import net.postchain.gtv.Gtv
-import net.postchain.gtv.merkle.makeMerkleHashCalculator
-import net.postchain.gtv.merkleHash
 import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseAccess.Vector
 import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.VECTOR_DB_META_DATUM_ID
 import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.getActiveCollections
@@ -33,6 +30,12 @@ open class VectorDbEventProcessor(
         const val EVENT_CREATE_COLLECTION = "create_collection"
         const val EVENT_DELETE_COLLECTION = "delete_collection"
         const val EVENT_UPDATE_COLLECTION = "update_collection"
+
+        const val COLLECTION_DIMENSIONS_ARG = "dimensions"
+        const val COLLECTION_INDEX_TYPE_ARG = "index_type"
+        const val COLLECTION_STORE_BATCH_SIZE_ARG = "store_batch_size"
+        const val COLLECTION_QUERY_MAX_VECTORS_ARG = "query_max_vectors"
+        const val COLLECTION_ARG = "collection"
     }
 
     override fun init(blockEContext: BlockEContext, baseBB: BaseBlockBuilder) {
@@ -72,33 +75,30 @@ open class VectorDbEventProcessor(
         val (collection, context) = parseCollectionAndContextArgs(ctxt, args)
         val vectors = args["vectors"]?.asArray()?.map {
             val vector = it["vector"]?.asString() ?: throw UserMistake("No vector argument supplied")
-            requireValidVector(vector, collection.dimensions.toInt())
+            requireValidVector(vector, collection.dimensions)
             val id = it["id"]?.asInteger() ?: throw UserMistake("No id argument supplied")
             vector to id
         } ?: throw UserMistake("No vectors argument supplied")
 
         val datumIds = db.getAvailableDatumIds(ctxt, vectors.size)
         val dbVectors = vectors.map { (vectorString, id) ->
-            val vectorString = vectorString.split(",", "[", "]")
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-            if (vectorString.size.toLong() != collection.dimensions) {
-                throw UserMistake("Vector $id has ${vectorString.size} dimensions, but the collection requires ${collection.dimensions} dimensions")
+            val vectorList = vectorString.vectorToList()
+            if (vectorList.size.toLong() != collection.dimensions) {
+                throw UserMistake("Vector $id has ${vectorList.size} dimensions, but the collection requires ${collection.dimensions} dimensions")
             }
-            val compactVectorString = vectorString.joinToString(",", "[", "]")
+            val compactVectorString = vectorList.listToVector()
             Vector(datumIds.pop(), context, id, compactVectorString, false)
         }
         db.storeVectors(ctxt, collection.id, dbVectors, collection.storeBatchSize)
         
         dbVectors.forEach {
-            conf.snapshotContext?.let { snapshotContext ->
-                logger.debug { "Emitting stored datum id ${it.datumId} in collection ${collection.id}: ${VectorDbDatumMapper.toVectorDatumGtv(collection.id, context, it.refId, it.vector, it.exclude).merkleHash(makeMerkleHashCalculator(2)).toHex()}: ${it.vector}" }
-                snapshotContext.emitDatum(ctxt, it.datumId,
-                        VectorDbDatumMapper.toVectorDatumGtv(collection.id, context, it.refId, it.vector), false)
-            }
+            conf.snapshotContext?.emitDatum(ctxt, it.datumId,
+                    VectorDbDatumMapper.toVectorDatumGtv(collection.id, context, it.refId, it.vector), false)
         }
     }
 
+    /** Exclude vectors are used to safely remove vectors from a collection without breaking any ongoing query
+     * computation validatoin. Excluded vectors are exluded from query result */
     private fun excludeVectorsEvent(ctxt: TxEContext, args: Map<String, Gtv>) {
         val (collection, context) = parseCollectionAndContextArgs(ctxt, args)
         val ids = parseIdsArg(args)
@@ -106,8 +106,6 @@ open class VectorDbEventProcessor(
         db.excludeVectors(ctxt, collection.id, context, ids)
         db.getVectorsFromContextIds(ctxt, collection.id, context, ids.toSet())
                 .forEach {
-                    logger.debug { "Emitting excluded datum $it in collection ${collection.id}" }
-
                     conf.snapshotContext?.emitDatum(ctxt, it.datumId, VectorDbDatumMapper.toVectorDatumGtv(
                             collection.id, context, it.refId, it.vector, it.exclude), false)
                 }
@@ -132,14 +130,18 @@ open class VectorDbEventProcessor(
     private fun createCollectionEvent(ctxt: TxEContext, args: Map<String, Gtv>) {
         checkDynamicCollectionsEnabled()
 
-        val collection = args["collection"]?.asString() ?: throw UserMistake("No collection argument supplied")
+        val collection = args[COLLECTION_ARG]?.asString() ?: throw UserMistake("No $COLLECTION_ARG argument supplied")
         if (db.getExistingCollectionByName(ctxt, collection) != null) {
             throw UserMistake("Collection $collection already exists")
         }
-        val dimensions = args["dimensions"]?.asInteger() ?: throw UserMistake("No dimensions argument supplied")
-        val storeBatchSize = args["store_batch_size"]?.asInteger() ?: throw UserMistake("No store_batch_size argument supplied")
-        val indexType = args["index_type"]?.asString() ?: throw UserMistake("No index_type argument supplied")
-        val queryMaxVectors = args["query_max_vectors"]?.asInteger() ?: throw UserMistake("No query_max_vectors argument supplied")
+        val dimensions = args[COLLECTION_DIMENSIONS_ARG]?.asInteger()
+                ?: throw UserMistake("No $COLLECTION_DIMENSIONS_ARG argument supplied")
+        val storeBatchSize = args[COLLECTION_STORE_BATCH_SIZE_ARG]?.asInteger()
+                ?: throw UserMistake("No $COLLECTION_STORE_BATCH_SIZE_ARG argument supplied")
+        val indexType = args[COLLECTION_INDEX_TYPE_ARG]?.asString()
+                ?: throw UserMistake("No $COLLECTION_INDEX_TYPE_ARG argument supplied")
+        val queryMaxVectors = args[COLLECTION_QUERY_MAX_VECTORS_ARG]?.asInteger()
+                ?: throw UserMistake("No $COLLECTION_QUERY_MAX_VECTORS_ARG argument supplied")
 
         val tableConfig = VectorDbCollectionConfig(
                 queryMaxVectors = queryMaxVectors,
@@ -172,10 +174,10 @@ open class VectorDbEventProcessor(
         checkDynamicCollectionsEnabled()
 
         val collection = parseCollectionArg(ctxt, args)
-        val storeBatchSize = args["store_batch_size"]?.let {
+        val storeBatchSize = args[COLLECTION_STORE_BATCH_SIZE_ARG]?.let {
             if (it.isNull()) null else it.asInteger()
         }
-        val queryMaxVectors = args["query_max_vectors"]?.let {
+        val queryMaxVectors = args[COLLECTION_QUERY_MAX_VECTORS_ARG]?.let {
             if (it.isNull()) null else it.asInteger()
         }
 
@@ -206,7 +208,8 @@ open class VectorDbEventProcessor(
     }
 
     private fun parseIdsArg(args: Map<String, Gtv>): Set<Long> {
-        val ids = args["ids"]?.asArray()?.map { it.asInteger() }?.toSet() ?: throw UserMistake("No ids argument supplied")
+        val ids = args["ids"]?.asArray()?.map { it.asInteger() }?.toSet()
+                ?: throw UserMistake("No ids argument supplied")
         if (ids.isEmpty()) {
             throw UserMistake("No ids supplied")
         }
@@ -214,8 +217,10 @@ open class VectorDbEventProcessor(
     }
 
     private fun parseCollectionArg(ctxt: TxEContext, args: Map<String, Gtv>): VectorCollection {
-        val collectionName = args["collection"]?.asString() ?: throw UserMistake("No collection argument supplied")
-        return db.getExistingCollectionByName(ctxt, collectionName) ?: throw UserMistake("Collection $collectionName not found")
+        val collectionName = args[COLLECTION_ARG]?.asString()
+                ?: throw UserMistake("No $COLLECTION_ARG argument supplied")
+        return db.getExistingCollectionByName(ctxt, collectionName)
+                ?: throw UserMistake("Collection $collectionName not found")
     }
 
     private fun checkDynamicCollectionsEnabled() {
