@@ -17,6 +17,7 @@ import org.http4k.core.then
 import org.http4k.filter.ClientFilters
 import org.http4k.filter.GzipCompressionMode
 
+/** Base client used for http requests against the embedding API */
 abstract class AbstractEmbeddingApiClient(
         var embeddingNodeConfig: VectorDbEmbeddingNodeConfig,
         connectTimeoutMs: Long,

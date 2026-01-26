@@ -14,7 +14,6 @@ import net.postchain.gtv.GtvNull
 import net.postchain.gtx.Gtx
 import net.postchain.gtx.GtxBody
 import net.postchain.gtx.GtxOp
-import net.postchain.gtx.extensions.vectordb.VectorCollectionInfo
 import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseAccess
 import net.postchain.gtx.extensions.vectordb.VectorDbGTXModule.Companion.VECTOR_DB_QUERY_CLOSEST_OBJECTS
 import net.postchain.gtx.extensions.vectordb.VectorDBIndex
@@ -22,8 +21,17 @@ import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseAccess.Companion.CO
 import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseAccess.Companion.COLLECTION_COLUMN_EMBEDDING
 import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseAccess.Companion.COLLECTION_COLUMN_EXCLUDE
 import net.postchain.gtx.extensions.vectordb.VectorDbDatabaseAccess.Companion.COLLECTION_COLUMN_ID
+import net.postchain.gtx.extensions.vectordb.listToVector
 import kotlin.math.sqrt
 import kotlin.random.Random
+
+data class VectorCollectionInfo(
+        val name: String,
+        val dimensions: Long,
+        val maxVectors: Long,
+        val storeBatchSize: Long,
+        val index: VectorDBIndex
+)
 
 fun getVectors(node: PostchainTestNode, chainId: Long, collection: String): List<Vector> {
     return getVectors(node.getBlockchainInstance().blockchainEngine, chainId, collection)
@@ -246,7 +254,7 @@ fun generateVector(dimensions: Int, boundary: Double = 1.0): String {
     val decimals = (1..dimensions).map {
         Random.nextDouble(-1 * boundary, boundary)
     }
-    return normalizeVector(decimals).joinToString(",", "[", "]")
+    return normalizeVector(decimals).map { it.toString() }.listToVector()
 }
 
 fun normalizeVector(v: List<Double>): List<Double> {

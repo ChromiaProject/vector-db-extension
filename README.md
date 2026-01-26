@@ -17,7 +17,9 @@ pmc subnode-image add --name vector_db_extension \
   -sync net.postchain.hybridcompute.HybridComputeSynchronizationInfrastructureExtension
 ```
 
-Replace the `<digest>` with the latest `2.x.x` image version found [here](https://gitlab.com/chromaway/core/vector-db-extension/container_registry/8296249).
+Replace the `<digest>` with the latest image version found [here](https://gitlab.com/chromaway/core/vector-db-extension/container_registry/8296249).
+
+If embeddings are to be used, each node also need to be [configured](doc/node-configuration-properties.md) with at least one embedding service.
 
 ### Blockchain configuration
 
@@ -81,7 +83,7 @@ Then use the [Rell library](#query-compute-library) to request query computation
 #### Compute embeddings
 
 The extension supports computing embeddings via the hybrid compute infrastructure by calling an
-external service and then executing a Rell function with the results.  Update the blockchain configuration to enable this:
+external service and then executing a Rell function with the results. Update the blockchain configuration to enable this:
 
 ```yaml
 blockchains:
@@ -229,9 +231,9 @@ It supports the following parameters:
 
 | Name                 | Type                                 | Required | Default | Description                                                                                                |
 |----------------------|--------------------------------------|----------|---------|------------------------------------------------------------------------------------------------------------|
-| `collection`         | `text`                               | true     |         | Name of the collection to search (must match one defined in blockchain config).                            |
+| `collection`         | `text`                               | true     |         | Name of the collection to search.                                                                          |
 | `context`            | `integer`                            | false    |         | Optional context grouping key used by dApp. If omitted, search runs across all contexts in the collection. |
-| `q_vector`           | vector as `text`                     | true     |         | The query vector as `text` on format `[1,2,3]`.                                                            |
+| `q_vector`           | vector as `text`                     | true     |         | The query vector as `text` in the format `[1,2,3,...]`.                                                    |
 | `max_distance`       | `decimal`                            | true     |         | The max distance from `q_vector` to stored vectors.                                                        |
 | `query_max_vectors`  | `integer`                            | false    | 10      | The max number of vectors to return (cannot exceed the limit defined in collection configuration).         |
 | `query_template`     | `(name: text, args: map<text, gtv>)` | false    | Not set | Provide a Rell query function to transform the results (see below).                                        |

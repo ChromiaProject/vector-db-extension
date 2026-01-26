@@ -32,7 +32,8 @@ class VectorDbGTXModuleTest {
         override val conn: Connection = mock()
     }
 
-    private val collection1 = VectorCollection(0, "collection1", 3, 10, 300, VectorDBIndex.HNSW_COSINE, VectorCollectionOrigin.DYNAMIC, true)
+    private val collection1 = VectorCollection(0, "collection1", 3, 10,
+            300, VectorDBIndex.HNSW_COSINE, VectorCollectionOrigin.DYNAMIC, true)
 
     private val defaultArgs = mapOf(
             "collection" to gtv(collection1.name),
@@ -53,7 +54,8 @@ class VectorDbGTXModuleTest {
         context.module = module
         context.collectionOriginMode = VectorCollectionOrigin.STATIC
         context.collectionsByName = ConcurrentHashMap(mapOf("collection1" to VectorCollection(
-                0, collection1.name, 3, 10, 300, VectorDBIndex.HNSW_COSINE, VectorCollectionOrigin.STATIC, true
+                0, collection1.name, 3, 10, 300,
+                VectorDBIndex.HNSW_COSINE, VectorCollectionOrigin.STATIC, true
         )))
         context.vectorDbConfig = mock()
     }
@@ -115,7 +117,8 @@ class VectorDbGTXModuleTest {
             on { rawConfig } doReturn gtv(mapOf(
                     VectorDbGTXModule.VECTOR_DB_EXTENSION_CONFIG_NAME to GtvObjectMapper.toGtvDictionary(VectorDbConfig(
                             collections = mapOf(
-                                    collection1.name to VectorDbCollectionConfig(3, 10, 300, VectorDBIndex.HNSW_COSINE.name)
+                                    collection1.name to VectorDbCollectionConfig(3, 10,
+                                            300, VectorDBIndex.HNSW_COSINE.name)
                             )
                     ))
             ))
@@ -136,7 +139,8 @@ class VectorDbGTXModuleTest {
             on { rawConfig } doReturn gtv(mapOf(
                     VectorDbGTXModule.VECTOR_DB_EXTENSION_CONFIG_NAME to GtvObjectMapper.toGtvDictionary(VectorDbConfig(
                             collections = mapOf(
-                                    "collection1" to VectorDbCollectionConfig(3, 10, 20, VectorDBIndex.HNSW_IP.name)
+                                    "collection1" to VectorDbCollectionConfig(3, 10,
+                                            20, VectorDBIndex.HNSW_IP.name)
                             )
                     ))
             ))
@@ -157,7 +161,8 @@ class VectorDbGTXModuleTest {
             on { rawConfig } doReturn gtv(mapOf(
                     VectorDbGTXModule.VECTOR_DB_EXTENSION_CONFIG_NAME to GtvObjectMapper.toGtvDictionary(VectorDbConfig(
                             collections = mapOf(
-                                    "collection1" to VectorDbCollectionConfig(30, 10, 20, VectorDBIndex.HNSW_COSINE.name)
+                                    "collection1" to VectorDbCollectionConfig(30, 10,
+                                            20, VectorDBIndex.HNSW_COSINE.name)
                             )
                     ))
             ))

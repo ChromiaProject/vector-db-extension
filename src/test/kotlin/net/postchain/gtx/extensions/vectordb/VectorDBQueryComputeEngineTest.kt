@@ -72,12 +72,15 @@ class VectorDBQueryComputeEngineTest {
     @Test
     fun `validation - successful`() {
         val qVector = "[0.1, 0.2, 0.3]"
-        val collection = VectorCollection(1, "c1", 10, 20, 300, VectorDBIndex.HNSW_IP, VectorCollectionOrigin.DYNAMIC, true)
+        val collection = VectorCollection(1, "c1", 10, 20, 300,
+                VectorDBIndex.HNSW_IP, VectorCollectionOrigin.DYNAMIC, true)
         val computeResults = listOf(QueryResultObject(1, 0, "0.0123"))
-        val input = GtvObjectMapper.toGtvDictionary(QueryRequest("c1", qVector, 0.1.toBigDecimal(), null, null))
+        val input = GtvObjectMapper.toGtvDictionary(QueryRequest("c1", qVector, 0.1.toBigDecimal(),
+                null, null))
 
         whenever(dba.getExistingCollectionByName(any(), anyString())).doReturn(collection)
-        whenever(dba.getDistanceOfResults(any(), eq(collection), eq(qVector), any())).doReturn(computeResults)
+        whenever(dba.getDistanceOfResults(any(), eq(collection), eq(qVector),
+                any())).doReturn(computeResults)
 
         engine.initializeContext(configuration, postchainContext, mock())
 
@@ -88,13 +91,16 @@ class VectorDBQueryComputeEngineTest {
     @Test
     fun `validation - successful - distance close enough`() {
         val qVector = "[0.1, 0.2, 0.3]"
-        val collection = VectorCollection(1, "c1", 10, 20, 300, VectorDBIndex.HNSW_IP, VectorCollectionOrigin.DYNAMIC, true)
+        val collection = VectorCollection(1, "c1", 10, 20, 300,
+                VectorDBIndex.HNSW_IP, VectorCollectionOrigin.DYNAMIC, true)
         val computeResults = listOf(QueryResultObject(1, 0, "0.1234567"))
         val localResults = listOf(QueryResultObject(1, 0, "0.1234568"))
-        val input = GtvObjectMapper.toGtvDictionary(QueryRequest("c1", qVector, 0.2.toBigDecimal(), null, null))
+        val input = GtvObjectMapper.toGtvDictionary(QueryRequest("c1", qVector, 0.2.toBigDecimal(),
+                null, null))
 
         whenever(dba.getExistingCollectionByName(any(), anyString())).doReturn(collection)
-        whenever(dba.getDistanceOfResults(any(), eq(collection), eq(qVector), any())).doReturn(localResults)
+        whenever(dba.getDistanceOfResults(any(), eq(collection), eq(qVector),
+                any())).doReturn(localResults)
 
         engine.initializeContext(configuration, postchainContext, mock())
 
@@ -105,13 +111,16 @@ class VectorDBQueryComputeEngineTest {
     @Test
     fun `validation - reject - distance not close enough`() {
         val qVector = "[0.1, 0.2, 0.3]"
-        val collection = VectorCollection(1, "c1", 10, 20, 300, VectorDBIndex.HNSW_IP, VectorCollectionOrigin.DYNAMIC, true)
+        val collection = VectorCollection(1, "c1", 10, 20, 300,
+                VectorDBIndex.HNSW_IP, VectorCollectionOrigin.DYNAMIC, true)
         val computeResults = listOf(QueryResultObject(1, 0, "0.12345"))
         val localResults = listOf(QueryResultObject(1, 0, "0.123456"))
-        val input = GtvObjectMapper.toGtvDictionary(QueryRequest("c1", qVector, 0.1.toBigDecimal(), null, null))
+        val input = GtvObjectMapper.toGtvDictionary(QueryRequest("c1", qVector, 0.1.toBigDecimal(),
+                null, null))
 
         whenever(dba.getExistingCollectionByName(any(), anyString())).doReturn(collection)
-        whenever(dba.getDistanceOfResults(any(), eq(collection), eq(qVector), any())).doReturn(localResults)
+        whenever(dba.getDistanceOfResults(any(), eq(collection), eq(qVector),
+                any())).doReturn(localResults)
 
         engine.initializeContext(configuration, postchainContext, mock())
 
@@ -125,12 +134,15 @@ class VectorDBQueryComputeEngineTest {
     @Test
     fun `validation - reject - too long distance compared to input params`() {
         val qVector = "[0.1, 0.2, 0.3]"
-        val collection = VectorCollection(1, "c1", 10, 20, 300, VectorDBIndex.HNSW_IP, VectorCollectionOrigin.DYNAMIC, true)
+        val collection = VectorCollection(1, "c1", 10, 20, 300,
+                VectorDBIndex.HNSW_IP, VectorCollectionOrigin.DYNAMIC, true)
         val computeResults = listOf(QueryResultObject(1, 0, "0.3"))
-        val input = GtvObjectMapper.toGtvDictionary(QueryRequest("c1", qVector, 0.1.toBigDecimal(), null, null))
+        val input = GtvObjectMapper.toGtvDictionary(QueryRequest("c1", qVector, 0.1.toBigDecimal(),
+                null, null))
 
         whenever(dba.getExistingCollectionByName(any(), anyString())).doReturn(collection)
-        whenever(dba.getDistanceOfResults(any(), eq(collection), eq(qVector), any())).doReturn(computeResults)
+        whenever(dba.getDistanceOfResults(any(), eq(collection), eq(qVector),
+                any())).doReturn(computeResults)
 
         engine.initializeContext(configuration, postchainContext, mock())
 
@@ -144,13 +156,16 @@ class VectorDBQueryComputeEngineTest {
     @Test
     fun `validation - reject - context do not match`() {
         val qVector = "[0.1, 0.2, 0.3]"
-        val collection = VectorCollection(1, "c1", 10, 20, 300, VectorDBIndex.HNSW_IP, VectorCollectionOrigin.DYNAMIC, true)
+        val collection = VectorCollection(1, "c1", 10, 20, 300,
+                VectorDBIndex.HNSW_IP, VectorCollectionOrigin.DYNAMIC, true)
         val computeResults = listOf(QueryResultObject(1, 0, "0.1"))
         val localResults = listOf(QueryResultObject(1, 1, "0.1"))
-        val input = GtvObjectMapper.toGtvDictionary(QueryRequest("c1", qVector, 0.1.toBigDecimal(), null, null))
+        val input = GtvObjectMapper.toGtvDictionary(QueryRequest("c1", qVector, 0.1.toBigDecimal(),
+                null, null))
 
         whenever(dba.getExistingCollectionByName(any(), anyString())).doReturn(collection)
-        whenever(dba.getDistanceOfResults(any(), eq(collection), eq(qVector), any())).doReturn(localResults)
+        whenever(dba.getDistanceOfResults(any(), eq(collection), eq(qVector),
+                any())).doReturn(localResults)
 
         engine.initializeContext(configuration, postchainContext, mock())
 
@@ -164,16 +179,19 @@ class VectorDBQueryComputeEngineTest {
     @Test
     fun `validation - reject - too many results in computed result`() {
         val qVector = "[0.1, 0.2, 0.3]"
-        val collection = VectorCollection(1, "c1", 10, 20, 300, VectorDBIndex.HNSW_IP, VectorCollectionOrigin.DYNAMIC, true)
+        val collection = VectorCollection(1, "c1", 10, 20, 300,
+                VectorDBIndex.HNSW_IP, VectorCollectionOrigin.DYNAMIC, true)
         val computeResults = listOf(
                 QueryResultObject(1, 0, "0.3"),
                 QueryResultObject(2, 0, "0.3"),
                 QueryResultObject(3, 0, "0.3"),
         )
-        val input = GtvObjectMapper.toGtvDictionary(QueryRequest("c1", qVector, 0.1.toBigDecimal(), null, 2))
+        val input = GtvObjectMapper.toGtvDictionary(QueryRequest("c1", qVector, 0.1.toBigDecimal(),
+                null, 2))
 
         whenever(dba.getExistingCollectionByName(any(), anyString())).doReturn(collection)
-        whenever(dba.getDistanceOfResults(any(), eq(collection), eq(qVector), any())).doReturn(computeResults)
+        whenever(dba.getDistanceOfResults(any(), eq(collection), eq(qVector),
+                any())).doReturn(computeResults)
 
         engine.initializeContext(configuration, postchainContext, mock())
 
@@ -187,17 +205,21 @@ class VectorDBQueryComputeEngineTest {
     @Test
     fun `validation - reject - timeout`() {
         val qVector = "[0.1, 0.2, 0.3]"
-        val collection = VectorCollection(1, "c1", 10, 20, 300, VectorDBIndex.HNSW_IP, VectorCollectionOrigin.DYNAMIC, true)
+        val collection = VectorCollection(1, "c1", 10, 20, 300,
+                VectorDBIndex.HNSW_IP, VectorCollectionOrigin.DYNAMIC, true)
         val computeResults = listOf(QueryResultObject(1, 0, "0.1"))
-        val input = GtvObjectMapper.toGtvDictionary(QueryRequest("c1", qVector, 0.1.toBigDecimal(), null, null))
+        val input = GtvObjectMapper.toGtvDictionary(QueryRequest("c1", qVector, 0.1.toBigDecimal(),
+                null, null))
 
         whenever(dba.getExistingCollectionByName(any(), anyString())).doReturn(collection)
-        whenever(dba.getDistanceOfResults(any(), eq(collection), eq(qVector), any())).doAnswer {
+        whenever(dba.getDistanceOfResults(any(), eq(collection), eq(qVector),
+                any())).doAnswer {
             sleep(2_000)
             emptyList()
         }
         whenever(configuration.rawConfig).doReturn(gtv(mapOf(
-                VECTOR_DB_EXTENSION_CONFIG_NAME to GtvObjectMapper.toGtvDictionary(VectorDbConfig(mutableMapOf(), VectorDbQueryComputeConfig(1))))))
+                VECTOR_DB_EXTENSION_CONFIG_NAME to GtvObjectMapper.toGtvDictionary(VectorDbConfig(mutableMapOf(),
+                        VectorDbQueryComputeConfig(1))))))
 
         engine.initializeContext(configuration, postchainContext, mock())
 

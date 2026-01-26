@@ -194,15 +194,16 @@ class VectorDbDatabaseAccess{
     fun deleteCollection(ctx: EContext, collection: VectorCollection) {
         val collectionTableName = getCollectionTableName(ctx, collection.id)
 
-        // Mark datum ids reusable
         ctx.conn.createStatement().use { stmt ->
+            // Mark datum ids reusable
             stmt.execute("""
                 INSERT INTO ${getReusableDatumIdTableName(ctx)} ($REUSABLE_DATUM_ID_COLUMN_DATUM_ID)
                 SELECT $COLLECTION_COLUMN_DATUM_ID
                 FROM $collectionTableName
             """)
 
-            stmt.execute("UPDATE ${getCollectionMetaTableName(ctx)} SET $COLLECTION_META_COLUMN_EXISTS = false WHERE $COLLECTION_META_COLUMN_ID = ${collection.id}")
+            stmt.execute("UPDATE ${getCollectionMetaTableName(ctx)} SET $COLLECTION_META_COLUMN_EXISTS = false " +
+                    "WHERE $COLLECTION_META_COLUMN_ID = ${collection.id}")
 
             stmt.execute("DROP TABLE IF EXISTS $collectionTableName CASCADE")
         }
@@ -215,7 +216,11 @@ class VectorDbDatabaseAccess{
         val updatedStoreBatchSize = storeBatchSize ?: collection.storeBatchSize
 
         ctxt.conn.createStatement().use { stmt ->
-            stmt.execute("UPDATE $tableName SET $COLLECTION_META_COLUMN_QUERY_MAX_VECTORS = $updatedQueryMaxVectors, $COLLECTION_META_COLUMN_STORE_BATCH_SIZE = $updatedStoreBatchSize WHERE $COLLECTION_META_COLUMN_ID = ${collection.id}")
+            stmt.execute("""
+                UPDATE $tableName SET $COLLECTION_META_COLUMN_QUERY_MAX_VECTORS = $updatedQueryMaxVectors,
+                $COLLECTION_META_COLUMN_STORE_BATCH_SIZE = $updatedStoreBatchSize
+                WHERE $COLLECTION_META_COLUMN_ID = ${collection.id}
+                """)
         }
         return collection.copy(queryMaxVectors = updatedQueryMaxVectors, storeBatchSize = updatedStoreBatchSize)
     }
@@ -317,7 +322,8 @@ class VectorDbDatabaseAccess{
     fun storeVectors(ctx: EContext, tableId: Long, vectors: List<Vector>, batchSize: Long = 300) {
         val tableName = getCollectionTableName(ctx, tableId)
         ctx.conn.prepareStatement("""
-            INSERT INTO $tableName ($COLLECTION_COLUMN_DATUM_ID, $COLLECTION_COLUMN_CONTEXT, $COLLECTION_COLUMN_ID, $COLLECTION_COLUMN_EMBEDDING, $COLLECTION_COLUMN_EXCLUDE)
+            INSERT INTO $tableName ($COLLECTION_COLUMN_DATUM_ID, $COLLECTION_COLUMN_CONTEXT, $COLLECTION_COLUMN_ID,
+            $COLLECTION_COLUMN_EMBEDDING, $COLLECTION_COLUMN_EXCLUDE)
             VALUES (?, ?, ?, ?::${PG_VECTOR_SCHEMA}.halfvec, ?)
             """
         ).use { stmt ->
@@ -406,7 +412,8 @@ class VectorDbDatabaseAccess{
         ctx.conn.prepareStatement(
                 """
                 WITH nearest_results AS MATERIALIZED (
-                    SELECT $COLLECTION_COLUMN_CONTEXT, $COLLECTION_COLUMN_ID, $COLLECTION_COLUMN_EMBEDDING OPERATOR("$PG_VECTOR_SCHEMA".${index.operator}) ?::${PG_VECTOR_SCHEMA}.halfvec AS distance
+                    SELECT $COLLECTION_COLUMN_CONTEXT, $COLLECTION_COLUMN_ID,
+                    $COLLECTION_COLUMN_EMBEDDING OPERATOR("$PG_VECTOR_SCHEMA".${index.operator}) ?::${PG_VECTOR_SCHEMA}.halfvec AS distance
                     FROM $tableName
                     WHERE $COLLECTION_COLUMN_EXCLUDE = false
                     ${if (context == null) "" else "AND $COLLECTION_COLUMN_CONTEXT = ?"}
@@ -438,7 +445,8 @@ class VectorDbDatabaseAccess{
         val ids = result.map { it.id }.toSet()
         val contexts = result.map { it.context }.toSet()
         ctx.conn.prepareStatement("""
-                SELECT $COLLECTION_COLUMN_ID, $COLLECTION_COLUMN_CONTEXT, $COLLECTION_COLUMN_EMBEDDING OPERATOR("$PG_VECTOR_SCHEMA".${collection.index.operator}) ?::${PG_VECTOR_SCHEMA}.halfvec AS distance
+                SELECT $COLLECTION_COLUMN_ID, $COLLECTION_COLUMN_CONTEXT,
+                $COLLECTION_COLUMN_EMBEDDING OPERATOR("$PG_VECTOR_SCHEMA".${collection.index.operator}) ?::${PG_VECTOR_SCHEMA}.halfvec AS distance
                 FROM ${getCollectionTableName(ctx, collection.id)}
                 WHERE id = ANY(?) AND context = ANY(?)
                 ORDER BY distance
@@ -492,7 +500,8 @@ class VectorDbDatabaseAccess{
     fun addReusableDatumIds(ctxt: EContext, datumIds: Set<Long>) {
         if (datumIds.isNotEmpty()) {
             ctxt.conn.createStatement().use { stmt ->
-                stmt.execute("INSERT INTO ${getReusableDatumIdTableName(ctxt)} ($REUSABLE_DATUM_ID_COLUMN_DATUM_ID) VALUES ${datumIds.joinToString("),(", "(", ")")}")
+                stmt.execute("INSERT INTO ${getReusableDatumIdTableName(ctxt)} ($REUSABLE_DATUM_ID_COLUMN_DATUM_ID)" +
+                        " VALUES ${datumIds.joinToString("),(", "(", ")")}".trimMargin())
             }
         }
     }
