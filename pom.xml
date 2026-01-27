@@ -21,7 +21,7 @@
         <revision>dev</revision>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
-        <kotlin.version>2.0.0</kotlin.version>
+        <kotlin.version>2.3.0</kotlin.version>
         <kotlin.compiler.jvmTarget>21</kotlin.compiler.jvmTarget>
         <kotlin.code.style>obsolete</kotlin.code.style> <!-- Kotlin obsolete IntelliJ IDEA codestyle -->
 
@@ -32,7 +32,7 @@
         <directory.chain.version>1.91.0</directory.chain.version>
         <directory.source>${project.build.directory}/directory-chain/src</directory.source>
         <directory.config>${project.basedir}/src/test/resources/net/postchain/images/directory1/directory1.yml</directory.config>
-        <rell.maven.plugin.version>0.16.1</rell.maven.plugin.version>
+        <rell.maven.plugin.version>0.16.5</rell.maven.plugin.version>
 
         <junit.version>5.9.1</junit.version>
         <testcontainers.version>2.0.2</testcontainers.version>
@@ -198,13 +198,6 @@
                         <goals>
                             <goal>compile</goal>
                         </goals>
-                        <configuration>
-                            <sourceDirs>
-                                <source>src/main/kotlin</source>
-                                <source>target/generated-sources/annotations</source>
-                                <source>target/generated-sources/rell-client</source>
-                            </sourceDirs>
-                        </configuration>
                     </execution>
                     <execution>
                         <id>test-compile</id>
@@ -419,6 +412,15 @@
             <id>ci</id>
             <build>
                 <plugins>
+                    <plugin>
+                        <groupId>org.jetbrains.kotlin</groupId>
+                        <artifactId>kotlin-maven-plugin</artifactId>
+                        <configuration>
+                            <args>
+                                <arg>-Werror</arg>
+                            </args>
+                        </configuration>
+                    </plugin>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-failsafe-plugin</artifactId>
