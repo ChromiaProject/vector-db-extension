@@ -48,11 +48,6 @@ EXISTING=`curl -sS "$LIBRARY_CHAIN_API_URL/query/$LIBRARY_CHAIN_BRID?type=librar
 RID_EXISTING=`echo $EXISTING | jq -r '.rid'`
 if [ "$RID_EXISTING" = "null" ]; then
 
-  if [ -z "${LIBRARY_DESCRIPTION+x}" ]; then
-    echo "Library description is required for first deployment"
-    exit 1
-  fi
-
   echo "First deploy of library $LIBRARY_NAME"
 
   VERSION="$MAJOR_VERSION.$MINOR_VERSION.0"
@@ -73,8 +68,7 @@ else
 
   if [ "$RID_EXISTING" = "$RID_NEW" ]; then
      echo "Skipping deployment of $LIBRARY_NAME, because the RID has not changed: $RID_EXISTING."
-     exit 0
-  fi
+  else
 
   EXISTING_VERSION="$(echo $EXISTING | jq -r '.version')"
   echo "Current library version: $EXISTING_VERSION"
@@ -98,10 +92,7 @@ else
   VERSION_EXISTING=`echo $EXISTING | jq -r '.version'`
   if [ "$VERSION_EXISTING" = "$VERSION" ]; then
      echo "Skipping deployment of $LIBRARY_NAME, because the version has not changed: $VERSION."
-     exit 0
-  fi
-
-  DESCRIPTION=`echo $EXISTING | jq -r '.version_description'`
+    else
 
   echo "Deploying $LIBRARY_NAME $VERSION..."
   echo "previous RID: $RID_EXISTING"
@@ -113,7 +104,26 @@ else
     --library "$LIBRARY_NAME" \
     --id "com.chromia.$LIBRARY_NAME" \
     --version "$VERSION" \
-    --description "$DESCRIPTION"
+        --description ""
 
   append_release "$VERSION"
+fi
+  fi
+fi
+
+
+# Library description
+if [ -n "${LIBRARY_DESCRIPTION+x}" ]; then
+  echo "Verify library description..."
+  EXISTING_LIBRARY_DESCRIPTION=`curl -sS "$LIBRARY_CHAIN_API_URL/query/$LIBRARY_CHAIN_BRID?type=library_chain_versioning.get_library&lib_id=com.chromia.$LIBRARY_NAME" | jq -r .description`
+  echo "Current: $EXISTING_LIBRARY_DESCRIPTION"
+  echo "New    : $LIBRARY_DESCRIPTION"
+
+  if [ "$EXISTING_LIBRARY_DESCRIPTION" != "$LIBRARY_DESCRIPTION" ]; then
+    chr library update-description \
+        --url "$LIBRARY_CHAIN_API_URL" \
+        --brid "$LIBRARY_CHAIN_BRID" \
+        --description "$LIBRARY_DESCRIPTION" \
+        "com.chromia.$LIBRARY_NAME"
+  fi
 fi
