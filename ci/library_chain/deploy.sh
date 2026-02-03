@@ -70,44 +70,44 @@ else
      echo "Skipping deployment of $LIBRARY_NAME, because the RID has not changed: $RID_EXISTING."
   else
 
-  EXISTING_VERSION="$(echo $EXISTING | jq -r '.version')"
-  echo "Current library version: $EXISTING_VERSION"
+    EXISTING_VERSION="$(echo $EXISTING | jq -r '.version')"
+    echo "Current library version: $EXISTING_VERSION"
 
-  EXISTING_MAJOR=${EXISTING_VERSION%%.*}
-  EXISTING_VERSION_NO_MAJOR=${EXISTING_VERSION#*.}
-  EXISTING_MINOR=${EXISTING_VERSION_NO_MAJOR%%.*}
-  EXISTING_PATCH=${EXISTING_VERSION_NO_MAJOR#*.}
+    EXISTING_MAJOR=${EXISTING_VERSION%%.*}
+    EXISTING_VERSION_NO_MAJOR=${EXISTING_VERSION#*.}
+    EXISTING_MINOR=${EXISTING_VERSION_NO_MAJOR%%.*}
+    EXISTING_PATCH=${EXISTING_VERSION_NO_MAJOR#*.}
 
-  MAJOR_MINOR_PREFIX="$MAJOR_VERSION.$MINOR_VERSION."
-  if [ "${EXISTING_VERSION#$MAJOR_MINOR_PREFIX}" != "${EXISTING_VERSION}" ]; then
-    NEW_PATCH="$((EXISTING_PATCH + 1))"
-  else
-    NEW_PATCH=0
-  fi
+    MAJOR_MINOR_PREFIX="$MAJOR_VERSION.$MINOR_VERSION."
+    if [ "${EXISTING_VERSION#$MAJOR_MINOR_PREFIX}" != "${EXISTING_VERSION}" ]; then
+      NEW_PATCH="$((EXISTING_PATCH + 1))"
+    else
+      NEW_PATCH=0
+    fi
 
-  VERSION="$MAJOR_VERSION.$MINOR_VERSION.$NEW_PATCH"
-  echo "New version: $VERSION"
-  echo
+    VERSION="$MAJOR_VERSION.$MINOR_VERSION.$NEW_PATCH"
+    echo "New version: $VERSION"
+    echo
 
-  VERSION_EXISTING=`echo $EXISTING | jq -r '.version'`
-  if [ "$VERSION_EXISTING" = "$VERSION" ]; then
-     echo "Skipping deployment of $LIBRARY_NAME, because the version has not changed: $VERSION."
+    VERSION_EXISTING=`echo $EXISTING | jq -r '.version'`
+    if [ "$VERSION_EXISTING" = "$VERSION" ]; then
+       echo "Skipping deployment of $LIBRARY_NAME, because the version has not changed: $VERSION."
     else
 
-  echo "Deploying $LIBRARY_NAME $VERSION..."
-  echo "previous RID: $RID_EXISTING"
-  echo "new RID: $RID_NEW"
+      echo "Deploying $LIBRARY_NAME $VERSION..."
+      echo "previous RID: $RID_EXISTING"
+      echo "new RID: $RID_NEW"
 
-  chr library deploy \
-    --url "$LIBRARY_CHAIN_API_URL" \
-    --brid "$LIBRARY_CHAIN_BRID" \
-    --library "$LIBRARY_NAME" \
-    --id "com.chromia.$LIBRARY_NAME" \
-    --version "$VERSION" \
+      chr library deploy \
+        --url "$LIBRARY_CHAIN_API_URL" \
+        --brid "$LIBRARY_CHAIN_BRID" \
+        --library "$LIBRARY_NAME" \
+        --id "com.chromia.$LIBRARY_NAME" \
+        --version "$VERSION" \
         --description ""
 
-  append_release "$VERSION"
-fi
+      append_release "$VERSION"
+    fi
   fi
 fi
 
