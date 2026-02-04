@@ -32,7 +32,7 @@ class VectorDBQueryComputeEngine(
 ) : HybridComputeEngine, DatabaseAwareHybridComputeEngine, PostchainContextAware {
 
     companion object : KLogging() {
-        const val QUERY_VALIDATION_DISTANCE_EPSILON = 1e-6
+        const val QUERY_VALIDATION_DISTANCE_EPSILON = 0.000001
     }
 
     override val name = "vector-db-query"
