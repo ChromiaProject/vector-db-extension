@@ -153,10 +153,8 @@ operation submit_query_request(
     submit_vector_db_query_request(id, "my-collection", q_vector, max_distance, max_vectors, null);
 }
 
-@extend(hc.on_compute_result)
-function (id: text, type: text, result: hc.compute_result) {
-    if (type != my_type) return;
-
+@extend(on_query_result)
+function (id: text, query_result: query_result) {
     log("Query computation for query id %s completed".format(id));
 }
 ```
