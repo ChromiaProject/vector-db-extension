@@ -4,6 +4,9 @@ import net.postchain.common.exception.UserMistake
 import net.postchain.config.app.AppConfig
 import net.postchain.gtx.extensions.vectordb.embedding.client.EmbeddingApiType
 import org.http4k.core.Credentials
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 data class VectorDbEmbeddingNodeConfig(
         /** The name of the model to request from embedding API - this is not the same name as used in bc config */
@@ -23,6 +26,12 @@ data class VectorDbEmbeddingNodeConfig(
 
         /** API key for a `X-API-Key` header */
         val xApiKey: String? = null,
+
+        /** Number of attempts to request embedding */
+        val retryCount: Int,
+
+        /** Delay between attempts to request embedding */
+        val retryDelay: Duration,
 ) {
     companion object {
         private const val CONFIG_ENV_PREFIX = "POSTCHAIN_EXTENSION_VECTOR_DB_EMBEDDING_"
@@ -37,6 +46,10 @@ data class VectorDbEmbeddingNodeConfig(
             val apiType = config.getEmbeddingEnvOrString(bcModel, "api_type")?.uppercase()?.let { EmbeddingApiType.valueOf(it) }
             val basicAuthUser = config.getEmbeddingEnvOrString(bcModel, "basic_auth_user")
             val basicAuthPassword = config.getEmbeddingEnvOrString(bcModel, "basic_auth_password")
+            val retryCount = config.getEmbeddingEnvOrString(bcModel, "retry_count")?.toIntOrNull()
+                    ?: 2
+            val retryDelay = config.getEmbeddingEnvOrString(bcModel, "retry_delay")?.toLongOrNull()?.milliseconds
+                    ?: 1.seconds
 
             if (basicAuthUser != null && basicAuthPassword == null) {
                 throw UserMistake("If user is set, password must be set as well for model $bcModel")
@@ -54,6 +67,8 @@ data class VectorDbEmbeddingNodeConfig(
                     else null,
                     config.getEmbeddingEnvOrString(bcModel, "auth_bearer"),
                     config.getEmbeddingEnvOrString(bcModel, "x_api_key"),
+                    retryCount,
+                    retryDelay,
             )
         }
 

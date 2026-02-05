@@ -10,18 +10,29 @@ import net.postchain.devtools.utils.configuration.NodeSeqNumber
 import net.postchain.gtv.GtvFactory.gtv
 import net.postchain.gtv.GtvNull
 import net.postchain.gtx.GtxOp
-import net.postchain.gtx.extensions.vectordb.helpers.MockEmbeddingRestApi
+import net.postchain.gtx.extensions.vectordb.embedding.client.OpenAiEmbeddingRequest
+import net.postchain.gtx.extensions.vectordb.embedding.client.OpenAiEmbeddingResponse
+import net.postchain.gtx.extensions.vectordb.embedding.client.OpenAiEmbeddingResponseData
+import net.postchain.gtx.extensions.vectordb.embedding.client.openAiEmbeddingResponse
+import net.postchain.gtx.extensions.vectordb.helpers.MockEmbeddingResponse
+import net.postchain.gtx.extensions.vectordb.helpers.MockOpenAIEmbeddingRestApi
+import net.postchain.gtx.extensions.vectordb.helpers.MockSequenceEmbeddingResponse
+import net.postchain.gtx.extensions.vectordb.helpers.MockStaticEmbeddingResponse
 import net.postchain.gtx.extensions.vectordb.helpers.buildTransaction
 import net.postchain.gtx.extensions.vectordb.helpers.generateVector
 import net.postchain.gtx.extensions.vectordb.helpers.queryClosestObjectsNoTemplate
 import net.postchain.images.directory1.awaitUntilAsserted
 import org.apache.commons.configuration2.MapConfiguration
 import org.http4k.core.Credentials
+import org.http4k.core.Response
+import org.http4k.core.Status
+import org.http4k.core.with
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 @Timeout(10, unit = TimeUnit.MINUTES)
 class VectorDbEmbeddingComputeIT : PGVectorBaseTest() {
@@ -30,15 +41,15 @@ class VectorDbEmbeddingComputeIT : PGVectorBaseTest() {
     private val apiPassword = "password"
     private val apiToken = "api-token"
     private val xApiKey = "x-api-key"
-    private val embeddingService1 = MockEmbeddingRestApi(
+    private val embeddingService1 = MockOpenAIEmbeddingRestApi(
             "rest-model-name-1",
             Credentials(apiUser, apiPassword),
     )
-    private val embeddingService2 = MockEmbeddingRestApi(
+    private val embeddingService2 = MockOpenAIEmbeddingRestApi(
             "rest-model-name-2",
             authBearer = apiToken
     )
-    private val embeddingService3 = MockEmbeddingRestApi(
+    private val embeddingService3 = MockOpenAIEmbeddingRestApi(
             "rest-model-name-3",
             xApiKey = "x-api-key"
     )
@@ -63,9 +74,9 @@ class VectorDbEmbeddingComputeIT : PGVectorBaseTest() {
         val text2 = "Chromia records structured blockchain data in linked relational tables. This innovation, which we call relational blockchain, makes it possible to query data directly on-chain, perform hundreds of read-and-write operations with a single transaction, and index block data in real-time."
         val text3 = "Chromia CHR token is the native token designed to empower the Chromia platform and foster a mutually beneficial relationship between developers, users, and investors."
         embeddingService1.data = mapOf(
-                text1 to generateVector(384),
-                text2 to generateVector(384),
-                text3 to generateVector(384),
+                text1 to MockStaticEmbeddingResponse(generateVector(384)),
+                text2 to MockStaticEmbeddingResponse(generateVector(384)),
+                text3 to MockStaticEmbeddingResponse(generateVector(384)),
         )
         embeddingService2.data = embeddingService1.data
         embeddingService2.data = embeddingService1.data
@@ -118,7 +129,7 @@ class VectorDbEmbeddingComputeIT : PGVectorBaseTest() {
     fun `use multiple services using different model names`() {
         val text1 = "A block of text"
         embeddingService1.data = mapOf(
-                text1 to mutableListOf(
+                text1 to MockSequenceEmbeddingResponse(
                         "[0.7071067812, 0.0, 0.7071067812]", // Compute
                         "[0.7071, 0.0, 0.7071]", // Verify 1
                         "[0.706, 0.01, 0.708]", // Verify 2
@@ -178,7 +189,7 @@ class VectorDbEmbeddingComputeIT : PGVectorBaseTest() {
     fun `accept similar embeddings`() {
         val text1 = "A block of text"
         embeddingService2.data = mapOf(
-                text1 to mutableListOf(
+                text1 to MockSequenceEmbeddingResponse(
                         "[0.7071067812, 0.0, 0.7071067812]", // Compute
                         "[0.7071, 0.0, 0.7071]", // Verify 1
                         "[0.706, 0.01, 0.708]", // Verify 2
@@ -217,5 +228,69 @@ class VectorDbEmbeddingComputeIT : PGVectorBaseTest() {
                 assertThat(queryResult[0].second).isEqualTo(textEmbedding["rowid"]!!.asInteger())
             }
         }
+    }
+
+    @Test
+    fun `retry http queries`() {
+        val text1 = "A block of text"
+        val httpRequestCounter = AtomicInteger(0)
+        embeddingService2.data = mapOf(
+                text1 to object: MockEmbeddingResponse {
+                    override fun getResponse(model: String, request: OpenAiEmbeddingRequest): Response {
+                        // First 5 embedding requests will fail, the rest will be OK.
+                        if (httpRequestCounter.getAndIncrement() < 5) {
+                            return Response(Status.INTERNAL_SERVER_ERROR)
+                        } else {
+                            val responseData = OpenAiEmbeddingResponse(
+                                    "id",
+                                    System.currentTimeMillis(),
+                                    request.model,
+                                    listOf(OpenAiEmbeddingResponseData(0, "[0.7071, 0.0, 0.7071]".vectorToList()))
+                            )
+
+                            return Response(Status.OK).with(openAiEmbeddingResponse of responseData)
+                        }
+                    }
+                })
+
+        configOverrides.setProperty("extension.vector_db.embedding.qwen3_embedding_0_6b.url", embeddingService2.url)
+        configOverrides.setProperty("extension.vector_db.embedding.qwen3_embedding_0_6b.model", "rest-model-name-2")
+        configOverrides.setProperty("extension.vector_db.embedding.qwen3_embedding_0_6b.auth_bearer", apiToken)
+        configOverrides.setProperty("extension.vector_db.embedding.qwen3_embedding_0_6b.retry_count", "10")
+        configOverrides.setProperty("extension.vector_db.embedding.qwen3_embedding_0_6b.retry_delay", "1")
+
+        val node = createNodes(3, "/chains/vector_example_embedding_compute_small_test.xml")[0]
+        val engine = node.getBlockchainInstance().blockchainEngine
+
+        buildBlock(DEFAULT_CHAIN_IID, node.buildTransaction(listOf(
+                GtxOp("embed",
+                        gtv("id-1"),
+                        gtv(text1)
+                ),
+        )))
+
+        awaitUntilAsserted {
+            buildBlock(DEFAULT_CHAIN_IID)
+
+            // Verify each embedding is stored in the vector db and can be queried with a distance of 0
+            listOf("id-1").forEach { id ->
+                val textEmbedding = node.query(DEFAULT_CHAIN_IID) {
+                    it.query("get_text_embedding", gtv(mapOf("id" to gtv(id))))
+                }
+
+                assertThat(textEmbedding).isNotEqualTo(GtvNull)
+                val vector = textEmbedding!!["vector"]!!.asString()
+                assertThat(vector).isNotEqualTo("")
+
+                val queryResult = queryClosestObjectsNoTemplate(engine, "texts", null,
+                        vector, 0.0, 10)
+                assertThat(queryResult).hasSize(1)
+                assertThat(queryResult[0].second).isEqualTo(textEmbedding["rowid"]!!.asInteger())
+            }
+        }
+
+        // Verify that the embedding services was called 5 failed times and 3 successful times
+        // (6 for builder node, 2 for validation)
+        assertThat(httpRequestCounter.get()).isEqualTo(5 + 3)
     }
 }

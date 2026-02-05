@@ -8,25 +8,23 @@ import net.postchain.gtx.extensions.vectordb.lib.vector_db_embedding_compute.Emb
 import org.http4k.core.Body
 import org.http4k.core.Method
 import org.http4k.core.Request
+import org.http4k.core.Response
 import org.http4k.core.with
-import org.http4k.lens.basicAuthentication
 
 class GcpEmbeddingApiClient(
         embeddingNodeConfig: VectorDbEmbeddingNodeConfig,
         connectTimeoutMs: Long,
         computeConfig: VectorDbEmbeddingComputeConfig
-) : AbstractEmbeddingApiClient(embeddingNodeConfig, connectTimeoutMs, computeConfig) {
+) : BaseEmbeddingApiClient(embeddingNodeConfig, connectTimeoutMs, computeConfig) {
 
-    override fun requestEmbeddings(request: EmbeddingRequest): EmbeddingResponse {
-        val httpResponse = httpClient(Request(Method.POST, "${embeddingNodeConfig.url}/predict")
+    override fun buildRequest(request: EmbeddingRequest): Request {
+        return Request(Method.POST, "${embeddingNodeConfig.url}/predict")
                 .with(gcpEmbeddingRequest of GcpEmbeddingRequest(
                         request.input
-                )).let { if (embeddingNodeConfig.basicAuth != null) it.basicAuthentication(embeddingNodeConfig.basicAuth!!) else it })
+                ))
+    }
 
-        if (!httpResponse.status.successful) {
-            throw UserMistake("Failed to request embedding: ${httpResponse.status} ${httpResponse.bodyString()}")
-        }
-
+    override fun processResponse(httpResponse: Response): EmbeddingResponse {
         val response = gcpEmbeddingResponse(httpResponse)
         if (response.predictions.isEmpty()) {
             throw UserMistake("No data found in response")
