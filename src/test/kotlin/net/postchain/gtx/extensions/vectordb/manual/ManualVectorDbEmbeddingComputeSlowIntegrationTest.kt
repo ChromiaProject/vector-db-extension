@@ -17,7 +17,8 @@ import net.postchain.gtv.GtvEncoder
 import net.postchain.gtv.GtvFactory
 import net.postchain.gtv.gtvml.GtvMLEncoder
 import net.postchain.gtv.gtvml.GtvMLParser
-import net.postchain.gtx.extensions.vectordb.helpers.MockEmbeddingRestApi
+import net.postchain.gtx.extensions.vectordb.helpers.MockOpenAIEmbeddingRestApi
+import net.postchain.gtx.extensions.vectordb.helpers.MockStaticEmbeddingResponse
 import net.postchain.gtx.extensions.vectordb.integration_test.embedding_compute.GetTextEmbeddingResult
 import net.postchain.gtx.extensions.vectordb.integration_test.embedding_compute.embedOperation
 import net.postchain.gtx.extensions.vectordb.integration_test.embedding_compute.getTextEmbedding
@@ -73,7 +74,7 @@ class ManualVectorDbEmbeddingComputeSlowIntegrationTest : ManagedModeBase("vecto
     private val apiPassword = "password"
     private val bmeddingModel = "qwen3-embedding-0.6b"
     val authBearer = "bearer"
-    private val embeddingService = MockEmbeddingRestApi(
+    private val embeddingService = MockOpenAIEmbeddingRestApi(
             bmeddingModel,
             Credentials(apiUser, apiPassword),
             authBearer,
@@ -95,7 +96,7 @@ class ManualVectorDbEmbeddingComputeSlowIntegrationTest : ManagedModeBase("vecto
     fun `setup the embedding service`() {
         val text1 = "hello world"
         embeddingService.data = mapOf(
-                text1 to "[0.1, 0.2, 0.3]",
+                text1 to MockStaticEmbeddingResponse("[0.1, 0.2, 0.3]"),
         )
     }
 

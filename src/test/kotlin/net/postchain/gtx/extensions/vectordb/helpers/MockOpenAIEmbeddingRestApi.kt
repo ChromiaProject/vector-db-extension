@@ -3,6 +3,7 @@ package net.postchain.gtx.extensions.vectordb.helpers
 import assertk.assertThat
 import assertk.assertions.isEqualTo
 import net.postchain.gtx.extensions.vectordb.VectorDBEmbeddingComputeEngine.Companion.X_API_KEY_HEADER
+import net.postchain.gtx.extensions.vectordb.embedding.client.OpenAiEmbeddingRequest
 import net.postchain.gtx.extensions.vectordb.embedding.client.OpenAiEmbeddingResponse
 import net.postchain.gtx.extensions.vectordb.embedding.client.OpenAiEmbeddingResponseData
 import net.postchain.gtx.extensions.vectordb.embedding.client.openAiEmbeddingRequest
@@ -30,14 +31,14 @@ import java.io.Closeable
 /**
  * Mock a openAI embedding rest api service.
  */
-class MockEmbeddingRestApi(
+class MockOpenAIEmbeddingRestApi(
         val model: String,
         val basicAuth: Credentials? = null,
         val authBearer: String? = null,
         val xApiKey: String? = null
 ) : HttpHandler, Closeable {
     private var server: Http4kServer? = null
-    var data = mapOf<String, Any>()
+    var data = mapOf<String, MockEmbeddingResponse>()
 
     private val app: HttpHandler
     private val missingAuthBearerStatus = Status(401, "Missing bearer")
@@ -56,19 +57,7 @@ class MockEmbeddingRestApi(
                         Response(Status.NOT_FOUND)
                     } else {
 
-                        val embedding: String = if (data[embeddingRequest.input[0]]!! is MutableList<*>) {
-                            (data[embeddingRequest.input[0]] as MutableList<*>).removeFirst() as String
-                        } else {
-                            data[embeddingRequest.input[0]]!! as String
-                        }
-                        val responseData = OpenAiEmbeddingResponse(
-                                "id",
-                                System.currentTimeMillis(),
-                                embeddingRequest.model,
-                                listOf(OpenAiEmbeddingResponseData(0, embedding.vectorToList()))
-                        )
-
-                        Response(Status.OK).with(openAiEmbeddingResponse of responseData)
+                        data[embeddingRequest.input[0]]!!.getResponse(model, embeddingRequest)
                     }
                 },
         )
@@ -147,5 +136,39 @@ class MockEmbeddingRestApi(
     override fun close() {
         server?.stop()
         server = null
+    }
+}
+
+interface MockEmbeddingResponse {
+    fun getResponse(model: String, request: OpenAiEmbeddingRequest): Response
+}
+
+class MockStaticEmbeddingResponse(val embedding: String) : MockEmbeddingResponse {
+    override fun getResponse(model: String, request: OpenAiEmbeddingRequest): Response {
+        val responseData = OpenAiEmbeddingResponse(
+                "id",
+                System.currentTimeMillis(),
+                request.model,
+                listOf(OpenAiEmbeddingResponseData(0, embedding.vectorToList()))
+        )
+
+        return Response(Status.OK).with(openAiEmbeddingResponse of responseData)
+    }
+}
+
+class MockSequenceEmbeddingResponse(val embeddings: MutableList<String>) : MockEmbeddingResponse {
+
+    constructor(vararg embeddings: String) : this(embeddings.toMutableList())
+
+    override fun getResponse(model: String, request: OpenAiEmbeddingRequest): Response {
+        val embedding = embeddings.removeFirst()
+        val responseData = OpenAiEmbeddingResponse(
+                "id",
+                System.currentTimeMillis(),
+                request.model,
+                listOf(OpenAiEmbeddingResponseData(0, embedding.vectorToList()))
+        )
+
+        return Response(Status.OK).with(openAiEmbeddingResponse of responseData)
     }
 }
