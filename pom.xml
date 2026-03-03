@@ -33,7 +33,7 @@
         <directory.chain.version>1.91.0</directory.chain.version>
         <directory.source>${project.build.directory}/directory-chain/src</directory.source>
         <directory.config>${project.basedir}/src/test/resources/net/postchain/images/directory1/directory1.yml</directory.config>
-        <rell.maven.plugin.version>0.16.5</rell.maven.plugin.version>
+        <rell.maven.plugin.version>1.0.0</rell.maven.plugin.version>
 
         <junit.version>5.9.1</junit.version>
         <testcontainers.version>2.0.2</testcontainers.version>
@@ -317,7 +317,7 @@
                             <goal>rell-install</goal>
                         </goals>
                         <configuration>
-                            <configPath>${project.basedir}/rell/chromia.yml</configPath>
+                            <configFile>${project.basedir}/rell/chromia.yml</configFile>
                             <source>${project.basedir}/rell/src</source>
                             <target>${project.build.directory}/test-classes/chains/</target>
                         </configuration>
