@@ -33,7 +33,7 @@
         <directory.chain.version>1.110.2</directory.chain.version>
         <directory.source>${project.build.directory}/directory-chain/src</directory.source>
         <directory.config>${project.basedir}/src/test/resources/net/postchain/images/directory1/directory1.yml</directory.config>
-        <rell.maven.plugin.version>1.2.1</rell.maven.plugin.version>
+        <rell.maven.plugin.version>1.2.3</rell.maven.plugin.version>
 
         <junit.version>5.9.1</junit.version>
         <testcontainers.version>2.0.2</testcontainers.version>
