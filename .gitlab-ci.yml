@@ -1,4 +1,4 @@
-image: registry.gitlab.com/chromaway/core-tools/chromia-images/maven-docker-java21:1.0.11@sha256:a985644b469b4d01dcbd726176d69e238d8c7012c077a429beb65f86905d0bd1
+image: registry.gitlab.com/chromaway/core-tools/chromia-images/maven-docker-java21:1.0.15@sha256:aca9820bfae0b5bc0008e18cf34296bdacc36e187347149d8fde94cbfcad0270
 
 include:
   - project: "chromaway/core-infra/gitlab-automation"
