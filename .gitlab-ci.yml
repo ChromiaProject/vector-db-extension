@@ -8,6 +8,11 @@ include:
       - templates/maven-dependency-scanning.yml
       - templates/container-dependency-scanning.yml
 
+default:
+  tags:
+    - linux-medium-amd64
+    - chromaway
+
 .setup:
   services:
     - name: docker:29.1.1-dind
