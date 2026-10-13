@@ -27,7 +27,7 @@
         <kotlin.code.style>obsolete</kotlin.code.style> <!-- Kotlin obsolete IntelliJ IDEA codestyle -->
 
         <postchain.version>3.49.11</postchain.version>
-        <postchain-chromia.version>3.39.7</postchain-chromia.version>
+        <postchain-chromia.version>3.40.1</postchain-chromia.version>
 
         <!-- Tests -->
         <directory.chain.version>1.110.2</directory.chain.version>
@@ -280,7 +280,7 @@
                         </DIST_EXECUTABLE>
                         <PROJECT_VERSION>${project.version}</PROJECT_VERSION>
                         <TESTCONTAINERS_RYUK_DISABLED>true</TESTCONTAINERS_RYUK_DISABLED>
-                        <POSTCHAIN_TEST_DOCKER_IMAGE_POSTCHAIN_SERVER>registry.gitlab.com/chromaway/postchain-chromia/chromaway/chromia-server:latest-snapshot</POSTCHAIN_TEST_DOCKER_IMAGE_POSTCHAIN_SERVER>
+                        <POSTCHAIN_TEST_DOCKER_IMAGE_POSTCHAIN_SERVER>registry.gitlab.com/chromaway/postchain-chromia/chromaway/chromia-server:3.40.1@sha256:9a949265d1742d1b4cc7c88f736ba2ad69d3aac2622e7de5e7b7aa11e8e6af3a</POSTCHAIN_TEST_DOCKER_IMAGE_POSTCHAIN_SERVER>
                     </environmentVariables>
                     <includes>
                         <include>**/*IT.*</include>
