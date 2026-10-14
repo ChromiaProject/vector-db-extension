@@ -123,10 +123,10 @@ dependency-check:
 
 container-scanning:
   variables:
-    REGISTRY: registry.gitlab.com/chromaway/core/vector-db-extension-chromia-subnode
+    REGISTRY: registry.gitlab.com/chromaway/core/vector-db-extension
   parallel:
     matrix:
-      - IMAGE: [ vector-db-extension-chromia-subnode ]
+      - IMAGE: [ chromaway/vector-db-extension-chromia-subnode ]
         VERSION: [ LATEST, LATEST_SNAPSHOT ]
   only:
     variables:
