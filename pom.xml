@@ -8,7 +8,7 @@
     <parent>
         <groupId>com.chromia</groupId>
         <artifactId>chromia-parent</artifactId>
-        <version>0.2.6</version>
+        <version>0.3.0</version>
     </parent>
 
     <groupId>net.postchain</groupId>
@@ -26,17 +26,17 @@
         <kotlin.compiler.jvmTarget>21</kotlin.compiler.jvmTarget>
         <kotlin.code.style>obsolete</kotlin.code.style> <!-- Kotlin obsolete IntelliJ IDEA codestyle -->
 
-        <postchain.version>3.49.11</postchain.version>
+        <postchain.version>3.49.22</postchain.version>
         <postchain-chromia.version>3.40.1</postchain-chromia.version>
 
         <!-- Tests -->
-        <directory.chain.version>1.110.2</directory.chain.version>
+        <directory.chain.version>1.110.11</directory.chain.version>
         <directory.source>${project.build.directory}/directory-chain/src</directory.source>
         <directory.config>${project.basedir}/src/test/resources/net/postchain/images/directory1/directory1.yml</directory.config>
         <rell.maven.plugin.version>1.2.3</rell.maven.plugin.version>
 
         <junit.version>5.9.1</junit.version>
-        <testcontainers.version>2.0.2</testcontainers.version>
+        <testcontainers.version>2.0.5</testcontainers.version>
 
         <!--suppress UnresolvedMavenProperty -->
         <gitlab.username>${CI_REGISTRY_USER}</gitlab.username>
@@ -149,7 +149,7 @@
         <dependency>
             <groupId>net.postchain.client</groupId>
             <artifactId>chromia-client</artifactId>
-            <version>3.26.1</version>
+            <version>3.39.7</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -164,7 +164,7 @@
         <dependency>
             <groupId>org.junit-pioneer</groupId>
             <artifactId>junit-pioneer</artifactId>
-            <version>1.7.1</version>
+            <version>2.2.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -223,7 +223,7 @@
             <plugin>
                 <groupId>com.google.cloud.tools</groupId>
                 <artifactId>jib-maven-plugin</artifactId>
-                <version>3.4.3</version>
+                <version>3.5.2</version>
                 <configuration>
                     <allowInsecureRegistries>false</allowInsecureRegistries>
                     <from>
@@ -398,19 +398,6 @@
                 </executions>
             </plugin>
 
-            <plugin>
-                <groupId>pl.project13.maven</groupId>
-                <artifactId>git-commit-id-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>get-the-git-infos</id>
-                        <phase>initialize</phase>
-                        <goals>
-                            <goal>revision</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
         </plugins>
     </build>
 
