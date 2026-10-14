@@ -227,7 +227,7 @@
                 <configuration>
                     <allowInsecureRegistries>false</allowInsecureRegistries>
                     <from>
-                        <image>registry.gitlab.com/chromaway/core-tools/chromia-images/java21-postgres16-ubuntu:1.1.5@sha256:c8f240daafaac6e8848cb07eb0fbb3981420a3c79047d60a85919b28db925c72</image>
+                        <image>registry.gitlab.com/chromaway/core-tools/chromia-images/java21-postgres16-ubuntu:1.1.7@sha256:1a926f556dff580124831d336fc7a9f6fdff1cfeefa273bd53805e0261f65209</image>
                     </from>
                     <to>
                         <image>${image.name}</image>
