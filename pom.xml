@@ -8,7 +8,7 @@
     <parent>
         <groupId>com.chromia</groupId>
         <artifactId>chromia-parent</artifactId>
-        <version>0.3.0</version>
+        <version>0.3.1</version>
     </parent>
 
     <groupId>net.postchain</groupId>
@@ -27,7 +27,7 @@
         <kotlin.code.style>obsolete</kotlin.code.style> <!-- Kotlin obsolete IntelliJ IDEA codestyle -->
 
         <postchain.version>3.49.23</postchain.version>
-        <postchain-chromia.version>3.40.2</postchain-chromia.version>
+        <postchain-chromia.version>3.40.3</postchain-chromia.version>
 
         <!-- Tests -->
         <directory.chain.version>1.110.11</directory.chain.version>
@@ -227,7 +227,7 @@
                 <configuration>
                     <allowInsecureRegistries>false</allowInsecureRegistries>
                     <from>
-                        <image>registry.gitlab.com/chromaway/core-tools/chromia-images/java21-postgres16-ubuntu:1.1.7@sha256:1a926f556dff580124831d336fc7a9f6fdff1cfeefa273bd53805e0261f65209</image>
+                        <image>registry.gitlab.com/chromaway/core-tools/chromia-images/java21-postgres16-ubuntu:1.1.8@sha256:6aa58ceb50683d5781a3e648f83b93e2975ea508e856b9d4692443bbb27bbf84</image>
                     </from>
                     <to>
                         <image>${image.name}</image>
