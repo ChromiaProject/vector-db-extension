@@ -26,8 +26,8 @@
         <kotlin.compiler.jvmTarget>21</kotlin.compiler.jvmTarget>
         <kotlin.code.style>obsolete</kotlin.code.style> <!-- Kotlin obsolete IntelliJ IDEA codestyle -->
 
-        <postchain.version>3.49.23</postchain.version>
-        <postchain-chromia.version>3.40.3</postchain-chromia.version>
+        <postchain.version>3.49.24</postchain.version>
+        <postchain-chromia.version>3.40.5</postchain-chromia.version>
 
         <!-- Tests -->
         <directory.chain.version>1.110.11</directory.chain.version>
@@ -149,7 +149,7 @@
         <dependency>
             <groupId>net.postchain.client</groupId>
             <artifactId>chromia-client</artifactId>
-            <version>3.39.7</version>
+            <version>3.39.8</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -280,7 +280,7 @@
                         </DIST_EXECUTABLE>
                         <PROJECT_VERSION>${project.version}</PROJECT_VERSION>
                         <TESTCONTAINERS_RYUK_DISABLED>true</TESTCONTAINERS_RYUK_DISABLED>
-                        <POSTCHAIN_TEST_DOCKER_IMAGE_POSTCHAIN_SERVER>registry.gitlab.com/chromaway/postchain-chromia/chromaway/chromia-server:3.40.2@sha256:da7d53975dd8347fc4272155e2e0930e44d66a1852a493bac9cb5c4b9f6d0ed0</POSTCHAIN_TEST_DOCKER_IMAGE_POSTCHAIN_SERVER>
+                        <POSTCHAIN_TEST_DOCKER_IMAGE_POSTCHAIN_SERVER>registry.gitlab.com/chromaway/postchain-chromia/chromaway/chromia-server:3.40.5@sha256:f68ea72cb12ae7aaa189a66ef51e51e463fe8d3d622809d79fbcbad67bee41bc</POSTCHAIN_TEST_DOCKER_IMAGE_POSTCHAIN_SERVER>
                     </environmentVariables>
                     <includes>
                         <include>**/*IT.*</include>
